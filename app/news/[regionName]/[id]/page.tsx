@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
-
+export const revalidate = 3600; // Osveži stranicu na svakih sat vremena (3600 sekundi)
 // OVO JE OBAVEZNO: Da bi stranica uvek povukla najnoviju vest iz baze
 export const revalidate = 0;
 
