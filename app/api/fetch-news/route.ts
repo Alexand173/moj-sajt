@@ -1,10 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 //import { NextResponse } from 'next/server';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// 1. Prvo definišeš promenljive VAN zagrada
+const supabaseUrl = process.env.SUPABASE_URL || '';
+const supabaseKey = process.env.SUPABASE_ANON_KEY || '';
+if (!supabaseUrl || !supabaseKey) {
+  console.error("Greška: Nedostaju SUPABASE_URL ili SUPABASE_ANON_KEY!");
+  process.exit(1);
+}
+// 2. Onda napraviš klijenta koristeći te promenljive
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 export async function GET() {
   try {
