@@ -24,11 +24,7 @@ jobs:
           npm install -g tsx 
 
       - name: Run Fetch Script
-        run: |
-          # Instaliramo tsx privremeno za ovaj korak
-          npm install -g tsx
-          # Pokrećemo skriptu pomoću tsx
-          tsx app/api/fetch-news/route.ts
+        run: npm install -g tsx && npx tsx app/api/fetch-news/route.ts
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}

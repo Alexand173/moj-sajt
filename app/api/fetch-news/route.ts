@@ -10,7 +10,6 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Funkcija koja precizno definiše šta tražimo za koju stranicu
 async function fetchNews(query: string, region: string, apiKey: string) {
   const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&language=en&pageSize=15&sortBy=publishedAt&apiKey=${apiKey}`;
   const res = await fetch(url);
@@ -39,7 +38,6 @@ export async function GET() {
 
     console.log("Startujem punjenje...");
 
-    // Koristimo jednostavne upite da budemo sigurni da API vraca rezultate
     const allResults = await Promise.all([
       fetchNews('music tour', 'us', apiKey),
       fetchNews('uk music charts', 'uk', apiKey),
@@ -56,10 +54,9 @@ export async function GET() {
 
     if (allNews.length === 0) {
       console.log("API nije vratio nista. Mozda je limit dostignut?");
-      return new Response("API Limit");
+      return;
     }
 
-    // Ubacivanje (Insert)
     const { error } = await supabase.from('news').insert(allNews);
 
     if (error) {
@@ -68,18 +65,17 @@ export async function GET() {
     }
 
     console.log("Baza je uspesno napunjena!");
-    return new Response("Success");
-
   } catch (err: any) {
     console.error("Greska:", err.message);
     process.exit(1);
   }
+}
+
+// OVO MORA BITI VAN ZAGRADA GET FUNKCIJE
 GET().then(() => {
-    console.log("✅ Robot je uspešno završio pretragu i punjenje baze!");
+    console.log("✅ Robot je uspešno završio posao!");
     process.exit(0);
 }).catch((err) => {
-    console.error("❌ Greška u radu robota:", err);
+    console.error("❌ Greška:", err);
     process.exit(1);
 });
-
-}
