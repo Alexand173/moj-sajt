@@ -53,29 +53,35 @@ export async function GET() {
     console.log(`Ukupno sakupljeno vesti: ${allNews.length}`);
 
     if (allNews.length === 0) {
-      console.log("API nije vratio nista. Mozda je limit dostignut?");
+      console.log("API nije vratio nista.");
       return;
     }
 
-    const { error } = await supabase.from('news').insert(allNews);
+    // REŠENJE: Koristimo upsert sa onConflict i ignoreDuplicates
+    const { error } = await supabase
+      .from('news')
+      .upsert(allNews, { 
+        onConflict: 'title', 
+        ignoreDuplicates: true 
+      });
 
     if (error) {
       console.error("Supabase Error:", error.message);
       process.exit(1);
     }
 
-    console.log("Baza je uspesno napunjena!");
+    console.log("🚀 Baza je uspesno osvezena novim vestima!");
   } catch (err: any) {
     console.error("Greska:", err.message);
     process.exit(1);
   }
 }
 
-// OVO MORA BITI VAN ZAGRADA GET FUNKCIJE
+// Okidač za robota
 GET().then(() => {
     console.log("✅ Robot je uspešno završio posao!");
     process.exit(0);
 }).catch((err) => {
     console.error("❌ Greška:", err);
     process.exit(1);
-});
+});get
