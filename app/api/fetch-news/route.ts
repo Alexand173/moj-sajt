@@ -74,4 +74,8 @@ export async function GET() {
     console.error("Greska:", err.message);
     process.exit(1);
   }
+    if (require.main === undefined || require.main === module || process.env.GITHUB_ACTIONS) {
+    GET().then(() => console.log("Robot je završio posao!"));
+}
+
 }
