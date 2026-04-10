@@ -1,12 +1,28 @@
 name: News Update
+
 on:
   schedule:
-    - cron: '0 * * * *' # Ovo znači: "Pokreni se svaki sat"
-  workflow_dispatch:      # Ovo ti daje dugme na GitHub-u da pokreneš ručno
+    - cron: '0 * * * *' # Pokreće se automatski svaki sat
+  workflow_dispatch:     # Omogućava ti ono dugme "Run workflow"
 
 jobs:
   refresh:
     runs-on: ubuntu-latest
     steps:
-      - name: Hit API
-        run: curl -s https://tvoj-sajt.com/api/fetch-news
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run Fetch Script
+        run: npx ts-node app/api/fetch-news/route.ts
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          NEWS_API_KEY: ${{ secrets.NEWS_API_KEY }}
