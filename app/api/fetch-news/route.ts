@@ -11,67 +11,67 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Funkcija koja precizno definiše šta tražimo za koju stranicu
-async function fetchByCategory(query: string, regionTag: string, apiKey: string) {
-  // Smanjio sam pageSize na 20 po kategoriji da ne bismo preopteretili API, ukupno će biti dosta vesti
-  const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&language=en&pageSize=20&sortBy=publishedAt&apiKey=${apiKey}`;
-  const response = await fetch(url);
-  const data = await response.json();
-
-  if (!data.articles) return [];
-
+async function fetchNews(query: string, region: string, apiKey: string) {
+  const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&language=en&pageSize=15&sortBy=publishedAt&apiKey=${apiKey}`;
+  const res = await fetch(url);
+  const data = await res.json();
+  
+  if (!data.articles) {
+    console.log(`Nema vesti za: ${region}`);
+    return [];
+  }
+  
   return data.articles.map((art: any) => ({
-    title: art.title,
+    title: art.title || 'No Title',
     excerpt: art.description || '',
-    content: art.content?.replace(/\[\+\d+ chars\]/g, '') || '',
+    content: art.content || '',
     image: art.urlToImage || 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745',
-    category: 'LATEST', 
-    region: regionTag, // Ovo povezuje vest sa tvojim stranicama
-    created_at: new Date(art.publishedAt)
+    category: 'LATEST',
+    region: region,
+    created_at: new Date(art.publishedAt || Date.now())
   }));
 }
 
 export async function GET() {
   try {
     const apiKey = process.env.NEWS_API_KEY;
-    if (!apiKey) throw new Error("Nedostaje API ključ");
+    if (!apiKey) throw new Error("Fali API Key");
 
-    console.log("Započinjem ažuriranje svih muzičkih sekcija...");
+    console.log("Startujem punjenje...");
 
-    // Mapa svih tvojih stranica i specifičnih pretraga za njih
-    const tasks = [
-      fetchByCategory('music USA OR Billboard', 'us', apiKey),
-      fetchByCategory('music UK OR Glastonbury OR "Official Charts"', 'uk', apiKey),
-      fetchByCategory('Latino music OR Reggaeton OR "Latin Grammy"', 'latino', apiKey),
-      fetchByCategory('K-pop OR J-pop OR "Music Asia"', 'asia', apiKey),
-      fetchByCategory('Eurovision OR "European music scene"', 'europa', apiKey),
-      fetchByCategory('Global music hits OR "World music"', 'world', apiKey),
-      fetchByCategory('Jazz music OR "Jazz festival" OR Miles Davis', 'jazz', apiKey),
-      fetchByCategory('Classical music OR Orchestra OR Opera', 'classical', apiKey)
-    ];
+    // Koristimo jednostavne upite da budemo sigurni da API vraca rezultate
+    const allResults = await Promise.all([
+      fetchNews('music tour', 'us', apiKey),
+      fetchNews('uk music charts', 'uk', apiKey),
+      fetchNews('reggaeton latino', 'latino', apiKey),
+      fetchNews('kpop music', 'asia', apiKey),
+      fetchNews('europe music', 'europa', apiKey),
+      fetchNews('world hits', 'world', apiKey),
+      fetchNews('jazz music', 'jazz', apiKey),
+      fetchNews('classical music', 'classical', apiKey)
+    ]);
 
-    // Izvršavamo sve pretrage odjednom
-    const results = await Promise.all(tasks);
-    const allNews = results.flat(); // Spajamo sve liste u jednu veliku
+    const allNews = allResults.flat();
+    console.log(`Ukupno sakupljeno vesti: ${allNews.length}`);
 
     if (allNews.length === 0) {
-      console.log("Nema vesti za ubacivanje.");
-      return;
+      console.log("API nije vratio nista. Mozda je limit dostignut?");
+      return new Response("API Limit");
     }
 
-    // Slanje u Supabase
-    const { error } = await supabase
-      .from('news')
-      .upsert(allNews, { 
-        onConflict: 'title', 
-        ignoreDuplicates: true 
-      });
+    // Ubacivanje (Insert)
+    const { error } = await supabase.from('news').insert(allNews);
 
-    if (error) throw error;
+    if (error) {
+      console.error("Supabase Error:", error.message);
+      process.exit(1);
+    }
 
-    console.log(`🚀 Uspeh! Sve stranice su osvežene. Ubačeno ${allNews.length} vesti.`);
-    
+    console.log("Baza je uspesno napunjena!");
+    return new Response("Success");
+
   } catch (err: any) {
-    console.error("Kritična greška:", err.message);
+    console.error("Greska:", err.message);
     process.exit(1);
   }
 }
