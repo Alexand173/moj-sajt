@@ -74,8 +74,12 @@ export async function GET() {
     console.error("Greska:", err.message);
     process.exit(1);
   }
-    if (require.main === undefined || require.main === module || process.env.GITHUB_ACTIONS) {
-    GET().then(() => console.log("Robot je završio posao!"));
-}
+GET().then(() => {
+    console.log("✅ Robot je uspešno završio pretragu i punjenje baze!");
+    process.exit(0);
+}).catch((err) => {
+    console.error("❌ Greška u radu robota:", err);
+    process.exit(1);
+});
 
 }
