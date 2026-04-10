@@ -15,11 +15,11 @@ export async function GET() {
   try {
     const apiKey = process.env.NEWS_API_KEY;
     // Tražimo specifično POP i ROCK
-    const query = encodeURIComponent('("pop music" OR "rock music")');
-    
-    const response = await fetch(
-      `https://newsapi.org/v2/everything?q=${query}&language=en&pageSize=40&sortBy=publishedAt&apiKey=${apiKey}`
-    );
+    const query = 'music OR "new album" OR "concert tour"';
+
+const response = await fetch(
+  `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&language=en&pageSize=140&sortBy=publishedAt&apiKey=${apiKey}`
+);
     const data = await response.json();
 
     const newsToInsert = data.articles.map((art: any) => ({
