@@ -8,10 +8,6 @@ on:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    # Dodajemo ovo da ućutkamo GitHub upozorenje
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -19,7 +15,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24' # Prebacili smo sa 20 na 24
+          node-version: '24'
 
       - name: Install dependencies
         run: |
@@ -27,7 +23,8 @@ jobs:
           npm install -g ts-node typescript @types/node
 
       - name: Run Fetch Script
-        run: ts-node app/api/fetch-news/route.ts
+        # Dodali smo npx ispred ts-node da budemo sigurni da radi
+        run: npx ts-node app/api/fetch-news/route.ts
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
