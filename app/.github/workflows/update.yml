@@ -1,0 +1,12 @@
+name: News Update
+on:
+  schedule:
+    - cron: '0 * * * *' # Ovo znači: "Pokreni se svaki sat"
+  workflow_dispatch:      # Ovo ti daje dugme na GitHub-u da pokreneš ručno
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hit API
+        run: curl -s https://tvoj-sajt.com/api/fetch-news
