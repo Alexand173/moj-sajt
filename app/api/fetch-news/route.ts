@@ -84,4 +84,4 @@ GET().then(() => {
 }).catch((err) => {
     console.error("❌ Greška:", err);
     process.exit(1);
-});get
+});
