@@ -2,8 +2,8 @@ name: News Update
 
 on:
   schedule:
-    - cron: '0 * * * *' # Pokreće se automatski svaki sat
-  workflow_dispatch:     # Omogućava ti ono dugme "Run workflow"
+    - cron: '0 * * * *' # Automatski svakih sat vremena
+  workflow_dispatch:     # Dugme da ti pokreneš ručno
 
 jobs:
   refresh:
@@ -18,10 +18,12 @@ jobs:
           node-version: '20'
 
       - name: Install dependencies
-        run: npm install
+        run: |
+          npm install
+          npm install -g ts-node typescript @types/node
 
       - name: Run Fetch Script
-        run: npx ts-node app/api/fetch-news/route.ts
+        run: ts-node app/api/fetch-news/route.ts
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
