@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { NextResponse } from 'next/server';
+//import { NextResponse } from 'next/server';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -35,10 +35,14 @@ export async function GET() {
         ignoreDuplicates: true 
       });
 
-    if (error) throw error;
+   if (error) throw error;
 
-    return NextResponse.json({ success: true, message: "Tabela osvežena!" });
+    // UMESTO NextResponse, koristi console.log
+    console.log("Uspeh: Tabela osvežena!");
+    
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    // UMESTO NextResponse, koristi console.error
+    console.error("Greška:", err.message);
+    process.exit(1); // Ovo govori GitHub-u da je došlo do greške ako nešto pukne
   }
 }
