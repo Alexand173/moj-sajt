@@ -17,11 +17,11 @@ export default async function BillboardNewsPage({
 
   // Vučemo vesti iz baze
   const { data: news, error } = await supabase
-    .from('news')
-    .select('*')
-    .or(`region.eq.${region},region.eq.world`)
-    .order('created_at', { ascending: false })
-    .limit(15);
+  .from('news')
+  .select('*')
+  .eq('region', region) // Uzima SAMO ono što piše u URL-u (us, uk, latino...)
+  .order('created_at', { ascending: false })
+  .limit(15);
 
   if (error) return <div className="pt-60 text-center text-red-500 uppercase font-black">Error: {error.message}</div>;
   if (!news || news.length === 0) return <div className="pt-60 text-center uppercase font-black">No news found for {region}</div>;
