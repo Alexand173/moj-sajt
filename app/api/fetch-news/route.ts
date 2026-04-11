@@ -38,6 +38,9 @@ export async function GET() {
 
     console.log("Startujem punjenje...");
 
+    // LISTA TVOJIH FESTIVALA ZA PRETRAGU
+    const mojiFestivali = ['Coachella', 'Lollapalooza', 'Exit Festival', 'Tomorrowland'];
+
     const allResults = await Promise.all([
       fetchNews('music tour', 'us', apiKey),
       fetchNews('uk music charts', 'uk', apiKey),
@@ -46,7 +49,10 @@ export async function GET() {
       fetchNews('europe music', 'europa', apiKey),
       fetchNews('world hits', 'world', apiKey),
       fetchNews('jazz music', 'jazz', apiKey),
-      fetchNews('classical music', 'classical', apiKey)
+      fetchNews('classical music', 'classical', apiKey),
+      
+      // DODATAK ZA FESTIVALE (mapiramo svaki festival u fetchNews poziv)
+      ...mojiFestivali.map(fest => fetchNews(fest, 'festivals', apiKey))
     ]);
 
     const allNews = allResults.flat();
@@ -54,7 +60,7 @@ export async function GET() {
 
     if (allNews.length === 0) {
       console.log("API nije vratio nista.");
-      return;
+      return new Response(JSON.stringify({ message: "Nema novih vesti" }), { status: 200 });
     }
 
     // REŠENJE: Koristimo upsert sa onConflict i ignoreDuplicates
@@ -67,21 +73,14 @@ export async function GET() {
 
     if (error) {
       console.error("Supabase Error:", error.message);
-      process.exit(1);
+      return new Response(JSON.stringify({ error: error.message }), { status: 500 });
     }
 
     console.log("🚀 Baza je uspesno osvezena novim vestima!");
+    return new Response(JSON.stringify({ message: "Uspeh!", count: allNews.length }), { status: 200 });
+
   } catch (err: any) {
     console.error("Greska:", err.message);
-    process.exit(1);
+    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
   }
 }
-
-// Okidač za robota
-GET().then(() => {
-    console.log("✅ Robot je uspešno završio posao!");
-    process.exit(0);
-}).catch((err) => {
-    console.error("❌ Greška:", err);
-    process.exit(1);
-});

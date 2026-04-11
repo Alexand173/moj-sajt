@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
-import Link from 'next/link'; // OBAVEZNO ZA LINKOVE
+import Link from 'next/link';
+import { notFound } from 'next/navigation';
 
-// Inicijalizacija klijenta
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -15,109 +15,125 @@ export default async function BillboardNewsPage({
   const { regionName } = await params;
   const region = regionName.toLowerCase();
 
-  // Vučemo vesti iz baze
-  const { data: news, error } = await supabase
-  .from('news')
-  .select('*')
-  .eq('region', region) // Uzima SAMO ono što piše u URL-u (us, uk, latino...)
-  .order('created_at', { ascending: false })
-  .limit(15);
+  // 1. DOHVATANJE VESTI - Filtriramo po tvom 'category' polju iz baze
+  
+  // Vesti sa sajtova zvezda (Official Scraper)
+  const { data: officialNews } = await supabase
+    .from('news')
+    .select('*')
+    .eq('category', 'OFFICIAL') 
+    .order('created_at', { ascending: false })
+    .limit(10);
 
-  if (error) return <div className="pt-60 text-center text-red-500 uppercase font-black">Error: {error.message}</div>;
-  if (!news || news.length === 0) return <div className="pt-60 text-center uppercase font-black">No news found for {region}</div>;
+  // Glavne vesti za centralni deo (News API / LATEST)
+  const { data: latestNews } = await supabase
+    .from('news')
+    .select('*')
+    .eq('region', region)
+    .eq('category', 'LATEST')
+    .order('created_at', { ascending: false })
+    .limit(12);
 
-  const featuredNews = news[0];
-  const otherNews = news.slice(1);
+  if (!latestNews || latestNews.length === 0) return notFound();
+
+  const featuredNews = latestNews[0];
+  const otherNews = latestNews.slice(1);
 
   return (
-    <div className="min-h-screen bg-white text-black pt-52 pb-40">
-      <div className="max-w-[1400px] mx-auto px-6">
+    <div className="min-h-screen bg-white text-black pt-52 pb-40 font-sans uppercase font-black">
+      <div className="max-w-[1700px] mx-auto px-6">
         
-        {/* ZAGLAVLJE */}
-        <div className="border-b-[12px] border-black mb-16 pb-6 flex flex-col md:flex-row justify-between items-baseline gap-4">
-          <h1 className="text-[12vw] md:text-9xl font-black uppercase tracking-tighter leading-none">
-            {region}<span className="text-purple-600 italic">.</span>News
+        {/* NASLOV STRANICE */}
+        <div className="border-b-[12px] border-black mb-16 pb-4 flex justify-between items-end">
+          <h1 className="text-[10vw] leading-[0.8] tracking-tighter">
+            {region}<span className="text-purple-600">.</span>FEED
           </h1>
-          <div className="flex flex-col items-end uppercase font-black">
-            <span className="text-xs tracking-[0.3em] text-zinc-400">Music Industry Daily</span>
-            <span className="text-sm text-black">
-              {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-            </span>
-          </div>
+          <span className="text-xl pb-2">EST. 2026</span>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
           
-          {/* LEVA KOLONA: GLAVNA VEST */}
-          <div className="lg:col-span-8">
-            {/* LINK OKO CELE GLAVNE VESTI */}
-            <Link href={`/news/${region}/${featuredNews.id}`} className="group block mb-20 border-b border-zinc-100 pb-20">
-              <div className="relative aspect-[16/9] mb-8 overflow-hidden bg-zinc-100">
-                <img 
-                  src={featuredNews.image} 
-                  alt={featuredNews.title}
-                  className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700 scale-100 group-hover:scale-105"
-                />
-              </div>
-              <span className="text-purple-600 font-black text-xs tracking-[0.3em] uppercase block mb-4">{featuredNews.category}</span>
-              <h2 className="text-5xl md:text-7xl font-serif font-black leading-[0.9] tracking-tight group-hover:text-purple-600 transition-colors uppercase">
-                {featuredNews.title}
-              </h2>
-              <p className="mt-8 text-xl md:text-2xl text-zinc-600 leading-relaxed font-medium uppercase line-clamp-3">
-                {featuredNews.excerpt}
-              </p>
-              <div className="mt-8 flex items-center gap-4">
-                <div className="h-[2px] w-12 bg-black"></div>
-                <span className="text-xs font-black uppercase tracking-widest group-hover:text-purple-600">Read Full Story</span>
-              </div>
-            </Link>
-
-            {/* LISTA OSTALIH VESTI */}
-            <div className="space-y-24">
-              {otherNews.map((item) => (
-                <div key={item.id} className="grid grid-cols-1 md:grid-cols-10 gap-8 group border-t border-zinc-100 pt-12">
-                  <Link href={`/news/${region}/${item.id}`} className="md:col-span-4 aspect-video md:aspect-square overflow-hidden bg-zinc-100">
-                    <img 
-                      src={item.image} 
-                      className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-all group-hover:scale-110 duration-500" 
-                      alt={item.title} 
-                    />
-                  </Link>
-                  <div className="md:col-span-6 flex flex-col justify-center">
-                    <span className="text-purple-600 font-black text-[10px] tracking-[0.3em] uppercase mb-3">{item.category}</span>
-                    <Link href={`/news/${region}/${item.id}`}>
-                      <h3 className="text-3xl font-bold leading-tight tracking-tighter uppercase group-hover:text-purple-600 transition-colors">
-                        {item.title}
-                      </h3>
-                    </Link>
-                    <p className="text-zinc-500 mt-4 text-sm font-medium line-clamp-3 uppercase leading-relaxed">{item.excerpt}</p>
+          {/* --- LEVA KOLONA: OFFICIAL ARTIST FEED (Horizontalni kontejner) --- */}
+          <aside className="lg:col-span-3 border-r-4 border-black pr-8">
+            <h2 className="text-2xl bg-black text-white px-3 py-1 inline-block mb-10 tracking-widest">
+              OFFICIAL SOURCE
+            </h2>
+            <div className="flex flex-col gap-10">
+              {officialNews?.map((item) => (
+                <div key={item.id} className="border-b border-zinc-200 pb-6 group cursor-pointer">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-2 h-2 bg-purple-600 rounded-full animate-ping"></div>
+                    <span className="text-[10px] text-purple-600">DIRECT UPDATE</span>
                   </div>
+                  <h3 className="text-lg leading-tight group-hover:text-purple-600 transition-colors">
+                    {item.title}
+                  </h3>
+                  <p className="text-[10px] text-zinc-400 mt-2 font-medium normal-case italic leading-relaxed">
+                    {item.excerpt.substring(0, 80)}...
+                  </p>
                 </div>
               ))}
             </div>
-          </div>
+          </aside>
 
-          {/* DESNA KOLONA: SIDEBAR */}
-          <div className="lg:col-span-4">
-            <div className="sticky top-44 border-l-2 border-zinc-100 pl-10">
-              <h4 className="font-black text-xs uppercase tracking-[0.4em] mb-12 text-zinc-400 flex items-center gap-4">
-                <span className="w-2 h-2 bg-purple-600 rounded-full animate-pulse"></span>
-                Trending News
-              </h4>
-              <div className="space-y-16">
-                {news.slice(0, 6).map((item, index) => (
+          {/* --- CENTRALNI DEO: MAIN NEWS (Smanjen font i slike) --- */}
+          <main className="lg:col-span-6">
+            {/* Glavna vest */}
+            <Link href={`/news/${region}/${featuredNews.id}`} className="group block mb-20 border-b-[6px] border-black pb-12">
+              <div className="aspect-video mb-8 overflow-hidden border-4 border-black shadow-[12px_12px_0px_0px_rgba(147,51,234,1)]">
+                <img 
+                  src={featuredNews.image} 
+                  className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" 
+                  alt={featuredNews.title} 
+                />
+              </div>
+              <h2 className="text-4xl md:text-5xl leading-[0.9] tracking-tighter group-hover:text-purple-600 transition-colors">
+                {featuredNews.title}
+              </h2>
+              <p className="mt-6 text-sm text-zinc-600 font-medium normal-case leading-relaxed">
+                {featuredNews.excerpt}
+              </p>
+            </Link>
+
+            {/* Grid ostalih vesti - Kompaktnije */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-12">
+              {otherNews.map((item) => (
+                <Link key={item.id} href={`/news/${region}/${item.id}`} className="group block">
+                  <div className="aspect-video overflow-hidden border-2 border-black mb-4 group-hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all">
+                    <img 
+                      src={item.image} 
+                      className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" 
+                      alt="" 
+                    />
+                  </div>
+                  <h3 className="text-lg leading-tight group-hover:text-purple-600 transition-colors">
+                    {item.title}
+                  </h3>
+                </Link>
+              ))}
+            </div>
+          </main>
+
+          {/* --- DESNA KOLONA: TRENDING (Tvoj originalni sidebar) --- */}
+          <aside className="lg:col-span-3">
+            <div className="sticky top-40 border-l-4 border-black pl-8">
+              <h2 className="text-2xl mb-12 tracking-tighter underline decoration-purple-600 decoration-4">
+                TRENDING NOW
+              </h2>
+              <div className="space-y-14">
+                {latestNews.slice(0, 5).map((item, index) => (
                   <Link key={item.id} href={`/news/${region}/${item.id}`} className="group block relative pl-12">
                     <span className="absolute left-0 top-0 text-5xl font-black text-zinc-100 group-hover:text-purple-100 transition-colors italic -z-10 leading-none">
                       0{index + 1}
                     </span>
-                    <h5 className="font-black text-sm tracking-tight leading-tight uppercase group-hover:text-purple-600 italic">
+                    <h5 className="text-sm tracking-tight leading-tight group-hover:text-purple-600 transition-all">
                       {item.title}
                     </h5>
                   </Link>
                 ))}
               </div>
             </div>
-          </div>
+          </aside>
 
         </div>
       </div>
