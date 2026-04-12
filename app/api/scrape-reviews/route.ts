@@ -55,7 +55,9 @@ export async function GET() {
     }
   }
 
-  const uniqueArticles = allArticles.slice(0, 15); 
+  const uniqueArticles = Array.from(new Map(allArticles.map(item => [item.url, item])).values()).slice(0, 15);
+
+
   const { error } = await supabase.from('news').upsert(uniqueArticles, { onConflict: 'url' });
 
   return new Response(JSON.stringify({ success: !error, count: uniqueArticles.length }));
