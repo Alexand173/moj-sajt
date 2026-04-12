@@ -19,106 +19,173 @@ export async function updateMusicCharts() {
    
    
   const mojePesme = [
-"Calvin Harris, Kasabian - Release The Pressure",
-"David Guetta, Teddy Swims - Gone Gone Gone",
-"Martin Garrix - Catharina",
-"Tiësto, Brieanna Grace - Beautiful Places",
-"Jax Jones, Emei - Stereo",
-"Joel Corry - Stuck In A Loop",
-"Nathan Dawe, Joel Corry - HIGHER",
-"Alesso, Becky Hill - Surrender",
-"Alan Walker, Dash Berlin - Better off (Alone, Pt. III)",
-"Fred again.., Anderson .Paak - Places to Be",
-"Anyma - Eternity (2026 Edit)",
-"Barry Can't Swim, Aster Aweke - Chala (My Soul Is On A Loop)",
-"Nia Archives - Cards on the Table",
-"Overmono - Blow Out",
-"Peggy Gou - It Makes You Forget (2026 Remix)",
-"Disclosure - She’s Gone, Dance On",
-"John Summit, LAVINIA - SHADOWS",
-"Fisher, Tones And I - Favour",
-"Dom Dolla - Girl$",
-"Mau P - On My Mind",
-"Purple Disco Machine - Beat Of Your Heart",
-"Kungs, Mind Enterprises - Galaxy",
-"Robin Schulz - Embers",
-"Gorgon City, Interplanetary Criminal - Contact",
-"Hannah Laing, Maddix - Transmission",
-"Bicep - Chroma 001",
-"Jamie xx - Baddy on the Floor",
-"Skream - The Attention Deficit",
-"Rudimental - Bring Me Joy",
-"Chase & Status - Baddadan (2026 VIP)",
-"Becky Hill, D.O.D - Side Effects (Remix)",
-"Armin van Buuren, Glockenbach - Sun Shines on Me",
-"Don Diablo, Pink Sweat$ - 5 Minutes",
-"Alan Walker, Isabella Melkman - Broken Strings",
-"Sigala - It's A Feeling",
-"Jax Jones, Leony - Said It All (Rework)",
-"Nathan Dawe, Abi Flynn - Hold On",
-"D.O.D, Poppy Baskcomb - Confession",
-"Ben Nicky, ARTY - Oxygen",
-"Skytech, Alpharock - You're Not Alone",
-"Calvin Harris, Jessie Reyez - Ocean",
-"D.O.D, Ina Wroldsen - Paradise",
-"David Guetta, Kim Petras - When We Were Young",
-"Calvin Harris, Clementine Douglas - Blessings",
-"KYANU - Be Right There",
-"Ella Henderson, Switch Disco - Under The Sun",
-"Henri PFR - The Night (belongs to lovers)",
-"Tigerlily, Madism - Sway",
-"Don Diablo, Felix Jaehn - Monster",
-"Jack Wins, ILY - Dunno (What to Do)",
-"Tiësto, FAST BOY - All My Life",
-"Nathan Dawe - We Ain't Here For Long",
-"Marc Benjamin, David Allen - Going On",
-"Bassjackers, WUKONG - I Believe",
-"Young Marco - What You Say?",
-"Robbie Mendez - Memory",
-"Jax Jones, Ina Wroldsen - Won't Forget You",
-"Cassö, RAYE - Prada",
-"Alok, Mae Stephens - Jungle",
-"Lewis Thompson - Elevate",
-"GATTÜSO - Unstoppable",
-"Frank Walker, Ella Henderson - I Go Dancing",
-"Alan Walker - Ritual",
-"Alexandra Stan, NERVO - Come Into My World",
-"Kettama - G-Town",
-"Sammy Virji - Moonlight",
-"Brutalismus 3000 - SPIRAL",
-"Swimming Paul, Malaki - Swimming",
-"Braaheim, EMMY - Raft",
-"Leena Punks - Holding On",
-"Blasterjaxx - Unfaithful",
-"Maddix - My Fun",
-"Secret Floor - Work To Tha Beat",
-"ISOxo, Brutalismus 3000 - SPIRAL",
-"Poltergst - Feuerzeug & Benzin",
-"Artbat, R3hab - Fight Machine",
-"Crankdat - Movement",
-"Besomorph - Blind Proximity",
-"Emily Makis - Too Fast",
-"Disco Lines, Wes Mills - Starlight",
-"Jackie Hollander - Addicted",
-"Rivo, Cloves - Forever Till The End",
-"Peekaboo, Flava D - Pump It Up",
-"Four Tet, Nelly Furtado - Only Human (Remix)",
-"Franky Rizardo - More To Life",
-"Morgan Seatree - Beat Is Jumping",
-"Miss Monique - Blue Moon Factory",
-"G-Powered, Mikko L - You'll Never Leave",
-"Nifra - Awaken Your Soul",
-"Steve Aoki, Gammer - The Cruel Angel's Thesis",
-"Marie Vaunt - Let the Bass Kick",
-"Blossom, Mila Falls - Game Face",
-"Eynka - Believe",
-"Lavern - In My Head",
-"Spartaque, Adrianna - Juego De Miradas",
-"Valentino Khan, Proppa - Dale Earnhardt",
-"1-800 GIRLS - Eye Contact",
-"Bolo The DJ - Loca Loca",
-"Snakehips, Cults - You & Me (Always Forever)",
-"Dusky - Manticore",
+"Aterciopelados, Andrea Echeverri - La Teta Pirata",
+
+"Juanes, Conociendo Rusia - Cómo Pudiste",
+
+"Camilo Séptimo - Cierro los Ojos",
+
+"Playa Futura, Oh'laville - Tormenta",
+
+"Mala Gestión - Buenos días Vietnam",
+
+"Alcalá Norte - El Hombre Planeta",
+
+"Funambulista, Dani Fernández - La última canción",
+
+"The Warning - Kerosene",
+
+"Draco Rosa - Montserrat",
+
+"niño viejo - Malos Amigos",
+
+"Sputnik - Clásico Moderno",
+
+"Cosmovision - Psicosomático",
+
+"Da Igual - Voy a Mi Ritmo",
+
+"Modelo de Respuesta Polar - Una ilusión",
+
+"Superlitio - Sal",
+
+"Carrera Blanca - Harakiri",
+
+"Aperol - Aperol",
+
+"Liquits - No No No",
+
+"Mal Pasar, La Vela Puerca, Sebastián Teysera - Música Envasada",
+
+"Cementerio Club - Los años",
+
+"Mancha De Rolando, Coti - Melodia Simple",
+
+"Aterciopelados - MOR",
+
+"Airbag - Nunca Lo Olvides",
+
+"Fito Paez - Superextraño",
+
+"Rubytates, Camilo Séptimo - Despertar",
+
+"Ultraligera - Me Miras Mal",
+
+"El Zar, No Te Va Gustar - Parte de Mi",
+
+"Bunbury - Las chingadas ganas de llorar",
+
+"Rayos Láser, Juan Ingaramo - El Día y La Noche",
+
+"Espejos Rotos - sueños escasos",
+
+"Nuevos Vicios - Cada Vez",
+
+"Joven Dolores - Tu desdén",
+
+"Allison - Orfeo",
+
+"Ella Es Tan Cargosa - La Gente",
+
+"Volcán - Ver Tus Ojos Mirándome",
+
+"Guasones, Santiago Motorizado - Hay Momentos",
+
+"Los Colores - El Nombre De Tu Perro",
+
+"Alther, TOURISTA - Adrenaline",
+
+"ALONG - Nunca Amigos",
+
+"Cepa Funk - Bailemos",
+
+"Siddhartha, Leiva - Nada por Hecho",
+
+"Suerte Campeón - Amor",
+
+"Juan Pablo Rey - Niño Emoción",
+
+"Don Tetto - Miénteme, Prométeme",
+
+"Plutonio de Alto Grado - RELÁMPAGO",
+
+"Luca Bocci - Música de Computadora",
+
+"Nunca Es Tarde - Llévame",
+
+"Juanes - La Versión En Mi Cabeza",
+
+"PRISET - Incendio",
+
+"RAYNA - Un barquito",
+
+"GIRLBONE, Liapsis - MURIENDOME",
+
+"Mundaka - Donde veas más lejos",
+
+"Porter - Mundo Extraño",
+
+"Efelante - Amigos, Música y Vino",
+
+"Las Pelotas - Es Clara",
+
+"Los Tres - Hojas de Té - 2023",
+
+"Revólver Plateado - Mariposa Nocturna",
+
+"Los Bunkers - Bajo Los Árboles",
+
+"Molotov, WOS - Money In The Bank",
+
+"Leiva, Conociendo Rusia - Jaula de Oro",
+
+"REOT - ¿Quién Dice?",
+
+"Efelante - Si Navego Lento",
+
+"Los Romanticos de Zacatecas - Fresno",
+
+"No llores, Juanita - Cuando cruzas esa puerta",
+
+"SERBIA - Nunca Me Olvides",
+
+"No Te Va Gustar, Vetusta Morla - Yo Sabré Qué Hacer",
+
+"Los Bunkers - Rey",
+
+"León Larregui - Holidays",
+
+"DLD - Toda Mi Fe",
+
+"El Mató a un Policía Motorizado - Medalla de Oro",
+
+"Joaquín Sabina - Contra Todo Pronóstico",
+
+"Cuartavenida, Dos Veigas - Veleta",
+
+"Chesca - Mijita",
+
+"Los Telepáticos - Daria",
+
+"Los Mesoneros - Más Tuyo",
+
+"Andrés Belem, Wayo Elguera - Vieja Tierra",
+
+"Cometa Sucre - Cero Normal",
+
+"División Minúscula - Escombros",
+
+"Tenda - El sitio de siempre",
+
+"Silvestre y La Naranja - Tu Veneno",
+
+"Los Cocoa - 1990",
+
+"Usted Señalemelo - Las Flores Sangran",
+
+"Vilma Palma e Vampiros - Flaca",
+
+"Mainake - Se acabó",
 ];
 
     for (const query of mojePesme) {
@@ -143,8 +210,8 @@ export async function updateMusicCharts() {
           artist_name: titleParts[0] || "Unknown",
           slika_url: thumb || '',
           youtube_id: videoId || '',
-          region: 'EUROPA',       // <--- DODAJ REGION
-          genre_id: 6,        // <--- DODAJ ID ŽANRA (npr. 1 za Rock)
+          region: 'LATINO',       // <--- DODAJ REGION
+          genre_id: 1,        // <--- DODAJ ID ŽANRA (npr. 1 za Rock)
           year: 2026,         // <--- DODAJ GODINU
           is_chart: true      // <--- DA BUDE AKTIVNA
         }, { onConflict: 'title' });

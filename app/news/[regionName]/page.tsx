@@ -12,24 +12,26 @@ export default async function BillboardNewsPage({
 }: { 
   params: Promise<{ regionName: string }> 
 }) {
-  const { regionName } = await params;
-  const region = regionName.toLowerCase();
+  // 1. Next.js 15 pravilo za params
+  const resolvedParams = await params;
+  const region = resolvedParams.regionName.toUpperCase(); // npr. "US" ili "UK"
 
-  // 1. DOHVATANJE VESTI - Filtriramo po tvom 'category' polju iz baze
+  // 2. DOHVATANJE VESTI
   
-  // Vesti sa sajtova zvezda (Official Scraper)
+  // LEVA KOLONA: Zvanični izvori filtrirani po regionu (US ili UK)
   const { data: officialNews } = await supabase
     .from('news')
     .select('*')
-    .eq('category', 'OFFICIAL') 
+    .eq('category', 'OFFICIAL')
+    .eq('region', region) // Sada prikazuje samo izvore za taj region
     .order('created_at', { ascending: false })
-    .limit(10);
+    .limit(30);
 
-  // Glavne vesti za centralni deo (News API / LATEST)
+  // CENTRALNI DEO: Glavne vesti regiona (LATEST kategorija)
   const { data: latestNews } = await supabase
     .from('news')
     .select('*')
-    .eq('region', region)
+    .eq('region', region.toLowerCase()) // News API obično koristi mala slova
     .eq('category', 'LATEST')
     .order('created_at', { ascending: false })
     .limit(12);
@@ -43,9 +45,9 @@ export default async function BillboardNewsPage({
     <div className="min-h-screen bg-white text-black pt-52 pb-40 font-sans uppercase font-black">
       <div className="max-w-[1700px] mx-auto px-6">
         
-        {/* NASLOV STRANICE */}
+        {/* NASLOV STRANICE - SMANJEN FONT ZA BOLJI BALANS */}
         <div className="border-b-[12px] border-black mb-16 pb-4 flex justify-between items-end">
-          <h1 className="text-[10vw] leading-[0.8] tracking-tighter">
+          <h1 className="text-[7vw] leading-[0.8] tracking-tighter">
             {region}<span className="text-purple-600">.</span>FEED
           </h1>
           <span className="text-xl pb-2">EST. 2026</span>
@@ -53,33 +55,45 @@ export default async function BillboardNewsPage({
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
           
-          {/* --- LEVA KOLONA: OFFICIAL ARTIST FEED (Horizontalni kontejner) --- */}
+          {/* --- LEVA KOLONA: OFFICIAL SOURCE FEED (Strogo 3 po sajtu iz baze) --- */}
           <aside className="lg:col-span-3 border-r-4 border-black pr-8">
             <h2 className="text-2xl bg-black text-white px-3 py-1 inline-block mb-10 tracking-widest">
-              OFFICIAL SOURCE
+              OFFICIAL {region}
             </h2>
-            <div className="flex flex-col gap-10">
-              {officialNews?.map((item) => (
-                <div key={item.id} className="border-b border-zinc-200 pb-6 group cursor-pointer">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-2 h-2 bg-purple-600 rounded-full animate-ping"></div>
-                    <span className="text-[10px] text-purple-600">DIRECT UPDATE</span>
-                  </div>
-                  <h3 className="text-lg leading-tight group-hover:text-purple-600 transition-colors">
-                    {item.title}
-                  </h3>
-                  <p className="text-[10px] text-zinc-400 mt-2 font-medium normal-case italic leading-relaxed">
-                    {item.excerpt.substring(0, 80)}...
-                  </p>
-                </div>
-              ))}
+            
+            <div className="flex flex-col gap-6">
+              {officialNews && officialNews.length > 0 ? (
+                officialNews.map((news) => (
+                  <a 
+                    key={news.id} 
+                    href={news.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="block group border-b border-black/5 pb-4 hover:opacity-70 transition"
+                  >
+                    <div className="flex flex-col">
+                      <span className="text-purple-600 font-bold text-[10px] tracking-widest mb-1">
+                        LIVE FEED
+                      </span>
+                      {/* Smanjen font naslova i line-clamp da ne guši stranu */}
+                      <h3 className="font-black text-sm md:text-base leading-tight uppercase line-clamp-2 group-hover:underline">
+                        {news.title}
+                      </h3>
+                      <p className="italic text-gray-400 text-[10px] mt-1 normal-case font-medium">
+                        {news.excerpt}
+                      </p>
+                    </div>
+                  </a>
+                ))
+              ) : (
+                <p className="text-gray-400 text-xs italic">No official updates for {region}...</p>
+              )}
             </div>
           </aside>
 
-          {/* --- CENTRALNI DEO: MAIN NEWS (Smanjen font i slike) --- */}
+          {/* --- CENTRALNI DEO: MAIN NEWS --- */}
           <main className="lg:col-span-6">
-            {/* Glavna vest */}
-            <Link href={`/news/${region}/${featuredNews.id}`} className="group block mb-20 border-b-[6px] border-black pb-12">
+            <Link href={`/news/${region.toLowerCase()}/${featuredNews.id}`} className="group block mb-20 border-b-[6px] border-black pb-12">
               <div className="aspect-video mb-8 overflow-hidden border-4 border-black shadow-[12px_12px_0px_0px_rgba(147,51,234,1)]">
                 <img 
                   src={featuredNews.image} 
@@ -95,16 +109,11 @@ export default async function BillboardNewsPage({
               </p>
             </Link>
 
-            {/* Grid ostalih vesti - Kompaktnije */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-12">
               {otherNews.map((item) => (
-                <Link key={item.id} href={`/news/${region}/${item.id}`} className="group block">
+                <Link key={item.id} href={`/news/${region.toLowerCase()}/${item.id}`} className="group block">
                   <div className="aspect-video overflow-hidden border-2 border-black mb-4 group-hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all">
-                    <img 
-                      src={item.image} 
-                      className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" 
-                      alt="" 
-                    />
+                    <img src={item.image} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" alt="" />
                   </div>
                   <h3 className="text-lg leading-tight group-hover:text-purple-600 transition-colors">
                     {item.title}
@@ -114,7 +123,7 @@ export default async function BillboardNewsPage({
             </div>
           </main>
 
-          {/* --- DESNA KOLONA: TRENDING (Tvoj originalni sidebar) --- */}
+          {/* --- DESNA KOLONA: TRENDING --- */}
           <aside className="lg:col-span-3">
             <div className="sticky top-40 border-l-4 border-black pl-8">
               <h2 className="text-2xl mb-12 tracking-tighter underline decoration-purple-600 decoration-4">
@@ -122,7 +131,7 @@ export default async function BillboardNewsPage({
               </h2>
               <div className="space-y-14">
                 {latestNews.slice(0, 5).map((item, index) => (
-                  <Link key={item.id} href={`/news/${region}/${item.id}`} className="group block relative pl-12">
+                  <Link key={item.id} href={`/news/${region.toLowerCase()}/${item.id}`} className="group block relative pl-12">
                     <span className="absolute left-0 top-0 text-5xl font-black text-zinc-100 group-hover:text-purple-100 transition-colors italic -z-10 leading-none">
                       0{index + 1}
                     </span>

@@ -20,11 +20,11 @@ jobs:
       - name: Install dependencies
         run: |
           npm install
-          # Instaliramo tsx da robot lakše čita tvoj kod
           npm install -g tsx 
 
       - name: Run Fetch Script
-        run: npm install -g tsx && npx tsx app/api/fetch-news/route.ts
+        # Koristimo tsx da pokrenemo rutu, a dodatak u kodu će je "pogurati"
+        run: npx tsx app/api/fetch-news/route.ts
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
