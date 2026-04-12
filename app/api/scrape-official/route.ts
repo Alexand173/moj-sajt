@@ -230,20 +230,18 @@ export async function GET() {
   }
 
 //KLJUČNI DEO ZA GITHUB ACTIONS:
- Omogućava direktno pokretanje preko npx tsx
+// Omogućava direktno pokretanje preko npx tsx
  
-if (typeof require !== 'undefined' && require.main === module) {
-  console.log("🔔 Pokrećem Official Scraper (GitHub Actions)...");
+  if (typeof require !== 'undefined' && require.main === module) {
+  console.log("🔔 Pokrećem Official Scraper...");
   GET()
     .then(async (res) => {
       const data = await res.json();
-      console.log("🏁 Završeno skrepovanje!", data);
+      console.log("🏁 Završeno!", data);
       process.exit(0);
     })
     .catch((err) => {
-      console.error("💀 Scraper je pukao:", err);
+      console.error("💀 Greška:", err);
       process.exit(1);
     });
-}
-
-}
+  }}
