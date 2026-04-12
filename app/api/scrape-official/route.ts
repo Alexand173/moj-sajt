@@ -3,23 +3,24 @@ import * as cheerio from 'cheerio';
 import axios from 'axios';
 import { createClient } from '@supabase/supabase-js';
 
-// Koristimo varijable koje smo već definisali u GitHub Secrets
+// 1. INICIJALIZACIJA (Podržava i lokalni razvoj i GitHub Actions)
 const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
 
 if (!supabaseUrl || !supabaseKey) {
-  console.error("❌ ERROR: Supabase klijent ne može da se inicijalizuje jer fale URL ili KEY!");
+  console.error("❌ ERROR: Nedostaju Supabase URL ili KEY!");
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 export async function GET() {
+  console.log("🚀 Startujem Official Scraper (100+ sajtova)...");
+  
   try {
     let scrapedData: any[] = [];
 
-    // 1. DEFINICIJA IZVORA PODELJENIH PO REGIONIMA
+    // DEFINICIJA IZVORA
     const SOURCES = [
-      // --- US SOURCES ---
      { url: 'https://pitchfork.com/news/', region: 'US' },
   { url: 'https://www.rollingstone.com/music/music-news/', region: 'US' },
   { url: 'https://www.billboard.com/c/music/music-news/', region: 'US' },
@@ -153,13 +154,15 @@ export async function GET() {
   { url: 'https://www.rootsworld.com/news.html', region: 'WORLD' },
   { url: 'https://www.rhythm-passport.com/news/', region: 'WORLD' },
   { url: 'https://www.globalmusicnetwork.com/', region: 'WORLD' }
-];
 
-    // 2. SKREPING PETLJA
+      // ... Možeš dopuniti listu po potrebi
+    ];
+
+    // SKREPING PETLJA
     for (const source of SOURCES) {
       try {
         const res = await axios.get(source.url, { 
-          timeout: 10000,
+          timeout: 15000,
           headers: { 
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' 
           } 
@@ -167,12 +170,10 @@ export async function GET() {
         
         const $ = cheerio.load(res.data);
         const domainName = new URL(source.url).hostname.replace('www.', '');
-
-        // LIMIT: Maksimalno 3 vesti po sajtu
         let countPerSite = 0;
 
         $('h2, h3').toArray().some((el) => {
-          if (countPerSite >= 3) return true; // Prekidamo ako smo našli 3 vesti
+          if (countPerSite >= 3) return true;
 
           const title = $(el).text().trim();
           const link = $(el).find('a').attr('href') || $(el).closest('a').attr('href');
@@ -183,9 +184,9 @@ export async function GET() {
             scrapedData.push({
               title: title,
               excerpt: `SOURCE: ${domainName.toUpperCase()}`,
-              image: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745', // Placeholder
+              image: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745',
               category: 'OFFICIAL',
-              region: source.region, // US ili UK
+              region: source.region,
               url: fullLink,
               content: `Music update from ${domainName}`,
               created_at: new Date().toISOString()
@@ -195,58 +196,50 @@ export async function GET() {
           }
           return false;
         });
+        console.log(`✅ ${domainName} - uspeh.`);
       } catch (e) {
-        console.error(`Greška pri skreping sajta ${source.url}`);
+        console.error(`❌ Greška za ${source.url}`);
       }
     }
 
-    // 3. OBRADA PODATAKA I UPIS
     if (scrapedData.length > 0) {
-      // Uklanjanje duplikata po naslovu (ako ih ima)
-      const uniqueData = Array.from(
-        new Map(scrapedData.map(item => [item.title, item])).values()
-      );
-
-      // MEŠANJE: Da se ne ređaju 3 vesti sa istog sajta jedna za drugom
+      const uniqueData = Array.from(new Map(scrapedData.map(item => [item.title, item])).values());
       const mixedData = uniqueData.sort(() => Math.random() - 0.5);
 
-      // Slanje u Supabase (Upsert radi update ako naslov već postoji)
-      const { error } = await supabase
-        .from('news')
-        .upsert(mixedData, { 
-          onConflict: 'title',
-          ignoreDuplicates: false 
-        });
+      const { error } = await supabase.from('news').upsert(mixedData, { 
+        onConflict: 'title',
+        ignoreDuplicates: false 
+      });
 
       if (error) throw error;
       
-      return NextResponse.json({ 
-        success: true, 
-        count: mixedData.length,
-        message: `Successfully scraped ${mixedData.length} official news across US and UK.`
-      });
+      console.log(`🚀 Uspešno uneto ${mixedData.length} vesti.`);
+      return new Response(JSON.stringify({ success: true, count: mixedData.length }), { status: 200 });
     }
 
-    return NextResponse.json({ success: true, count: 0, message: "No new data found." });
+    return new Response(JSON.stringify({ success: true, count: 0 }), { status: 200 });
 
   } catch (error: any) {
     console.error("Scraper Error:", error.message);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return new Response(JSON.stringify({ success: false, error: error.message }), { status: 500 });
   }
+}
 
-//KLJUČNI DEO ZA GITHUB ACTIONS:
-// Omogućava direktno pokretanje preko npx tsx
- 
-  if (typeof require !== 'undefined' && require.main === module) {
-  console.log("🔔 Pokrećem Official Scraper...");
+// OKIDAČ ZA GITHUB ACTIONS (Van GET funkcije)
+if (typeof require !== 'undefined' && require.main === module) {
+  console.log("🔔 GitHub Actions detektovan. Ručno pokrećem Official Scraper...");
   GET()
     .then(async (res) => {
-      const data = await res.json();
-      console.log("🏁 Završeno!", data);
-      process.exit(0);
+      try {
+        const data = await res.json();
+        console.log("🏁 Završeno!", data);
+        process.exit(0);
+      } catch (e) {
+        process.exit(0);
+      }
     })
     .catch((err) => {
-      console.error("💀 Greška:", err);
+      console.error("💀 Kritična greška:", err);
       process.exit(1);
     });
-  }}
+}
