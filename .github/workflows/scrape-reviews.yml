@@ -15,8 +15,8 @@ jobs:
           node-version: '20'
       - name: Install dependencies
         run: npm install cheerio @supabase/supabase-js tsx
-      - name: Run Scraper
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+     - name: Run Scraper
         run: npx tsx app/api/scrape-reviews/route.ts
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}

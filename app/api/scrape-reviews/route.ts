@@ -13,7 +13,7 @@ interface MusicArticle {
 }
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_URL!, // Izbrisali smo NEXT_PUBLIC_ jer GitHub šalje SUPABASE_URL
   process.env.SUPABASE_ANON_KEY!
 );
 
