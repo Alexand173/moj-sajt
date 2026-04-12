@@ -38,7 +38,7 @@ export async function GET() {
         const link = $(el).attr('href');
         const fullLink = link?.startsWith('http') ? link : `https://${new URL(source.url).hostname}${link}`;
 
-        if (title.length > 30 && link) {
+       if (title.length > 5 && link) {
           allArticles.push({
             title,
             url: fullLink,
@@ -55,8 +55,9 @@ export async function GET() {
     }
   }
 
-  const uniqueArticles = Array.from(new Map(allArticles.map(item => [item.url, item])).values()).slice(0, 15);
-
+  //const uniqueArticles = Array.from(new Map(allArticles.map(item => [item.url, item])).values()).slice(0, 15);
+const uniqueArticles = allArticles.slice(0, 15);
+console.log("Pronađeno članaka:", uniqueArticles.length); // Ovo ćeš videti
 
   const { error } = await supabase.from('news').upsert(uniqueArticles, { onConflict: 'url' });
 
