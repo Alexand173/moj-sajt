@@ -23,13 +23,13 @@ jobs:
           npm install -g tsx 
 
       - name: Run Fetch Script
-        # Koristimo tsx da pokrenemo rutu, a dodatak u kodu će je "pogurati"
         run: npx tsx app/api/fetch-news/route.ts
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           NEWS_API_KEY: ${{ secrets.NEWS_API_KEY }}
-          - name: Run Official Scraper (100+ Sites)
+
+      - name: Run Official Scraper (100+ Sites)
         run: npx tsx app/api/scrape-official/route.ts
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
