@@ -2,11 +2,11 @@ name: Scrape Reviews & Interviews
 
 on:
   schedule:
-    - cron: '0 0 * * *' # Jednom dnevno u ponoć (dovoljno je za recenzije)
-  workflow_dispatch: # Dugme za ručno pokretanje u GitHub-u
+    - cron: '0 0 * * *'
+  workflow_dispatch:
 
 jobs:
-  build:
+  scrape:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,6 +17,6 @@ jobs:
         run: npm install cheerio @supabase/supabase-js tsx
       - name: Run Scraper
         env:
-         SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: npx tsx app/api/scrape-reviews/route.ts
