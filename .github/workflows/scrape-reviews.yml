@@ -15,9 +15,8 @@ jobs:
           node-version: '20'
       - name: Install dependencies
         run: npm install cheerio @supabase/supabase-js tsx
-     - name: Run Scraper
+      - name: Run Scraper
         env:
-          # Ovde kažemo: "Uzmi tajnu iz GitHub-a i daj je skripti pod ovim imenom"
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: npx tsx app/api/scrape-reviews/route.ts
