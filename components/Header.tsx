@@ -5,17 +5,18 @@ import { usePathname } from 'next/navigation';
 export default function Header() {
   const pathname = usePathname();
 
-  // Provere stanja za svetleće efekte
+  // Provere stanja za svetleće efekte i sakrivanje delova
   const isHome = pathname === '/';
   const isNewsPage = pathname.startsWith('/news');
+  const isReviewsPage = pathname.startsWith('/reviews'); // Detektuje review sekciju
   const isAwardsPage = pathname === '/awards';
 
   const pages = [
-  { name: 'NEWS', href: '/news/us' },       // Umjesto /news ide direktno na /news/us
-  { name: 'TOURS', href: '/tours/us' },     // Umjesto /tours ide direktno na /tours/us
-  { name: 'FESTIVALS', href: '/festivals/us' },
-  { name: 'REVIEWS', href: '/reviews/us' },
-];
+    { name: 'NEWS', href: '/news/us' },
+    { name: 'TOURS', href: '/tours/us' },
+    { name: 'FESTIVALS', href: '/festivals/us' },
+    { name: 'REVIEWS', href: '/reviews/us' },
+  ];
 
   const regions = ['US', 'UK', 'LATINO', 'ASIA', 'EUROPA', 'WORLD', 'JAZZ', 'CLASSICAL'];
 
@@ -28,7 +29,6 @@ export default function Header() {
     { name: 'DANCE / ELECTRONIC', slug: 'electronic' },
   ];
 
-  // Hvatanje trenutnog regiona iz URL-a za žanrove
   const getCurrentRegion = () => {
     const parts = pathname.split('/');
     if (parts.includes('region')) return parts[parts.indexOf('region') + 1];
@@ -44,7 +44,7 @@ export default function Header() {
       {/* 1. RED: LOGO I GLAVNA NAVIGACIJA */}
       <div className="max-w-[1400px] mx-auto px-6 md:px-10 py-4 md:py-6 flex flex-col md:flex-row items-center justify-between gap-6">
         
-        {/* LOGO - Svetli samo na Home */}
+        {/* LOGO */}
         <Link 
           href="/" 
           className={`text-3xl font-black italic tracking-tighter transition-all duration-500 ${
@@ -56,34 +56,29 @@ export default function Header() {
           MUSIC<span className={isHome ? "text-purple-400" : "text-zinc-800"}>TOP</span>
         </Link>
 
-        {/* PAGES (News, Tours...) */}
+        {/* PAGES */}
         <nav className="flex items-center gap-6 md:gap-10 flex-wrap justify-center">
           {pages.map((p) => {
-  // Ovo je "pametna" provera: 
-  // Gledamo da li trenutna putanja počinje sa imenom stranice (npr. /news ili /tours)
-  // p.href je npr. "/news/world", pa uzimamo samo "/news" za poređenje
-  const baseRoute = p.href.split('/')[1]; 
-  const isActive = pathname.startsWith(`/${baseRoute}`);
+            const baseRoute = p.href.split('/')[1]; 
+            const isActive = pathname.startsWith(`/${baseRoute}`);
 
-  return (
-    <Link 
-      key={p.name} 
-      href={p.href}
-      className={`text-[12px] font-black tracking-[0.2em] transition-all duration-300 relative py-2 ${
-        isActive 
-          ? 'text-purple-600 drop-shadow-[0_0_10px_rgba(147,51,234,0.8)]' 
-          : (isNewsPage ? 'text-zinc-400' : 'text-zinc-500 hover:text-white')
-      }`}
-    >
-      {p.name}
-      
-      {/* Linija koja se pojavljuje samo ispod aktivne stranice */}
-      {isActive && (
-        <span className="absolute -bottom-1 left-0 w-full h-[2px] bg-purple-600 shadow-[0_0_12px_rgba(147,51,234,0.8)]" />
-      )}
-    </Link>
-  );
-})}
+            return (
+              <Link 
+                key={p.name} 
+                href={p.href}
+                className={`text-[12px] font-black tracking-[0.2em] transition-all duration-300 relative py-2 ${
+                  isActive 
+                    ? 'text-purple-600 drop-shadow-[0_0_10px_rgba(147,51,234,0.8)]' 
+                    : (isNewsPage || isReviewsPage ? 'text-zinc-400' : 'text-zinc-500 hover:text-white')
+                }`}
+              >
+                {p.name}
+                {isActive && (
+                  <span className="absolute -bottom-1 left-0 w-full h-[2px] bg-purple-600 shadow-[0_0_12px_rgba(147,51,234,0.8)]" />
+                )}
+              </Link>
+            );
+          })}
           
           <Link 
             href="/awards" 
@@ -98,48 +93,38 @@ export default function Header() {
         </nav>
       </div>
 
-      {/* 2. RED: REGIONI (Pametni Filter) */}
-      <div className="bg-zinc-900/30 border-t border-white/5">
-        <div className="flex flex-wrap justify-center gap-x-8 gap-y-3 py-3 px-6">
-        
-{regions.map((r) => {
-  const lowerR = r.toLowerCase();
-  
-  const isNewsPage = pathname.startsWith('/news');
-  const isToursPage = pathname.startsWith('/tours');
-  const isReviewsPage = pathname.startsWith('/reviews');
-  const isFestivalsPage = pathname.startsWith('/festivals'); // DODAJ OVO
+      {/* 2. RED: REGIONI (Sakriveno ako je REVIEWS) */}
+      {!isReviewsPage && (
+        <div className="bg-zinc-900/30 border-t border-white/5">
+          <div className="flex flex-wrap justify-center gap-x-8 gap-y-3 py-3 px-6">
+            {regions.map((r) => {
+              const lowerR = r.toLowerCase();
+              const isToursPage = pathname.startsWith('/tours');
+              const isFestivalsPage = pathname.startsWith('/festivals');
 
-  // Pametni link:
-  let targetHref = `/region/${lowerR}/rock`;
+              let targetHref = `/region/${lowerR}/rock`;
+              if (isNewsPage) targetHref = `/news/${lowerR}`;
+              else if (isToursPage) targetHref = `/tours/${lowerR}`;
+              else if (isFestivalsPage) targetHref = `/festivals/${lowerR}`;
 
-  if (isNewsPage) {
-    targetHref = `/news/${lowerR}`;
-  } else if (isToursPage) {
-    targetHref = `/tours/${lowerR}`;
-  } else if (isReviewsPage) {
-    targetHref = `/reviews/${lowerR}`;
-  } else if (isFestivalsPage) {
-    targetHref = `/festivals/${lowerR}`; // DODAJ OVO
-  }
+              const isActive = pathname.includes(`/${lowerR}`);
 
-  const isActive = pathname.includes(`/${lowerR}`);
-
-  return (
-    <Link key={r} href={targetHref} 
-      className={`text-[11px] font-black tracking-[0.2em] transition-all ${
-        isActive ? 'text-purple-500 drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]' : 'text-zinc-600'
-      }`}
-    >
-      {r}
-    </Link>
-  );
-})}
+              return (
+                <Link key={r} href={targetHref} 
+                  className={`text-[11px] font-black tracking-[0.2em] transition-all ${
+                    isActive ? 'text-purple-500 drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]' : 'text-zinc-600'
+                  }`}
+                >
+                  {r}
+                </Link>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* 3. RED: ŽANROVI (Samo ako NISI na vestima) */}
-      {!isNewsPage && (
+      {/* 3. RED: ŽANROVI (Sakriveno ako je NEWS ili REVIEWS) */}
+      {!isNewsPage && !isReviewsPage && (
         <div className="bg-black border-t border-white/5">
           <div className="flex flex-wrap justify-center gap-2 md:gap-6 py-3 px-4">
             {genres.map((g) => {

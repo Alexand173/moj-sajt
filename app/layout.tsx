@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import Header from "@/components/Header"; // Proveri da li ti je Header u components folderu
+import Header from "@/components/Header";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -10,11 +10,14 @@ export const metadata: Metadata = {
   description: "Official Music Top Awards and Global Music Charts",
 };
 
-// app/layout.tsx
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en">
-      <body className="bg-black text-white" suppressHydrationWarning={true}>
+      <body className={`${inter.className} bg-black text-white`} suppressHydrationWarning={true}>
         <Header />
         <main className="pt-32 min-h-screen">
           {children}
