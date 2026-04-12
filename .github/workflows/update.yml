@@ -29,3 +29,8 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           NEWS_API_KEY: ${{ secrets.NEWS_API_KEY }}
+          - name: Run Official Scraper (100+ Sites)
+        run: npx tsx app/api/scrape-official/route.ts
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}

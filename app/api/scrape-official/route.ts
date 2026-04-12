@@ -228,4 +228,22 @@ export async function GET() {
     console.error("Scraper Error:", error.message);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
+
+//KLJUČNI DEO ZA GITHUB ACTIONS:
+ Omogućava direktno pokretanje preko npx tsx
+ 
+if (typeof require !== 'undefined' && require.main === module) {
+  console.log("🔔 Pokrećem Official Scraper (GitHub Actions)...");
+  GET()
+    .then(async (res) => {
+      const data = await res.json();
+      console.log("🏁 Završeno skrepovanje!", data);
+      process.exit(0);
+    })
+    .catch((err) => {
+      console.error("💀 Scraper je pukao:", err);
+      process.exit(1);
+    });
+}
+
 }
