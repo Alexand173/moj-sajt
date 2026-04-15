@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import Link from 'next/link'; // OVO JE FALILO I IZAZVALO GREŠKU
+import Link from 'next/link';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,7 +14,7 @@ export default async function RegionalFestivalsPage({
   const { regionName } = await params;
   const region = regionName.toLowerCase();
 
-  // Vučemo festivale za taj region iz kolone 'region'
+  // POVLAČENJE PODATAKA IZ BAZE
   const { data: festivals, error } = await supabase
     .from('festivals')
     .select('*')
@@ -24,48 +24,55 @@ export default async function RegionalFestivalsPage({
   if (error) return <div className="pt-60 text-center uppercase font-black text-red-500">Error loading festivals</div>;
 
   return (
-    <div className="min-h-screen bg-white text-black pt-52 pb-40 font-sans">
+    // Povećan pt-60 da Header iz Layout-a ne bi prekrio "US.FEST" naslov
+    <div className="min-h-screen bg-white text-black pt-60 pb-40 font-sans">
       <div className="max-w-[1400px] mx-auto px-6">
         
-        {/* HEADER SEKCIJA */}
-        <div className="border-b-[12px] border-black mb-20 pb-8 flex justify-between items-baseline">
-          <h1 className="text-[12vw] md:text-[10rem] font-black uppercase tracking-tighter leading-[0.8]">
+        {/* GLAVNI NASLOV - BRUTALIST STYLE */}
+        <div className="border-b-[15px] border-black mb-20 pb-8 flex flex-col md:flex-row justify-between items-baseline">
+          <h1 className="text-[12vw] md:text-[10rem] font-black uppercase tracking-tighter leading-[0.7]">
             {region}<span className="text-purple-600">.</span>Fest
           </h1>
-          <span className="font-black uppercase text-xs tracking-[0.3em] text-zinc-400 hidden md:block">
-            2026 Global Guide
-          </span>
+          <div className="flex flex-col items-end">
+             <span className="font-black uppercase text-xs tracking-[0.3em] text-zinc-400">
+               2026 Global Guide
+             </span>
+             {/* Brojač festivala - dobro za listu od 100 komada */}
+             <span className="text-[10px] font-bold text-purple-600 mt-2">
+               TOTAL: {festivals?.length || 0} EVENTS FOUND
+             </span>
+          </div>
         </div>
 
         {/* LISTA FESTIVALA */}
-        <div className="divide-y-[1px] divide-zinc-200">
+        <div className="divide-y-[2px] divide-black">
           {festivals && festivals.length > 0 ? (
             festivals.map((fest) => (
               <Link 
                 key={fest.id} 
-                href={`/festivals/${region}/${fest.id}`} // LINK KA DETALJNOJ STRANICI
-                className="group grid grid-cols-1 md:grid-cols-12 py-16 items-center hover:bg-zinc-50 transition-all px-4"
+                href={`/festivals/${region}/${fest.id}`} 
+                className="group grid grid-cols-1 md:grid-cols-12 py-12 md:py-16 items-center hover:bg-zinc-50 transition-all px-4"
               >
-                {/* DATUM */}
+                {/* 1. KOLONA: DATUM */}
                 <div className="md:col-span-2">
-                  <span className="text-2xl font-black uppercase tracking-tighter group-hover:text-purple-600 transition-colors">
+                  <span className="text-3xl font-black uppercase tracking-tighter group-hover:text-purple-600 transition-colors">
                     {new Date(fest.date_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                   </span>
                 </div>
 
-                {/* NAZIV I LOKACIJA */}
+                {/* 2. KOLONA: NAZIV I GRAD */}
                 <div className="md:col-span-7">
-                  <h2 className="text-5xl md:text-8xl font-black uppercase tracking-tighter leading-none mb-2">
+                  <h2 className="text-5xl md:text-8xl font-black uppercase tracking-tighter leading-none mb-4 group-hover:italic transition-all">
                     {fest.name}
                   </h2>
-                  <span className="bg-black text-white px-3 py-1 text-[10px] font-black uppercase tracking-widest">
+                  <div className="inline-block bg-black text-white px-3 py-1 text-[10px] font-black uppercase tracking-widest group-hover:bg-purple-600">
                     {fest.location}
-                  </span>
+                  </div>
                 </div>
 
-                {/* CTA DUGME */}
+                {/* 3. KOLONA: DUGME */}
                 <div className="md:col-span-3 flex md:justify-end mt-8 md:mt-0">
-                  <div className="bg-black text-white px-10 py-5 text-xs font-black uppercase tracking-[0.2em] group-hover:bg-purple-600 transition-all shadow-2xl">
+                  <div className="border-4 border-black px-10 py-5 text-xs font-black uppercase tracking-[0.2em] group-hover:bg-black group-hover:text-white transition-all shadow-[10px_10px_0px_0px_rgba(0,0,0,0.1)] group-hover:shadow-[10px_10px_0px_0px_rgba(147,51,234,1)]">
                     Details & Tickets
                   </div>
                 </div>
@@ -73,8 +80,8 @@ export default async function RegionalFestivalsPage({
             ))
           ) : (
             <div className="py-40 text-center">
-              <h3 className="text-4xl font-black uppercase text-zinc-200 italic">No Festivals Found</h3>
-              <p className="mt-4 uppercase font-bold text-xs tracking-widest text-zinc-400">Updating database shortly...</p>
+              <h3 className="text-5xl font-black uppercase text-zinc-200 italic tracking-tighter">No Festivals Found in {region}</h3>
+              <p className="mt-6 uppercase font-bold text-xs tracking-widest text-zinc-400">Database update in progress...</p>
             </div>
           )}
         </div>

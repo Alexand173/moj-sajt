@@ -19,173 +19,96 @@ export async function updateMusicCharts() {
    
    
   const mojePesme = [
-"Aterciopelados, Andrea Echeverri - La Teta Pirata",
+"YOASOBI - Adventure (アドベンチャー)",
 
-"Juanes, Conociendo Rusia - Cómo Pudiste",
+"Radwimps - September-san (セプテンバーさん)",
 
-"Camilo Séptimo - Cierro los Ojos",
+"Ikuta Lilas - Sparkle (スパークル)",
 
-"Playa Futura, Oh'laville - Tormenta",
+"Kenshi Yonezu - Chikyugi (地球儀)",
 
-"Mala Gestión - Buenos días Vietnam",
+"Official HIGE DANdism - Yesterday (イエスタデイ)",
 
-"Alcalá Norte - El Hombre Planeta",
+"Yuuri - Dry Flower (ドライフラワー)",
 
-"Funambulista, Dani Fernández - La última canción",
+"King Gnu - Chameleon (カメレオン)",
 
-"The Warning - Kerosene",
+"Yuuri x Hashiguchi Kanaderiya - Merry-Go-Round (メリーゴーランド)",
 
-"Draco Rosa - Montserrat",
+"MONGOL800 - Chisana Koi no Uta (小さな恋のうた)",
 
-"niño viejo - Malos Amigos",
+"Sukima Switch - Kanade (奏)",
 
-"Sputnik - Clásico Moderno",
+"SEKAI NO OWARI - Habit",
 
-"Cosmovision - Psicosomático",
+"Reol - The Sixth Sense (第六感)",
 
-"Da Igual - Voy a Mi Ritmo",
+"Tatsuya Kitani - Where Our Blue Is (青のすみか / Utattemita)",
 
-"Modelo de Respuesta Polar - Una ilusión",
+"Uru - Koi (恋)",
 
-"Superlitio - Sal",
+"Funky Monkey Babys - Ato Hitotsu (あとひとつ)",
+"King Gnu - Hakujitsu (白日)",
 
-"Carrera Blanca - Harakiri",
+"Aimer - Kataomoi (カタオモイ)",
 
-"Aperol - Aperol",
+"Uru - Sore o Ai to Yobu nara (それを愛と呼buなら)",
 
-"Liquits - No No No",
+"Ado - Utattemita (歌いました)",
 
-"Mal Pasar, La Vela Puerca, Sebastián Teysera - Música Envasada",
+"瑛人 (Eito) - Kousui (香水)",
 
-"Cementerio Club - Los años",
+"Aimer - Zankyou Sanka (残響散歌)",
 
-"Mancha De Rolando, Coti - Melodia Simple",
+"Nakajima Miyuki - Ito (糸)",
 
-"Aterciopelados - MOR",
+"Aimyon - Hadaka no Kokoro (裸の心)",
 
-"Airbag - Nunca Lo Olvides",
+"Yorushika - Tada Kimi ni Hare (ただ君に晴れ)",
 
-"Fito Paez - Superextraño",
+"Aimyon - Marigold (マリーゴールド)",
 
-"Rubytates, Camilo Séptimo - Despertar",
+"Ado - Kaze no Yukue (風のゆくえ)",
+"Natori - Overdose (なとり)",
 
-"Ultraligera - Me Miras Mal",
+"Kenshi Yonezu - M87 (Ｍ八七)",
 
-"El Zar, No Te Va Gustar - Parte de Mi",
+"Tatsuya Kitani - Ao no Sumika (Jujutsu Kaisen)",
 
-"Bunbury - Las chingadas ganas de llorar",
+"Mrs. GREEN APPLE - Ao to Natsu (青と夏)"
+,
+"Yoasobi - Tsubame (ツバメ)",
 
-"Rayos Láser, Juan Ingaramo - El Día y La Noche",
+"Kenshi Yonezu - Lemon",
 
-"Espejos Rotos - sueños escasos",
+"Aimyon - Harunohi (ハルノヒ)",
 
-"Nuevos Vicios - Cada Vez",
+"Masaki Suda - Nijii (虹)",
 
-"Joven Dolores - Tu desdén",
+"Yuuri - Betelgeuse (ベテルギウス)",
 
-"Allison - Orfeo",
+"Kenshi Yonezu - Uma to Shika (馬と鹿)",
 
-"Ella Es Tan Cargosa - La Gente",
+"DISH - Neko (猫)",
 
-"Volcán - Ver Tus Ojos Mirándome",
+"Ikimonogakari - Sakura"
+,
+"Yoasobi - Idol (アイドル)",
 
-"Guasones, Santiago Motorizado - Hay Momentos",
+"Smap - Sekai ni Hitotsu Dake no Hana",
 
-"Los Colores - El Nombre De Tu Perro",
+"Yoasobi - Yoru ni Kakeru (夜に駆ける)",
+"Sekai No Owari - Rain",
 
-"Alther, TOURISTA - Adrenaline",
+"Masaki Suda - Machigaisagashi (まちがいさがし)",
 
-"ALONG - Nunca Amigos",
+"Kenshi Yonezu - Flamingo",
 
-"Cepa Funk - Bailemos",
+"Kazumasa Oda - Tashika na Koto (たしかなこと)",
 
-"Siddhartha, Leiva - Nada por Hecho",
+"Hikaru Utada - One Last Kiss",
 
-"Suerte Campeón - Amor",
-
-"Juan Pablo Rey - Niño Emoción",
-
-"Don Tetto - Miénteme, Prométeme",
-
-"Plutonio de Alto Grado - RELÁMPAGO",
-
-"Luca Bocci - Música de Computadora",
-
-"Nunca Es Tarde - Llévame",
-
-"Juanes - La Versión En Mi Cabeza",
-
-"PRISET - Incendio",
-
-"RAYNA - Un barquito",
-
-"GIRLBONE, Liapsis - MURIENDOME",
-
-"Mundaka - Donde veas más lejos",
-
-"Porter - Mundo Extraño",
-
-"Efelante - Amigos, Música y Vino",
-
-"Las Pelotas - Es Clara",
-
-"Los Tres - Hojas de Té - 2023",
-
-"Revólver Plateado - Mariposa Nocturna",
-
-"Los Bunkers - Bajo Los Árboles",
-
-"Molotov, WOS - Money In The Bank",
-
-"Leiva, Conociendo Rusia - Jaula de Oro",
-
-"REOT - ¿Quién Dice?",
-
-"Efelante - Si Navego Lento",
-
-"Los Romanticos de Zacatecas - Fresno",
-
-"No llores, Juanita - Cuando cruzas esa puerta",
-
-"SERBIA - Nunca Me Olvides",
-
-"No Te Va Gustar, Vetusta Morla - Yo Sabré Qué Hacer",
-
-"Los Bunkers - Rey",
-
-"León Larregui - Holidays",
-
-"DLD - Toda Mi Fe",
-
-"El Mató a un Policía Motorizado - Medalla de Oro",
-
-"Joaquín Sabina - Contra Todo Pronóstico",
-
-"Cuartavenida, Dos Veigas - Veleta",
-
-"Chesca - Mijita",
-
-"Los Telepáticos - Daria",
-
-"Los Mesoneros - Más Tuyo",
-
-"Andrés Belem, Wayo Elguera - Vieja Tierra",
-
-"Cometa Sucre - Cero Normal",
-
-"División Minúscula - Escombros",
-
-"Tenda - El sitio de siempre",
-
-"Silvestre y La Naranja - Tu Veneno",
-
-"Los Cocoa - 1990",
-
-"Usted Señalemelo - Las Flores Sangran",
-
-"Vilma Palma e Vampiros - Flaca",
-
-"Mainake - Se acabó",
+"Official HIGE DANdism - I Love...",
 ];
 
     for (const query of mojePesme) {
@@ -210,8 +133,8 @@ export async function updateMusicCharts() {
           artist_name: titleParts[0] || "Unknown",
           slika_url: thumb || '',
           youtube_id: videoId || '',
-          region: 'LATINO',       // <--- DODAJ REGION
-          genre_id: 1,        // <--- DODAJ ID ŽANRA (npr. 1 za Rock)
+          region: 'ASIA',       // <--- DODAJ REGION
+          genre_id: 7,        // <--- DODAJ ID ŽANRA (npr. 1 za Rock)
           year: 2026,         // <--- DODAJ GODINU
           is_chart: true      // <--- DA BUDE AKTIVNA
         }, { onConflict: 'title' });

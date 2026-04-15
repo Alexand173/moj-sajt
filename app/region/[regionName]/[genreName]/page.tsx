@@ -15,8 +15,14 @@ const GENRE_MAP: Record<string, number> = {
   'rb-soul': 4,
   'country': 5,
   'electronic': 6,
-  'jazz': 7,
-  'classical': 8
+  'j-pop': 7,          // Provereno iz tvoje baze
+  'j-rock-metal': 8,  // Proveri tačan ID u Supabase tabeli 'genres'
+  'k-pop': 9,         // Proveri tačan ID
+  'c-pop': 10,         // Proveri tačan ID
+  'india': 11,         // Proveri tačan ID
+  'other': 12 ,         // Proveri tačan ID
+    'jazz': 13,
+  'classical': 14
 };
 
 type PageProps = {
