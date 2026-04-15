@@ -82,37 +82,7 @@ export async function GET() {
       console.error("❌ Supabase Upsert Error:", error.message);
       return new Response(JSON.stringify({ error: error.message }), { status: 500 });
     }
-// --- NOVI DEO ZA REVIEWS ---
-    console.log("🏆 Fetching MTA Reviews...");
-    const REVIEW_FEEDS = [
-      { url: 'https://pitchfork.com/rss/reviews/albums/', cat: 'REVIEW' },
-      { url: 'https://www.nme.com/reviews/album/feed', cat: 'REVIEW' },
-      { url: 'https://www.rollingstone.com/music/music-news/feed/', cat: 'INTERVIEW' }
-    ];
 
-    for (const feedInfo of REVIEW_FEEDS) {
-      try {
-        const feed = await parser.parseURL(feedInfo.url);
-        for (const item of feed.items) {
-          let finalTitle = item.title || '';
-          if (!finalTitle.toLowerCase().includes('review') && !finalTitle.toLowerCase().includes('interview')) {
-            finalTitle = `${feedInfo.cat === 'REVIEW' ? 'Review' : 'Interview'}: ${item.title}`;
-          }
-          
-          // Dodajemo u tvoj postojeći niz allNews da bi se sve odjednom sačuvalo
-          allNews.push({
-            title: finalTitle,
-            excerpt: item.contentSnippet?.slice(0, 160).replace(/\n/g, ' ') + '...',
-            url: item.link,
-            category: feedInfo.cat,
-            region: 'Global',
-            created_at: new Date(item.pubDate || new Date()).toISOString()
-          });
-        }
-      } catch (e) {
-        console.error("RSS Error:", e);
-      }
-    }
 
 
 
