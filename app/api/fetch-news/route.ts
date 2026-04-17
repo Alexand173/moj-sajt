@@ -3,10 +3,11 @@ import RSSParser from 'rss-parser';
 const parser = new RSSParser();
 // Inicijalizacija Supabase klijenta
 const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_ANON_KEY || '';
+// Koristimo SERVICE_ROLE_KEY za pisanje, a ANON_KEY kao rezervu
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
 
 if (!supabaseUrl || !supabaseKey) {
-  console.error("❌ Greška: Nedostaju SUPABASE_URL ili SUPABASE_ANON_KEY!");
+  console.error("❌ Greška: Nedostaju ključevi (URL ili KEY)!");
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -82,9 +83,6 @@ export async function GET() {
       console.error("❌ Supabase Upsert Error:", error.message);
       return new Response(JSON.stringify({ error: error.message }), { status: 500 });
     }
-
-
-
 
     console.log("✅ Baza je uspešno osvežena!");
     return new Response(JSON.stringify({ 
