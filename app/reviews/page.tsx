@@ -1,11 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
 
-// Refresh every hour
 export const revalidate = 3600;
 
 export default async function ReviewsPage() {
-  // CORRECTED KEYS: Using NEXT_PUBLIC_ for client-side access
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -23,14 +21,17 @@ export default async function ReviewsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white text-black font-sans">
-      {/* HERO SECTION - WHITE BG / BLACK TEXT */}
+    /* KLJUČNO: overflow-x-hidden na glavnom divu sprečava horizontalni scroll */
+    <div className="min-h-screen bg-white text-black font-sans overflow-x-hidden">
+      
+      {/* HERO SECTION */}
       <section className="bg-white py-24 px-4 border-b-2 border-black relative">
         <div className="max-w-6xl mx-auto">
-          <h1 className="text-7xl md:text-9xl font-black uppercase italic tracking-tighter leading-[0.8] mb-8">
-            Reviews & <br /> Interviews
+          {/* POPRAVKA: text-5xl na mobilnom, tek od md: ide na 9xl */}
+          <h1 className="text-5xl md:text-9xl font-black uppercase italic tracking-tighter leading-[0.8] mb-8 break-words">
+            Reviews & <br className="hidden md:block" /> Interviews
           </h1>
-          <p className="text-black max-w-xl text-lg uppercase tracking-[0.2em] font-bold border-l-4 border-black pl-6">
+          <p className="text-black max-w-xl text-sm md:text-lg uppercase tracking-[0.2em] font-bold border-l-4 border-black pl-6">
             In-depth analysis and exclusive conversations.
           </p>
         </div>
@@ -38,11 +39,12 @@ export default async function ReviewsPage() {
 
       <main className="max-w-6xl mx-auto px-4 py-20">
         {items && items.length > 0 ? (
+          /* POPRAVKA: grid-cols-1 na mobilnom je obavezan */
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-24">
             {items.map((item) => (
-              <article key={item.id} className="group border-b border-black/10 pb-12 hover:border-black transition-colors">
+              <article key={item.id} className="group border-b border-black/10 pb-12 hover:border-black transition-colors w-full">
                 <div className="flex items-center space-x-4 mb-8">
-                  <span className={`text-[11px] font-black px-3 py-1 uppercase tracking-widest border-2 ${
+                  <span className={`text-[10px] md:text-[11px] font-black px-3 py-1 uppercase tracking-widest border-2 ${
                     item.category === 'INTERVIEW' ? 'bg-black text-white border-black' : 'bg-white text-black border-black'
                   }`}>
                     {item.category || 'FEATURE'}
@@ -57,12 +59,13 @@ export default async function ReviewsPage() {
                 </div>
 
                 <Link href={item.url || '#'} target="_blank">
-                  <h2 className="text-4xl font-black leading-[1.1] group-hover:underline decoration-4 underline-offset-8 transition-all mb-6 uppercase tracking-tighter">
+                  {/* POPRAVKA: text-3xl na mobilnom za naslove artikala */}
+                  <h2 className="text-3xl md:text-4xl font-black leading-[1.1] group-hover:underline decoration-4 underline-offset-8 transition-all mb-6 uppercase tracking-tighter break-words">
                     {item.title}
                   </h2>
                 </Link>
 
-                <p className="text-zinc-600 text-lg leading-relaxed mb-8 line-clamp-3 font-medium italic">
+                <p className="text-zinc-600 text-base md:text-lg leading-relaxed mb-8 line-clamp-3 font-medium italic">
                    {item.excerpt ? `"${item.excerpt}"` : "Read our full editorial on this latest cultural milestone."}
                 </p>
 
@@ -70,11 +73,11 @@ export default async function ReviewsPage() {
                   <Link 
                     href={item.url || '#'} 
                     target="_blank" 
-                    className="text-xs font-black uppercase tracking-[0.3em] border-b-4 border-black pb-1 hover:bg-black hover:text-white transition-all px-1"
+                    className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] border-b-4 border-black pb-1 hover:bg-black hover:text-white transition-all px-1"
                   >
                     Read More
                   </Link>
-                  <span className="text-black text-xs font-black uppercase italic tracking-widest">
+                  <span className="text-black text-[10px] md:text-xs font-black uppercase italic tracking-widest">
                     {item.region || 'GLOBAL'}
                   </span>
                 </div>
@@ -82,21 +85,17 @@ export default async function ReviewsPage() {
             ))}
           </div>
         ) : (
-          /* EMPTY STATE - MINIMALIST LIGHT */
-          <div className="text-center py-48 border-4 border-black">
-            <h3 className="text-4xl text-black uppercase font-black italic tracking-tighter">
+          <div className="text-center py-48 border-4 border-black px-4">
+            <h3 className="text-2xl md:text-4xl text-black uppercase font-black italic tracking-tighter">
               Archive is being updated.
             </h3>
-            <p className="text-zinc-400 mt-4 uppercase text-xs tracking-[0.5em] font-bold">
-              Stay tuned for fresh perspectives.
-            </p>
           </div>
         )}
       </main>
 
-      {/* FOOTER - RAW STYLE */}
-      <footer className="py-24 border-t-2 border-black text-center bg-zinc-50">
-        <div className="text-[14vw] font-black uppercase italic leading-none tracking-tighter text-black select-none">
+      {/* FOOTER - Smanjen font za mobilni da ne bi pravio overflow */}
+      <footer className="py-24 border-t-2 border-black text-center bg-zinc-50 overflow-hidden">
+        <div className="text-[18vw] md:text-[14vw] font-black uppercase italic leading-none tracking-tighter text-black select-none">
           Archive
         </div>
       </footer>

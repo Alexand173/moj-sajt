@@ -12,26 +12,25 @@ export default async function BillboardNewsPage({
 }: { 
   params: Promise<{ regionName: string }> 
 }) {
-  // 1. Next.js 15 pravilo za params
+  // 1. Next.js 15 params rukovanje
   const resolvedParams = await params;
-  const region = resolvedParams.regionName.toUpperCase(); // npr. "US" ili "UK"
+  const region = resolvedParams.regionName.toUpperCase();
 
-  // 2. DOHVATANJE VESTI
-  
-  // LEVA KOLONA: Zvanični izvori filtrirani po regionu (US ili UK)
+  // 2. DOHVATANJE PODATAKA
+  // Zvanični izvori (Leva kolona na desktopu, dno na mobilnom)
   const { data: officialNews } = await supabase
     .from('news')
     .select('*')
     .eq('category', 'OFFICIAL')
-    .eq('region', region) // Sada prikazuje samo izvore za taj region
+    .eq('region', region)
     .order('created_at', { ascending: false })
-    .limit(30);
+    .limit(20);
 
-  // CENTRALNI DEO: Glavne vesti regiona (LATEST kategorija)
+  // Glavne vesti (Sredina na desktopu, vrh na mobilnom)
   const { data: latestNews } = await supabase
     .from('news')
     .select('*')
-    .eq('region', region.toLowerCase()) // News API obično koristi mala slova
+    .eq('region', region.toLowerCase())
     .eq('category', 'LATEST')
     .order('created_at', { ascending: false })
     .limit(12);
@@ -45,7 +44,7 @@ export default async function BillboardNewsPage({
     <div className="min-h-screen bg-white text-black pt-52 pb-40 font-sans uppercase font-black">
       <div className="max-w-[1700px] mx-auto px-6">
         
-        {/* NASLOV STRANICE - SMANJEN FONT ZA BOLJI BALANS */}
+        {/* NASLOV STRANICE */}
         <div className="border-b-[12px] border-black mb-16 pb-4 flex justify-between items-end">
           <h1 className="text-[7vw] leading-[0.8] tracking-tighter">
             {region}<span className="text-purple-600">.</span>FEED
@@ -53,11 +52,13 @@ export default async function BillboardNewsPage({
           <span className="text-xl pb-2">EST. 2026</span>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+        {/* GLAVNI CONTENT LAYOUT */}
+        <div className="flex flex-col lg:grid lg:grid-cols-12 gap-12">
           
-          {/* --- LEVA KOLONA: OFFICIAL SOURCE FEED (Strogo 3 po sajtu iz baze) --- */}
-          <aside className="lg:col-span-3 border-r-4 border-black pr-8">
-            <h2 className="text-2xl bg-black text-white px-3 py-1 inline-block mb-10 tracking-widest">
+          {/* --- LEVA KOLONA: OFFICIAL SOURCE FEED --- */}
+          {/* Na mobilnom ide na dno (order-3), na desktopu je prva (lg:order-none) */}
+          <aside className="order-3 lg:order-none lg:col-span-3 border-t-4 lg:border-t-0 lg:border-r-4 border-black pt-10 lg:pt-0 lg:pr-8 mt-10 lg:mt-0">
+            <h2 className="text-2xl bg-black text-white px-3 py-1 inline-block mb-10 tracking-widest uppercase">
               OFFICIAL {region}
             </h2>
             
@@ -72,10 +73,9 @@ export default async function BillboardNewsPage({
                     className="block group border-b border-black/5 pb-4 hover:opacity-70 transition"
                   >
                     <div className="flex flex-col">
-                      <span className="text-purple-600 font-bold text-[10px] tracking-widest mb-1">
+                      <span className="text-purple-600 font-bold text-[10px] tracking-widest mb-1 uppercase">
                         LIVE FEED
                       </span>
-                      {/* Smanjen font naslova i line-clamp da ne guši stranu */}
                       <h3 className="font-black text-sm md:text-base leading-tight uppercase line-clamp-2 group-hover:underline">
                         {news.title}
                       </h3>
@@ -86,13 +86,14 @@ export default async function BillboardNewsPage({
                   </a>
                 ))
               ) : (
-                <p className="text-gray-400 text-xs italic">No official updates for {region}...</p>
+                <p className="text-gray-400 text-xs italic">No official updates...</p>
               )}
             </div>
           </aside>
 
           {/* --- CENTRALNI DEO: MAIN NEWS --- */}
-          <main className="lg:col-span-6">
+          {/* Na mobilnom ide na vrh (order-1) */}
+          <main className="order-1 lg:order-none lg:col-span-6">
             <Link href={`/news/${region.toLowerCase()}/${featuredNews.id}`} className="group block mb-20 border-b-[6px] border-black pb-12">
               <div className="aspect-video mb-8 overflow-hidden border-4 border-black shadow-[12px_12px_0px_0px_rgba(147,51,234,1)]">
                 <img 
@@ -101,13 +102,19 @@ export default async function BillboardNewsPage({
                   alt={featuredNews.title} 
                 />
               </div>
-              <h2 className="text-4xl md:text-5xl leading-[0.9] tracking-tighter group-hover:text-purple-600 transition-colors">
+              <h2 className="text-4xl md:text-5xl leading-[0.9] tracking-tighter group-hover:text-purple-600 transition-colors uppercase">
                 {featuredNews.title}
               </h2>
               <p className="mt-6 text-sm text-zinc-600 font-medium normal-case leading-relaxed">
                 {featuredNews.excerpt}
               </p>
             </Link>
+                {/* --- AD SLOT 1: SREDINA (Ispod glavne vesti) --- */}
+            <div className="w-full h-32 bg-zinc-50 border-2 border-dashed border-zinc-200 mb-12 flex flex-col items-center justify-center overflow-hidden">
+               <span className="text-[9px] text-zinc-300 tracking-[0.5em] mb-2 font-bold">SPONSORED_CONTENT</span>
+               {/* OVDE IDE TVOJ AD SENSE KOD */}
+               <div className="italic text-zinc-200 text-xs">AD_SLOT_01_728x90</div>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-12">
               {otherNews.map((item) => (
@@ -115,7 +122,7 @@ export default async function BillboardNewsPage({
                   <div className="aspect-video overflow-hidden border-2 border-black mb-4 group-hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all">
                     <img src={item.image} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" alt="" />
                   </div>
-                  <h3 className="text-lg leading-tight group-hover:text-purple-600 transition-colors">
+                  <h3 className="text-lg leading-tight group-hover:text-purple-600 transition-colors uppercase">
                     {item.title}
                   </h3>
                 </Link>
@@ -124,9 +131,10 @@ export default async function BillboardNewsPage({
           </main>
 
           {/* --- DESNA KOLONA: TRENDING --- */}
-          <aside className="lg:col-span-3">
+          {/* Na mobilnom ide u sredinu (order-2) */}
+          <aside className="order-2 lg:order-none lg:col-span-3">
             <div className="sticky top-40 border-l-4 border-black pl-8">
-              <h2 className="text-2xl mb-12 tracking-tighter underline decoration-purple-600 decoration-4">
+              <h2 className="text-2xl mb-12 tracking-tighter underline decoration-purple-600 decoration-4 uppercase">
                 TRENDING NOW
               </h2>
               <div className="space-y-14">
@@ -135,16 +143,24 @@ export default async function BillboardNewsPage({
                     <span className="absolute left-0 top-0 text-5xl font-black text-zinc-100 group-hover:text-purple-100 transition-colors italic -z-10 leading-none">
                       0{index + 1}
                     </span>
-                    <h5 className="text-sm tracking-tight leading-tight group-hover:text-purple-600 transition-all">
+                    <h5 className="text-sm tracking-tight leading-tight group-hover:text-purple-600 transition-all uppercase">
                       {item.title}
                     </h5>
                   </Link>
                 ))}
               </div>
+                {/* --- AD SLOT 2: DESNO (Ispod Trendinga) --- */}
+              <div className="mt-20 w-full h-[400px] border-4 border-black bg-zinc-50 flex flex-col items-center justify-center p-4 shadow-[10px_10px_0px_0px_rgba(0,0,0,0.05)]">
+                 <span className="text-[9px] text-zinc-400 font-black mb-4 vertical-text rotate-180 uppercase tracking-widest">Advertisement</span>
+                 <div className="italic text-zinc-200 text-xs">AD_SLOT_02_VERTICAL</div>
+              </div>
+
+
+
             </div>
           </aside>
 
-        </div>
+        </div> {/* Kraj Grid/Flex containera */}
       </div>
     </div>
   );

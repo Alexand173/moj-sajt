@@ -32,6 +32,12 @@ export default function AwardsPage() {
     return () => clearInterval(timer);
   }, []);
 
+ 
+ 
+ 
+ 
+ 
+ 
   // LEADERBOARD LOGIKA
   useEffect(() => {
     async function getTopVoted() {

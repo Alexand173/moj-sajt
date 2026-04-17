@@ -97,30 +97,51 @@ export default async function FestivalDetailPage({
               </div>
             </div>
 
-            {/* GALERIJA SA DINAMIČKIM SLIKAMA I FALLBACK-OM */}
-<div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-40">
-  {/* LEVA VELIKA SLIKA */}
-  <img 
-    // Proveravamo da li image_url iz baze postoji i da li je ispravan
-    src={fest.image_url && fest.image_url.startsWith('http') ? fest.image_url : `https://loremflickr.com/800/600/concert,stage?lock=${fest.id}`} 
-    className="w-full h-[500px] object-cover border-b-[10px] border-black grayscale hover:grayscale-0 transition-all duration-700 shadow-[15px_15px_0px_0px_rgba(0,0,0,1)]" 
-    alt={`${fest.name} atmosphere`} 
-  />
-  
-  <div className="space-y-8">
-    {/* GORNJA MANJA SLIKA */}
-    <img 
-      src={`https://loremflickr.com/800/400/crowd,festival?lock=${fest.id + 1}`} 
-      className="w-full h-[300px] object-cover border-b-[10px] border-black grayscale hover:grayscale-0 transition-all duration-700 shadow-[15px_15px_0px_0px_rgba(0,0,0,1)]" 
-      alt="Crowd vibe"
-    />
-    {/* DONJA MANJA SLIKA */}
-    <img 
-      src={`https://loremflickr.com/800/800/music,party?lock=${fest.id + 2}`} 
-      className="w-full h-[600px] object-cover border-b-[10px] border-black grayscale hover:grayscale-0 transition-all duration-700 shadow-[15px_15px_0px_0px_rgba(0,0,0,1)]" 
-      alt="Festival lights"
-    />
+           {/* --- AD SLOT 1 (HORIZONTAL) --- */}
+<div className="w-full my-20">
+  <p className="text-[10px] text-zinc-400 mb-2 tracking-[0.3em] font-bold">ADVERTISEMENT</p>
+  <div className="w-full bg-zinc-50 border-2 border-dashed border-zinc-200 py-10 flex justify-center items-center">
+    {/* Ovde ćeš kasnije nalepiti Google <ins> kod */}
+    <span className="text-zinc-300 italic text-sm">Google AdSense Banner Area</span>
   </div>
+</div>
+
+          {/* DINAMIČKA GALERIJA - RADI I ZA JEDNU I ZA VIŠE SLIKA */}
+<div className="mb-40">
+  <h3 className="text-xs tracking-[0.5em] mb-8 text-zinc-400 italic">Visual Archive // Live Shots</h3>
+  
+{/* GALERIJA - VEĆE SLIKE I RAZNOLIKOST */}
+{/* VELIKA GALERIJA - 2 KOLONE */}
+{/* GALERIJA - 2 VELIKE KOLONE */}
+{/* --- VELIKA GALERIJA: 2 KOLONE --- */}
+{/* GALERIJA - VELIKE I UNIKATNE FOTOGRAFIJE */}
+<div className="mb-40 px-6">
+  {/* grid-cols-1 znači da će na mobilnom biti jedna ogromna, a md:grid-cols-2 dve velike jedna pored druge */}
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
+    {fest.image_url && Array.isArray(fest.image_url) && fest.image_url.map((img: string, index: number) => (
+      <div key={index} className="group">
+        <div className="aspect-[16/9] border-[12px] border-black overflow-hidden bg-zinc-100 shadow-[25px_25px_0px_0px_rgba(0,0,0,1)] hover:shadow-[25px_25px_0px_0px_rgba(147,51,234,1)] transition-all duration-700">
+          <img 
+            src={img} 
+            alt="fest visual" 
+            className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-1000 group-hover:scale-110" 
+          />
+        </div>
+        
+        {/* INFO BAR ISPOD SVAKE SLIKE */}
+        <div className="mt-8 flex justify-between items-end border-b-8 border-black pb-4">
+          <div>
+            <p className="text-[10px] font-bold text-purple-600 tracking-[0.5em] mb-1">VISUAL_ASSET</p>
+            <h4 className="text-4xl font-black italic uppercase italic">SHOT_0{index + 1}</h4>
+          </div>
+          <span className="text-sm font-black tabular-nums bg-black text-white px-3 py-1">
+            {fest.id}-2026
+          </span>
+        </div>
+      </div>
+    ))}
+  </div>
+</div>
 </div>
 
             {/* RELATED NEWS SEKCIJA */}
