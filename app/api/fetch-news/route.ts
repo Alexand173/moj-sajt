@@ -13,7 +13,7 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function fetchNews(query: string, region: string, apiKey: string) {
-  const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&language=en&pageSize=15&sortBy=publishedAt&apiKey=${apiKey}`;
+  const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&language=en&pageSize=50&sortBy=publishedAt&apiKey=${apiKey}`;
   
   try {
     const res = await fetch(url);

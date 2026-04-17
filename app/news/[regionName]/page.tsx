@@ -24,7 +24,7 @@ export default async function BillboardNewsPage({
     .eq('category', 'OFFICIAL')
     .eq('region', region)
     .order('created_at', { ascending: false })
-    .limit(20);
+    .limit(50);
 
   // Glavne vesti (Sredina na desktopu, vrh na mobilnom)
   const { data: latestNews } = await supabase
