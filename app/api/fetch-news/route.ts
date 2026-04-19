@@ -13,7 +13,7 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl, supabaseKey);
 const MUSIC_KEYWORDS = [
   'music', 'concert', 'album', 'band', 'song', 'artist', 
-  'tour', 'festival', 'singer', 'dj', 'track', 'lyrics', 'kpop', 'jazz', 'reggaeton'
+  'tour', 'festival', 'singer', 'guitarist','drummer','rock band','metal band', 'dj', 'track', 'lyrics', 'kpop', 'jazz', 'reggaeton'
 ];
 
 function isMusicRelated(title: string, description: string): boolean {
@@ -78,14 +78,14 @@ export async function GET() {
     
     const allResults = await Promise.all([
       fetchNews('music tour', 'us', apiKey),
-      fetchNews('uk music charts', 'uk', apiKey),
+      fetchNews('uk music news 2026 OR london music scene', 'uk', apiKey),
       fetchNews('reggaeton latino', 'latino', apiKey),
       fetchNews('kpop music', 'asia', apiKey),
       fetchNews('europe music', 'europa', apiKey),
       fetchNews('world hits', 'world', apiKey),
       fetchNews('jazz music', 'jazz', apiKey),
       fetchNews('classical music', 'classical', apiKey),
-    // ...mojiFestivali.map(f => fetchNews(f.name, f.region, apiKey))
+    ...mojiFestivali.map(f => fetchNews(f.name, f.region, apiKey))
     ]);
 
     const allNews = allResults.flat().filter(news => news.title !== 'No Title');
