@@ -19,96 +19,106 @@ export async function updateMusicCharts() {
    
    
   const mojePesme = [
-"YOASOBI - Adventure (アドベンチャー)",
-
-"Radwimps - September-san (セプテンバーさん)",
-
-"Ikuta Lilas - Sparkle (スパークル)",
-
-"Kenshi Yonezu - Chikyugi (地球儀)",
-
-"Official HIGE DANdism - Yesterday (イエスタデイ)",
-
-"Yuuri - Dry Flower (ドライフラワー)",
-
-"King Gnu - Chameleon (カメレオン)",
-
-"Yuuri x Hashiguchi Kanaderiya - Merry-Go-Round (メリーゴーランド)",
-
-"MONGOL800 - Chisana Koi no Uta (小さな恋のうた)",
-
-"Sukima Switch - Kanade (奏)",
-
-"SEKAI NO OWARI - Habit",
-
-"Reol - The Sixth Sense (第六感)",
-
-"Tatsuya Kitani - Where Our Blue Is (青のすみか / Utattemita)",
-
-"Uru - Koi (恋)",
-
-"Funky Monkey Babys - Ato Hitotsu (あとひとつ)",
-"King Gnu - Hakujitsu (白日)",
-
-"Aimer - Kataomoi (カタオモイ)",
-
-"Uru - Sore o Ai to Yobu nara (それを愛と呼buなら)",
-
-"Ado - Utattemita (歌いました)",
-
-"瑛人 (Eito) - Kousui (香水)",
-
-"Aimer - Zankyou Sanka (残響散歌)",
-
-"Nakajima Miyuki - Ito (糸)",
-
-"Aimyon - Hadaka no Kokoro (裸の心)",
-
-"Yorushika - Tada Kimi ni Hare (ただ君に晴れ)",
-
-"Aimyon - Marigold (マリーゴールド)",
-
-"Ado - Kaze no Yukue (風のゆくえ)",
-"Natori - Overdose (なとり)",
-
-"Kenshi Yonezu - M87 (Ｍ八七)",
-
-"Tatsuya Kitani - Ao no Sumika (Jujutsu Kaisen)",
-
-"Mrs. GREEN APPLE - Ao to Natsu (青と夏)"
-,
-"Yoasobi - Tsubame (ツバメ)",
-
-"Kenshi Yonezu - Lemon",
-
-"Aimyon - Harunohi (ハルノヒ)",
-
-"Masaki Suda - Nijii (虹)",
-
-"Yuuri - Betelgeuse (ベテルギウス)",
-
-"Kenshi Yonezu - Uma to Shika (馬と鹿)",
-
-"DISH - Neko (猫)",
-
-"Ikimonogakari - Sakura"
-,
-"Yoasobi - Idol (アイドル)",
-
-"Smap - Sekai ni Hitotsu Dake no Hana",
-
-"Yoasobi - Yoru ni Kakeru (夜に駆ける)",
-"Sekai No Owari - Rain",
-
-"Masaki Suda - Machigaisagashi (まちがいさがし)",
-
-"Kenshi Yonezu - Flamingo",
-
-"Kazumasa Oda - Tashika na Koto (たしかなこと)",
-
-"Hikaru Utada - One Last Kiss",
-
-"Official HIGE DANdism - I Love...",
+"Malóne Morez - Rushin",
+"DJ Pauly D - Feel It",
+"Bart Skils & Weska - For The Music",
+"SOFI TUKKER - BOBA",
+"Afrojack & Lucas & Steve - Control",
+"Vion Konger & Skytech - Zoom",
+"KSHMR & Jason Ross & Brieanna Grace - Ultra Love",
+"Layla Benitez & Jono Stephenson & Henri Bergmann - Parallax",
+"Mike Posner & David Guetta - I Went Back To Ibiza",
+"Adam Marcos & Alessa - Divine",
+"Kygo & Khalid & Gryffin - Save My Love",
+"Martin Garrix - Catharina",
+"Zedd - Clarity (BUNT. Remix)",
+"Leduc - The Lights",
+"Mike Williams & Bruno Martini & Stephen Puth - Multiply",
+"The Madison - Eternal Glow",
+"ILLENIUM & Ellie Goulding - Don't Want Your Love",
+"John Summit & The Chainsmokers & Ilsey - ALL THE TIME",
+"FISHER - Rain",
+"MEDUZA - Don't Wanna Go Home",
+"Brooks & Justin Mylo & Philip Strand - Distant Love",
+"Eddie Sender & Kate Tillmay - Trilobite",
+"The Goo Goo Dolls & Steve Aoki - Iris",
+"Aluna & Will Sass & Timbaland - Houseboy",
+"EGGSTA & AOA - Out of Place",
+"Faybl & Robbie Rosen - Immortal",
+"John Newman - Love Me Again (Again)",
+"bbyclose - dream about u",
+"Layton Giordani & Camden Cox - Destiny",
+"Don Diablo & Bipolar Sunshine - More Than a Friend",
+"ILLENIUM & Bastille & Dabin - Feel Alive",
+"Sonny Fodera & D.O.D & Poppy Baskcomb - Think About Us",
+"Tanaka & Jessica Hammond - Flies On Me",
+"Milky & Mall Grab - Just The Way You Are",
+"Jai Nova - Twenty Four Seven",
+"Disco Lines & Tinashe - No Broke Boys",
+"Fragma & Vidojean X Oliver Loenn - Toca's Miracle (Edit)",
+"Ewan McVicar - Share The House",
+"Dylan McPhee & Rafiella - Can't Let Me Go",
+"Sonny Fodera & Chrystal - My Loving",
+"Jai Nova - Frozen In Time",
+"Alison Limerick & MK - Where Love Lives (MK Remix)",
+"Beave & Brett Haley - Body Movin'",
+"Jai Nova - Back To Me",
+"ANOTR & 54 Ultra - Talk To You",
+"Dylan McPhee & Serena Sophia - Be Your Lover",
+"Kato & Jon - Turn The Lights Off",
+"Confidence Man - 17",
+"Repiet & Julia Kleijn - Lifetime",
+"Calvin Harris & Kasabian - Release The Pressure",
+"Covenants & Angie Brown & Tom Brownlow - Hold That Sucker Down (Tom Brownlow Edit)",
+"Denon Reed & BOVSKI - Let Him Go (BOVSKI Remix)",
+"Ben Hemsley & Gaskin - If Your Girl",
+"Eddie Craig & Ridney & Rhea Melvin - Don't Take Me For A Fool",
+"Tinie Tempah & Alex Mills - Energy",
+"Ian G & Angel Johnson - Tell Me on Sunday",
+"IN PARALLEL & ROZZZQWEEN - I NEED A RHYTHM",
+"Joey McCrilley - Sunset",
+"Fafaq & DJ Kuba & Neitan - Spread Love",
+"MK & Illyus Barrientos - Never Let You Go",
+"Jess Bays & TCTS - Going Next",
+"Tom Brownlow & JAIMEE - Stick Around",
+"BIJOU - Temptation",
+"Sub Focus & Culture Shock & Fragma - Miracle",
+"Jai Nova - There For You",
+"Ian G & Krysta Youngs - Body Highs",
+"MK & Chrystal - Dior",
+"Alok & Tazi & Samuele Sartini & Amanda Wilson & YORK - Seek Love",
+"Confidence Man & Sweely - ALL MY PEOPLE (Edit)",
+"Sidney Charles - Take It Back",
+"DJs From Mars & Bombs Away & Melissa Grace - Download Me",
+"Tom Brownlow - More Than Just A Love",
+"GENNARO - Nothing Better Than Music",
+"INViDA & Covenants & Curtis Richa - Deliverance",
+"Scott Forshaw & Adam Griffin & Caitlyn Scarlett - Heart 2 Heart",
+"Jai Nova - Come So Far",
+"BURNS - The Anthem",
+"Sara Landry & Godtripper - Reality Check",
+"Progression & Ruben de Ronde & Daniel Wanrooy - Technophobia",
+"Amelie Lens - Whatever You Do",
+"RAM - Adagio for Strings (Ram's Adagio on Acid Mix)",
+"Sean Dexter - Synthetica (Maite Dedecker Remix)",
+"Township Rebellion & Fab Massimo - Labyrinth",
+"ReOrder - 2024 Xoxo (Anewbis Remix)",
+"Joy Kitikonti & Sygma - Agrimonyzer",
+"Hannah Laing & Evil Twiin - Hijack The System",
+"Eli Brown & Pan-Pot - Coming In Heavy",
+"Fisherman - Life",
+"Lilly Palmer - Bigger Than Techno",
+"Alan Fitzpatrick & Reset Robot & HYBRD - Lose Control",
+"Nicole Moudaber - Twisting My Mind",
+"Maite Dedecker - Waves of Emotion",
+"Charlotte de Witte - A Prayer for the Dancefloor",
+"Andrea Scopsi & Patrick Scuro & Bouras - B.D.a.T",
+"Miss Monique - Look At You",
+"KREAM - Arrival",
+"HILLS & Anyma - Dreams",
+"Jast & Kevin de Vries - Born Like That",
+"Mathame & Son of Son - Meet Me",
+"Armin Van Buuren & Sacha - Set Me Free",
 ];
 
     for (const query of mojePesme) {
@@ -133,8 +143,8 @@ export async function updateMusicCharts() {
           artist_name: titleParts[0] || "Unknown",
           slika_url: thumb || '',
           youtube_id: videoId || '',
-          region: 'ASIA',       // <--- DODAJ REGION
-          genre_id: 7,        // <--- DODAJ ID ŽANRA (npr. 1 za Rock)
+          region: 'US',       // <--- DODAJ REGION
+          genre_id: 6 ,        // <--- DODAJ ID ŽANRA (npr. 1 za Rock)
           year: 2026,         // <--- DODAJ GODINU
           is_chart: true      // <--- DA BUDE AKTIVNA
         }, { onConflict: 'title' });

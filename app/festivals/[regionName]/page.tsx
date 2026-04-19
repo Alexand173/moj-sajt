@@ -25,12 +25,12 @@ export default async function RegionalFestivalsPage({
 
   return (
     // Povećan pt-60 da Header iz Layout-a ne bi prekrio "US.FEST" naslov
-    <div className="min-h-screen bg-white text-black pt-60 pb-40 font-sans">
+    <div className="min-h-screen bg-white text-black pt-5 pb-10 font-sans">
       <div className="max-w-[1400px] mx-auto px-6">
         
         {/* GLAVNI NASLOV - BRUTALIST STYLE */}
-        <div className="border-b-[15px] border-black mb-20 pb-8 flex flex-col md:flex-row justify-between items-baseline">
-          <h1 className="text-[12vw] md:text-[10rem] font-black uppercase tracking-tighter leading-[0.7]">
+        <div className="border-b-[15px] border-black mb-20 pb-3 flex flex-col md:flex-row justify-between items-baseline">
+          <h1 className="text-[8vw] md:text-[10rem] font-black uppercase tracking-tighter leading-[0.7]">
             {region}<span className="text-purple-600">.</span>Fest
           </h1>
           <div className="flex flex-col items-end">
@@ -51,7 +51,7 @@ export default async function RegionalFestivalsPage({
               <Link 
                 key={fest.id} 
                 href={`/festivals/${region}/${fest.id}`} 
-                className="group grid grid-cols-1 md:grid-cols-12 py-12 md:py-16 items-center hover:bg-zinc-50 transition-all px-4"
+                className="group grid grid-cols-1 md:grid-cols-12 py-12 md:py-16 items-center hover:bg-zinc-30 transition-all px-4"
               >
                 {/* 1. KOLONA: DATUM */}
                 <div className="md:col-span-2">

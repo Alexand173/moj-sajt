@@ -11,7 +11,15 @@ if (!supabaseUrl || !supabaseKey) {
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey);
+const MUSIC_KEYWORDS = [
+  'music', 'concert', 'album', 'band', 'song', 'artist', 
+  'tour', 'festival', 'singer', 'dj', 'track', 'lyrics', 'kpop', 'jazz', 'reggaeton'
+];
 
+function isMusicRelated(title: string, description: string): boolean {
+  const text = `${title} ${description}`.toLowerCase();
+  return MUSIC_KEYWORDS.some(keyword => text.includes(keyword));
+}
 async function fetchNews(query: string, region: string, apiKey: string) {
   const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&language=en&pageSize=50&sortBy=publishedAt&apiKey=${apiKey}`;
   
@@ -24,9 +32,16 @@ async function fetchNews(query: string, region: string, apiKey: string) {
       return [];
     }
     
-    console.log(`📡 Preuzeto ${data.articles.length} vesti za region: ${region}`);
+    // 1. Filtriraj podatke
+    const filteredArticles = data.articles.filter((art: any) => 
+      isMusicRelated(art.title || '', art.description || '')
+    );
     
-    return data.articles.map((art: any) => ({
+    // 2. Dodaj log da vidiš koliko je preživelo filter
+    console.log(`📡 Preuzeto ${data.articles.length}, filtrirano (muzičke) ${filteredArticles.length} vesti za region: ${region}`);
+    
+    // 3. OVO JE BILA GREŠKA: Mapiraj filtrirane, a ne originalne!
+    return filteredArticles.map((art: any) => ({
       title: art.title || 'No Title',
       excerpt: art.description || '',
       content: art.content || '',
@@ -50,8 +65,17 @@ export async function GET() {
       throw new Error("Nedostaje NEWS_API_KEY u environment varijablama!");
     }
 
-    const mojiFestivali = ['Coachella', 'Lollapalooza', 'Exit Festival', 'Tomorrowland'];
+   // const mojiFestivali = ['Coachella', 'Lollapalooza', 'Exit Festival', 'Tomorrowland'];
 
+    const mojiFestivali = [
+  { name: 'Glastonbury', region: 'uk' },
+   { name: 'Coachella', region: 'us' },
+    { name: 'Tomorrowland', region: 'us' },
+  
+];
+    
+    
+    
     const allResults = await Promise.all([
       fetchNews('music tour', 'us', apiKey),
       fetchNews('uk music charts', 'uk', apiKey),
@@ -61,7 +85,7 @@ export async function GET() {
       fetchNews('world hits', 'world', apiKey),
       fetchNews('jazz music', 'jazz', apiKey),
       fetchNews('classical music', 'classical', apiKey),
-      ...mojiFestivali.map(fest => fetchNews(fest, 'festivals', apiKey))
+    // ...mojiFestivali.map(f => fetchNews(f.name, f.region, apiKey))
     ]);
 
     const allNews = allResults.flat().filter(news => news.title !== 'No Title');

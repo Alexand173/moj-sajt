@@ -14,7 +14,7 @@ const GENRE_MAP: Record<string, number> = {
   'hip-hop': 3,
   'rb-soul': 4,
   'country': 5,
-  'electronic': 6,
+  'dance-electronic': 6,
   'j-pop': 7,          // Provereno iz tvoje baze
   'j-rock-metal': 8,  // Proveri tačan ID u Supabase tabeli 'genres'
   'k-pop': 9,         // Proveri tačan ID
