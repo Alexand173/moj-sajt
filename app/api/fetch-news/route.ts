@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import RSSParser from 'rss-parser';
 const parser = new RSSParser();
+
 // Inicijalizacija Supabase klijenta
 const supabaseUrl = process.env.SUPABASE_URL || '';
 // Koristimo SERVICE_ROLE_KEY za pisanje, a ANON_KEY kao rezervu
@@ -21,6 +22,7 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
     transport: null as any 
   }
 });
+
 const MUSIC_KEYWORDS = [
   'music', 'concert', 'album', 'band', 'song', 'artist', 
   'tour', 'festival', 'singer', 'guitarist','drummer','rock band','metal band', 'dj', 'track', 'lyrics', 'kpop', 'jazz', 'reggaeton'
@@ -30,6 +32,7 @@ function isMusicRelated(title: string, description: string): boolean {
   const text = `${title} ${description}`.toLowerCase();
   return MUSIC_KEYWORDS.some(keyword => text.includes(keyword));
 }
+
 async function fetchNews(query: string, region: string, apiKey: string) {
   const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&language=en&pageSize=50&sortBy=publishedAt&apiKey=${apiKey}`;
   
@@ -37,20 +40,27 @@ async function fetchNews(query: string, region: string, apiKey: string) {
     const res = await fetch(url);
     const data = await res.json();
     
-    if (!data.articles) {
-      console.log(`⚠️ Nema vesti za region: ${region}`);
+    // Ako API vrati status "error" ili neku poruku, ispiši je odmah u konzoli
+    if (data.status === 'error') {
+      console.log(`❌ News API Greška za region [${region}]: ${data.message || 'Nepoznata greška'}`);
+      return [];
+    }
+
+    if (!data.articles || data.articles.length === 0) {
+      console.log(`⚠️ Nema vesti na News API-ju za region: ${region}`);
       return [];
     }
     
-    // 1. Filtriraj podatke
-    const filteredArticles = data.articles.filter((art: any) => 
-      isMusicRelated(art.title || '', art.description || '')
-    );
+    // 1. Filtriraj podatke (Ako je latino, propuštamo sve vesti bez filtriranja)
+    const filteredArticles = data.articles.filter((art: any) => {
+      if (region === 'latino') return true;
+      return isMusicRelated(art.title || '', art.description || '');
+    });
     
-    // 2. Dodaj log da vidiš koliko je preživelo filter
+    // 2. Logujemo rezultat u konzolu
     console.log(`📡 Preuzeto ${data.articles.length}, filtrirano (muzičke) ${filteredArticles.length} vesti za region: ${region}`);
     
-    // 3. OVO JE BILA GREŠKA: Mapiraj filtrirane, a ne originalne!
+    // 3. Mapiranje za bazu podataka
     return filteredArticles.map((art: any) => ({
       title: art.title || 'No Title',
       excerpt: art.description || '',
@@ -75,49 +85,29 @@ export async function GET() {
       throw new Error("Nedostaje NEWS_API_KEY u environment varijablama!");
     }
 
-   // const mojiFestivali = ['Coachella', 'Lollapalooza', 'Exit Festival', 'Tomorrowland'];
-
     const mojiFestivali = [
-  { name: 'Glastonbury', region: 'uk' },
-   { name: 'Coachella', region: 'us' },
-    { name: 'Tomorrowland', region: 'us' },
-  
-];
-    ////////////////////////////////////////////////////////////////
-    const latinoArtisti = ['reggaeton latino', 'musica latina', 'latin music awards',
-  'Bad Bunny', 'Karol G', 'Myke Towers', 'Maluma', 'J Balvin', 
-  'Daddy Yankee', 'Ozuna', 'Feid', 'Rauw Alejandro', 'Farruko', 
-  'Peso Pluma', 'Becky G', 'Anuel AA', 'Manuel Turizo', 'Arcángel', 
-  'Chencho Corleone', 'Jhayco', 'Nicky Jam', 'Tainy', 'Yandel', 
-  'Fuerza Regida', 'Don Omar', 'Young Miko', 'Wisin', 'Carin Leon', 
-  'Ryan Castro', 'De la Ghetto', 'DJ Luian', 'Grupo Frontera', 'Darell', 
-  'Junior H', 'Ñengo Flow', 'Zion & Lennox', 'Sech', 'Bad Gyal', 
-  'MC Kevin o Chris', 'Tokischa', 'Emilia', 'Dennis DJ', 'Gabito Ballesteros', 
-  'Beéle', 'Romeo Santos', 'Natti Natasha', 'Justin Quiles', 'Jay Wheeler'
-];
-    const latinoQuery = latinoArtisti.join(' OR ');
+      { name: 'Glastonbury', region: 'uk' },
+      { name: 'Coachella', region: 'us' },
+      { name: 'Tomorrowland', region: 'us' },
+    ];
     
-    /////////////////////////////////////////////////////////////
-    
-    
-    
-    
-    
-    
-    
-    
-    
+    // Definišemo jednostavne upite za latino muziku koji daju stabilne rezultate na engleskom
+    const latinoUpit1 = '"latin Billboard"';
+    const latinoUpit2 = '"latin music hits"';
     
     const allResults = await Promise.all([
       fetchNews('music tour', 'us', apiKey),
       fetchNews('uk music news 2026 OR london music scene', 'uk', apiKey),
-      fetchNews(latinoQuery, 'latino', apiKey),
+
+      fetchNews(latinoUpit1, 'latino', apiKey),
+      fetchNews(latinoUpit2, 'latino', apiKey),
+
       fetchNews('kpop music', 'asia', apiKey),
       fetchNews('europe music', 'europa', apiKey),
       fetchNews('world hits', 'world', apiKey),
       fetchNews('jazz music', 'jazz', apiKey),
       fetchNews('classical music', 'classical', apiKey),
-    ...mojiFestivali.map(f => fetchNews(f.name, f.region, apiKey))
+      ...mojiFestivali.map(f => fetchNews(f.name, f.region, apiKey))
     ]);
 
     const allNews = allResults.flat().filter(news => news.title !== 'No Title');
