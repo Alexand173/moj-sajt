@@ -13,9 +13,14 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'images.unsplash.com', // OVO MORA DA STOJI
+        hostname: 'images.unsplash.com',
       },
     ],
+  },
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '5mb',
+    },
   },
 };
 

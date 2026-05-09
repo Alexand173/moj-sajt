@@ -19,106 +19,177 @@ export async function updateMusicCharts() {
    
    
   const mojePesme = [
-"Malóne Morez - Rushin",
-"DJ Pauly D - Feel It",
-"Bart Skils & Weska - For The Music",
-"SOFI TUKKER - BOBA",
-"Afrojack & Lucas & Steve - Control",
-"Vion Konger & Skytech - Zoom",
-"KSHMR & Jason Ross & Brieanna Grace - Ultra Love",
-"Layla Benitez & Jono Stephenson & Henri Bergmann - Parallax",
-"Mike Posner & David Guetta - I Went Back To Ibiza",
-"Adam Marcos & Alessa - Divine",
-"Kygo & Khalid & Gryffin - Save My Love",
-"Martin Garrix - Catharina",
-"Zedd - Clarity (BUNT. Remix)",
-"Leduc - The Lights",
-"Mike Williams & Bruno Martini & Stephen Puth - Multiply",
-"The Madison - Eternal Glow",
-"ILLENIUM & Ellie Goulding - Don't Want Your Love",
-"John Summit & The Chainsmokers & Ilsey - ALL THE TIME",
-"FISHER - Rain",
-"MEDUZA - Don't Wanna Go Home",
-"Brooks & Justin Mylo & Philip Strand - Distant Love",
-"Eddie Sender & Kate Tillmay - Trilobite",
-"The Goo Goo Dolls & Steve Aoki - Iris",
-"Aluna & Will Sass & Timbaland - Houseboy",
-"EGGSTA & AOA - Out of Place",
-"Faybl & Robbie Rosen - Immortal",
-"John Newman - Love Me Again (Again)",
-"bbyclose - dream about u",
-"Layton Giordani & Camden Cox - Destiny",
-"Don Diablo & Bipolar Sunshine - More Than a Friend",
-"ILLENIUM & Bastille & Dabin - Feel Alive",
-"Sonny Fodera & D.O.D & Poppy Baskcomb - Think About Us",
-"Tanaka & Jessica Hammond - Flies On Me",
-"Milky & Mall Grab - Just The Way You Are",
-"Jai Nova - Twenty Four Seven",
+  
+"Milky - Just The Way You Are",
+
 "Disco Lines & Tinashe - No Broke Boys",
-"Fragma & Vidojean X Oliver Loenn - Toca's Miracle (Edit)",
-"Ewan McVicar - Share The House",
-"Dylan McPhee & Rafiella - Can't Let Me Go",
-"Sonny Fodera & Chrystal - My Loving",
-"Jai Nova - Frozen In Time",
-"Alison Limerick & MK - Where Love Lives (MK Remix)",
-"Beave & Brett Haley - Body Movin'",
-"Jai Nova - Back To Me",
-"ANOTR & 54 Ultra - Talk To You",
-"Dylan McPhee & Serena Sophia - Be Your Lover",
-"Kato & Jon - Turn The Lights Off",
-"Confidence Man - 17",
-"Repiet & Julia Kleijn - Lifetime",
+
+"Anotr / 54 Ultra - Talk To You",
+
+"Prospa / Cloonee - Free Your Mind",
+
+"Haven ft. Kaitlin Aragon - I Run",
+
+"Calvin Harris / Douglas - Blessings",
+
+"Sonny Fodera / D.O.D / Baskcomb - Think About Us",
+
+"Bebe Rexha & Faithless - New Religion",
+
+"Chrystal - The Days",
+
+"Michael Jackson - They Don't Care About Us",
+
+"Calvin Harris - Feel So Close",
+
+"Disclosure ft. Sam Smith - Latch",
+
+"Ewan Mcvicar - Share The House",
+
+"DJ Snake ft. Justin Bieber - Let Me Love You",
+
+"Robin S - Show Me Love",
+
+"Rihanna ft. Calvin Harris - We Found Love",
+
+"MK ft. Chrystal - Dior",
+
+"Lonown / Riserayss - Worry",
+
+"Sonny Fodera / Jazzy / D.O.D - Somedays",
+
+"Bl3ss / Camrinwatsin / Bbyclose - Kisses",
+
+"Casso / Raye / D-Block Europe - Prada",
+
+"Calvin Harris - Summer",
+
+"Avicii - Wake Me Up",
+
+"Mike Posner - I Took A Pill In Ibiza",
+
+"Bob Sinclar ft. Steve Edwards - World Hold On (Fisher Rework)",
+
+"Clean Bandit ft. Jess Glynne - Rather Be",
+
+"Skrillex & Diplo / Justin Bieber - Where Are U Now",
+
+"Calvin Harris & Disciples - How Deep Is Your Love",
+
+"David Guetta ft. Sia - Titanium",
+
+"Faithless - Insomnia",
+
+"Morgan Seatree - Say My Name",
+
+"Chainsmokers & Coldplay - Something Just Like This",
+
+"LF System - Afraid To Feel",
+
+"Stardust - Music Sounds Better With You",
+
+"Calvin Harris & Dua Lipa - One Kiss",
+
+"Jonas Blue & Malive - Edge of Desire",
+
 "Calvin Harris & Kasabian - Release The Pressure",
-"Covenants & Angie Brown & Tom Brownlow - Hold That Sucker Down (Tom Brownlow Edit)",
-"Denon Reed & BOVSKI - Let Him Go (BOVSKI Remix)",
-"Ben Hemsley & Gaskin - If Your Girl",
-"Eddie Craig & Ridney & Rhea Melvin - Don't Take Me For A Fool",
-"Tinie Tempah & Alex Mills - Energy",
-"Ian G & Angel Johnson - Tell Me on Sunday",
-"IN PARALLEL & ROZZZQWEEN - I NEED A RHYTHM",
-"Joey McCrilley - Sunset",
-"Fafaq & DJ Kuba & Neitan - Spread Love",
-"MK & Illyus Barrientos - Never Let You Go",
-"Jess Bays & TCTS - Going Next",
-"Tom Brownlow & JAIMEE - Stick Around",
-"BIJOU - Temptation",
-"Sub Focus & Culture Shock & Fragma - Miracle",
-"Jai Nova - There For You",
-"Ian G & Krysta Youngs - Body Highs",
-"MK & Chrystal - Dior",
-"Alok & Tazi & Samuele Sartini & Amanda Wilson & YORK - Seek Love",
-"Confidence Man & Sweely - ALL MY PEOPLE (Edit)",
-"Sidney Charles - Take It Back",
-"DJs From Mars & Bombs Away & Melissa Grace - Download Me",
-"Tom Brownlow - More Than Just A Love",
-"GENNARO - Nothing Better Than Music",
-"INViDA & Covenants & Curtis Richa - Deliverance",
-"Scott Forshaw & Adam Griffin & Caitlyn Scarlett - Heart 2 Heart",
-"Jai Nova - Come So Far",
-"BURNS - The Anthem",
-"Sara Landry & Godtripper - Reality Check",
-"Progression & Ruben de Ronde & Daniel Wanrooy - Technophobia",
-"Amelie Lens - Whatever You Do",
-"RAM - Adagio for Strings (Ram's Adagio on Acid Mix)",
-"Sean Dexter - Synthetica (Maite Dedecker Remix)",
-"Township Rebellion & Fab Massimo - Labyrinth",
-"ReOrder - 2024 Xoxo (Anewbis Remix)",
-"Joy Kitikonti & Sygma - Agrimonyzer",
-"Hannah Laing & Evil Twiin - Hijack The System",
-"Eli Brown & Pan-Pot - Coming In Heavy",
-"Fisherman - Life",
-"Lilly Palmer - Bigger Than Techno",
-"Alan Fitzpatrick & Reset Robot & HYBRD - Lose Control",
-"Nicole Moudaber - Twisting My Mind",
-"Maite Dedecker - Waves of Emotion",
-"Charlotte de Witte - A Prayer for the Dancefloor",
-"Andrea Scopsi & Patrick Scuro & Bouras - B.D.a.T",
-"Miss Monique - Look At You",
-"KREAM - Arrival",
-"HILLS & Anyma - Dreams",
-"Jast & Kevin de Vries - Born Like That",
-"Mathame & Son of Son - Meet Me",
-"Armin Van Buuren & Sacha - Set Me Free",
+
+"Major Lazer ft. Mø & DJ Snake - Lean On",
+
+"Calvin Harris ft. Rihanna - This Is What You Came For",
+
+"Everything But The Girl - Missing",
+"Tinie Tempah, Alex Mills - Energy",
+
+"Josh Baker, Sienna Sophia - Come Closer (feat. Sienna Sophia)",
+
+"Simon Field, Eyez - Chain Gun (Radio Edit)",
+
+"Benny Benassi, Tobias Gerard - DISCOTEKA",
+
+"SOSA - Be Without You",
+
+"Odd Mob, OMNOM, HYPERBEAM - Coming Up (It's Dare)",
+
+"SIDEPIECE - Cry For You (2025)",
+
+"Matroda, KLP - Bullshit",
+
+"DJ Glen, Shady Jones - Hypnotize",
+
+"Ethan Walsh - Look Good",
+
+"Simon Field - PanAm - Radio Edit",
+
+"Le Zinc - House Is A River",
+
+"Jamback - Positive",
+
+"Vinter - Space Pump (Space Jam)",
+
+"Kolter, Nate Dogg - Liquor Store (feat. Nate Dogg)",
+
+"James Hype, A.D.O.R. - Behaviour (feat. A.D.O.R.)",
+
+"HUGEL, Maesic, Omada - Dubai Shit - Extended Mix",
+
+"Jump Kid - Jump Kid",
+
+"Sonny Fodera, D.O.D, Poppy Baskcomb - Think About Us",
+
+"PLUS2 - Rhythm n' Beat",
+
+"L.P. Rhythm - Versatile",
+
+"Cloonee, Young M.A, InntRaw, HNTR - Stephanie - HNTR Remix",
+
+"Sammy Virji, Chris Lake, RoRo - 925",
+
+"Fallon - Diet Coke",
+
+"Shermanology - Give You My Luv",
+
+"BUJA (BR) - Dagger Hit",
+
+"John Newman, SIX40TWO - Something In The Water",
+
+"Sidney Charles - Take It Back (To The Old School)",
+
+"Mason Collective - Restless",
+
+"HILLS - Coolin",
+
+"Luuk Van Dijk - Disco Tetris - Edit",
+
+"OMRI., Dakota - Unholy",
+
+"Dimon - I Just Wanna",
+
+"Chris Stussy - It's About Us",
+
+"CHANEY, Paige Bea - Falling Into You",
+
+"Dom Dolla, Daya - Dreamin (feat. Daya)",
+
+"Danny Howard, Joshwa, Mahalia Fontaine - (This Is A) Warning",
+
+"Elbio & Denis - Work Me",
+
+"Büya, OJOG - Pjanoo",
+
+"Simon Field, Angie Brown - Trouble",
+
+"Todd Terry, Simon Field - My House Is On Fire",
+
+"Kokiri, Kelli-Leigh - Let's Get Out (feat. Kelli-Leigh)",
+
+"Biscits - Freak",
+
+"FISHER, AR/CO - Ocean",
+
+"Riordan - Gimme",
+
+"Charli xcx, Skream & Benga - Von dutch remix with skream & benga",
 ];
 
     for (const query of mojePesme) {
@@ -143,7 +214,7 @@ export async function updateMusicCharts() {
           artist_name: titleParts[0] || "Unknown",
           slika_url: thumb || '',
           youtube_id: videoId || '',
-          region: 'US',       // <--- DODAJ REGION
+          region: 'UK',       // <--- DODAJ REGION
           genre_id: 6 ,        // <--- DODAJ ID ŽANRA (npr. 1 za Rock)
           year: 2026,         // <--- DODAJ GODINU
           is_chart: true      // <--- DA BUDE AKTIVNA

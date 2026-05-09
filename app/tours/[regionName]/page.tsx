@@ -1,117 +1,98 @@
-import { createClient } from '@supabase/supabase-js';
-import { getArtistImage } from '@/lib/spotify'; // Ovo je fajl koji smo napravili
+import { createClient } from '../../../utils/supabase/server';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+type Params = Promise<{ regionName: string }>;
 
-export default async function RegionalToursPage({ params }: { params: Promise<{ regionName: string }> }) {
+export default async function Page({ params }: { params: Params }) {
   const { regionName } = await params;
-  
-  // 1. Povuci podatke iz baze
-  const { data: tours, error } = await supabase
+
+  if (!regionName) {
+    return <div className="text-center py-20">Region not found.</div>;
+  }
+
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
     .from('koncerti')
     .select('*')
-    .eq('region', regionName.toUpperCase())
-    .order('event_date', { ascending: true });
+    .ilike('region', regionName);
+
+  // --- LOGIKA GRUPISANJA ---
+  // Transformišemo niz u objekat gde je ključ ime benda
+  const grupisani = data?.reduce((acc: any, item: any) => {
+    const key = item.artist_name;
+    if (!acc[key]) {
+      acc[key] = {
+        artist_name: item.artist_name,
+        image_url: item.image_url,
+        events: []
+      };
+    }
+    acc[key].events.push({
+      id: item.id,
+      date: item.date,
+      location: item.location,
+      ticket_link: item.ticket_link
+    });
+    return acc;
+  }, {});
+
+  const dataZaPrikaz = grupisani ? Object.values(grupisani) : [];
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white pt-32 pb-40">
-      <div className="max-w-[1200px] mx-auto px-6">
-        
-        {/* HEADER */}
-        <div className="mb-16">
-          <h1 className="text-7xl font-black uppercase tracking-tighter italic leading-none">
-            {regionName} <span className="text-yellow-500">Events</span>
-          </h1>
-          <p className="text-zinc-500 font-bold uppercase tracking-[0.3em] mt-4 text-[10px]">
-            Official MusicTop.net Partner Program • Powered by Spotify API
-          </p>
-        </div>
+    <div className="max-w-7xl mx-auto px-4 py-12">
+      <h1 className="text-4xl font-bold mb-10 text-center capitalize">
+        Concerts for {regionName}
+      </h1>
 
-        <div className="grid gap-6">
-          {tours && tours.length > 0 ? (
-            // Koristimo Promise.all da bismo mogli da koristimo await unutar map funkcije
-            await Promise.all(tours.map(async (tour) => {
-              
-              // AUTOMATIZACIJA SLIKE: Prvo baza, pa Spotify, pa Unsplash kao zadnja nada
-              let finalImage = tour.image_url;
-              
-              if (!finalImage || finalImage === 'NULL' || finalImage.includes('scdn.co')) {
-                // Ako je link loš ili ga nema, pitaj Spotify API koristeći tvoj Client ID
-                const spotifyImg = await getArtistImage(tour.artist_name);
-                finalImage = spotifyImg || `https://images.unsplash.com/featured/?concert,${tour.artist_name.replace(/\s+/g, '')}`;
-              }
-
-              const url = tour.ticket_url?.toLowerCase() || '';
-              const isTicketmaster = url.includes('ticketmaster') || url.includes('livenation');
-              const isViagogo = url.includes('viagogo');
-              const isEventim = url.includes('eventim');
-
-              return (
-                <div key={tour.id} className="group flex flex-col md:flex-row items-center justify-between p-6 border border-white/5 rounded-[2.5rem] bg-zinc-900/10 backdrop-blur-md hover:border-yellow-500/20 transition-all duration-500">
-                  
-                  <div className="flex items-center gap-8 flex-1 w-full">
-                    {/* SLIKA ARTISTA */}
-                    <div className="relative w-28 h-28 flex-shrink-0 overflow-hidden rounded-[1.5rem] bg-zinc-800 shadow-2xl">
-                      <img 
-                        src={finalImage} 
-                        alt={tour.artist_name}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                      />
-                    </div>
-
-                    {/* INFORMACIJE */}
-                    <div>
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-3xl font-black uppercase tracking-tighter">{tour.artist_name}</h3>
-                        {isTicketmaster && (
-                          <span className="text-[7px] bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-1 rounded-full font-black uppercase">Live Nation Partner</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 text-zinc-500 text-[10px] font-bold uppercase tracking-widest">
-                        <span>{new Date(tour.event_date).toLocaleDateString('sr-RS')}</span>
-                        <span className="text-zinc-800">•</span>
-                        <span>{tour.venue}</span>
-                        <span className="text-zinc-800">•</span>
-                        <span className="text-white">{tour.city}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* DUGME ZA KUPOVINU */}
-                  <div className="mt-8 md:mt-0 flex flex-col items-end gap-3 w-full md:w-auto">
-                    <div className="text-right">
-                      <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mb-1">Tickets starting at</p>
-                      <p className="text-2xl font-black text-white leading-none">{tour.price}</p>
-                    </div>
-                    
-                    <a 
-                      href={tour.ticket_url} 
-                      target="_blank"
-                      rel="sponsored noopener noreferrer"
-                      className={`w-full md:w-64 py-5 rounded-full font-black uppercase text-[11px] tracking-[0.2em] transition-all text-center
-                        ${isViagogo ? 'bg-[#ff5722] text-white hover:shadow-[0_0_30px_rgba(255,87,34,0.3)]' : 
-                          isTicketmaster ? 'bg-[#026cdf] text-white hover:shadow-[0_0_30px_rgba(2,108,223,0.3)]' : 
-                          isEventim ? 'bg-[#002855] text-white hover:bg-sky-600' :
-                          'bg-yellow-500 text-black hover:bg-white'}
-                      `}
-                    >
-                      {isViagogo ? 'Resale Tickets' : 'Get Tickets'}
-                    </a>
-                  </div>
-
+      {dataZaPrikaz && dataZaPrikaz.length > 0 ? (
+        <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 px-4">
+          {dataZaPrikaz.map((grupa: any) => (
+            <div 
+              key={grupa.artist_name} 
+              className="w-full bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col"
+            >
+              {/* Slika se sada prikazuje jednom po bendu */}
+              {grupa.image_url && (
+                <div className="h-40 w-full overflow-hidden">
+                  <img 
+                    src={grupa.image_url} 
+                    alt={grupa.artist_name} 
+                    className="w-full h-full object-cover" 
+                  />
                 </div>
-              );
-            }))
-          ) : (
-            <div className="py-40 text-center">
-              <p className="text-zinc-600 font-black uppercase tracking-[0.5em]">No events scheduled for {regionName}</p>
+              )}
+              
+              <div className="p-4 flex flex-col flex-grow">
+                <h2 className="text-lg font-bold mb-3 text-gray-800">{grupa.artist_name}</h2>
+                
+                {/* Lista događaja za taj bend */}
+                <div className="space-y-3">
+                  {grupa.events.map((event: any) => (
+                    <div key={event.id} className="border-t pt-2 flex justify-between items-center text-xs text-gray-600">
+                      <div>
+                        <p>{event.date ? new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A'}</p>
+                        <p className="font-semibold">{event.location}</p>
+                      </div>
+                      <a 
+                        href={event.ticket_link} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="bg-black text-white px-3 py-1 rounded-md hover:bg-gray-800 transition"
+                      >
+                        Tickets
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
-          )}
+          ))}
         </div>
-      </div>
+      ) : (
+        <div className="text-center text-gray-500 py-20">
+          <p className="text-lg">No concerts found for this region.</p>
+        </div>
+      )}
     </div>
   );
-  }
+}

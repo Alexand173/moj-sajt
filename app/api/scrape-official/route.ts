@@ -43,26 +43,26 @@ export async function GET() {
   { url: 'https://www.magneticmag.com/category/news/', region: 'US' }, // Electronic
 
   // --- UK SOURCES (20 SAJTOVA) ---
-  { url: 'https://www.nme.com/news/music', region: 'UK' },
-  { url: 'https://www.clashmusic.com/news/', region: 'UK' },
-  { url: 'https://www.thelineofbestfit.com/news', region: 'UK' },
-  { url: 'https://diymag.com/news', region: 'UK' },
-  { url: 'https://www.gigwise.com/news/', region: 'UK' },
+  { url: 'https://www.nme.com/news/music', region: 'uk' },
+  { url: 'https://www.clashmusic.com/news/', region: 'uk' },
+  { url: 'https://www.thelineofbestfit.com/news', region: 'uk' },
+  { url: 'https://diymag.com/news', region: 'uk' },
+  { url: 'https://www.gigwise.com/news/', region: 'uk' },
   { url: 'https://mne.com/news/', region: 'UK' },
-  { url: 'https://www.loudersound.com/news', region: 'UK' }, // Classic Rock/Metal UK
-  { url: 'https://www.kerrang.com/feed', region: 'UK' }, // Rock/Punk
-  { url: 'https://www.residentadvisor.net/news', region: 'UK' }, // Electronic (UK based)
-  { url: 'https://www.mixmag.net/news', region: 'UK' }, // Dance/Club
-  { url: 'https://www.thequietus.com/news/', region: 'UK' }, // Indie/Experimental
-  { url: 'https://www.musicweek.com/news', region: 'UK' }, // Industry news
-  { url: 'https://www.uncut.co.uk/news/', region: 'UK' }, // Classic Indie
-  { url: 'https://www.clashmusic.com/category/news/uk-news/', region: 'UK' },
-  { url: 'https://www.rocksins.com/category/news/', region: 'UK' },
-  { url: 'https://www.standard.co.uk/culture/music', region: 'UK' }, // London based
-  { url: 'https://www.theguardian.com/music/music+tone/news', region: 'UK' },
-  { url: 'https://www.dorkmag.com/news/', region: 'UK' }, // Pop/Indie
-  { url: 'https://www.beatportal.com/news/', region: 'UK' }, // Beatport UK news
-  { url: 'https://www.list.co.uk/music/', region: 'UK' }, // Scottish/UK events
+  { url: 'https://www.loudersound.com/news', region: 'uk' }, // Classic Rock/Metal UK
+  { url: 'https://www.kerrang.com/feed', region: 'uk' }, // Rock/Punk
+  { url: 'https://www.residentadvisor.net/news', region: 'uk' }, // Electronic (UK based)
+  { url: 'https://www.mixmag.net/news', region: 'uk' }, // Dance/Club
+  { url: 'https://www.thequietus.com/news/', region: 'uk' }, // Indie/Experimental
+  { url: 'https://www.musicweek.com/news', region: 'uk' }, // Industry news
+  { url: 'https://www.uncut.co.uk/news/', region: 'uk' }, // Classic Indie
+  { url: 'https://www.clashmusic.com/category/news/uk-news/', region: 'uk' },
+  { url: 'https://www.rocksins.com/category/news/', region: 'uk' },
+  { url: 'https://www.standard.co.uk/culture/music', region: 'uk' }, // London based
+  { url: 'https://www.theguardian.com/music/music+tone/news', region: 'uk' },
+  { url: 'https://www.dorkmag.com/news/', region: 'uk' }, // Pop/Indie
+  { url: 'https://www.beatportal.com/news/', region: 'uk' }, // Beatport UK news
+  { url: 'https://www.list.co.uk/music/', region: 'uk' }, // Scottish/UK events
    // --- LATINO (20 SAJTOVA) ---
   { url: 'https://www.billboard.com/c/music/latin/', region: 'LATINO' },
   { url: 'https://remezcla.com/music/', region: 'LATINO' },
@@ -207,8 +207,8 @@ export async function GET() {
       const mixedData = uniqueData.sort(() => Math.random() - 0.5);
 
       const { error } = await supabase.from('news').upsert(mixedData, { 
-        onConflict: 'title',
-        ignoreDuplicates: false 
+      onConflict: 'url', // Promeni iz 'title' u 'url'
+      ignoreDuplicates: false 
       });
 
       if (error) throw error;
@@ -230,16 +230,17 @@ if (typeof require !== 'undefined' && require.main === module) {
   console.log("🔔 GitHub Actions detektovan. Ručno pokrećem Official Scraper...");
   GET()
     .then(async (res) => {
-      try {
-        const data = await res.json();
-        console.log("🏁 Završeno!", data);
-        process.exit(0);
-      } catch (e) {
-        process.exit(0);
+      const data = await res.json();
+      if (res.status === 200) {
+        console.log("🏁 Završeno uspešno!", data);
+        process.exit(0); // Sve je OK
+      } else {
+        console.error("❌ Završeno sa greškom!", data);
+        process.exit(1); // Ovo će označiti GitHub Action kao neuspešan (crveni X)
       }
     })
     .catch((err) => {
       console.error("💀 Kritična greška:", err);
-      process.exit(1);
+      process.exit(1); // Obavezno 1 za grešku
     });
 }

@@ -6,31 +6,35 @@ on:
   workflow_dispatch:
 
 jobs:
-  refresh:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      refresh:
+        runs-on: ubuntu-latest
+        steps:
+          - name: Checkout code
+            uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+          - name: Setup Node.js
+            uses: actions/setup-node@v4
+            with:
+              node-version: '20'
 
-      - name: Install dependencies
-        run: |
-          npm install
-          npm install -g tsx 
+          - name: Install dependencies
+            run: |
+              npm install
+              npm install -g tsx
 
-      - name: Run Fetch Script
-        run: npx tsx app/api/fetch-news/route.ts
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-          NEWS_API_KEY: ${{ secrets.NEWS_API_KEY }}
+          - name: Run Fetch Script
+            run: npx tsx app/api/fetch-news/route.ts
+            env:
+              SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+              SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+              # DODAJEMO MASTER KLJUČ ZA ZAOBILAŽENJE RLS-A:
+              SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+              NEWS_API_KEY: ${{ secrets.NEWS_API_KEY }}
 
-      - name: Run Official Scraper (100+ Sites)
-        run: npx tsx app/api/scrape-official/route.ts
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          - name: Run Official Scraper (100+ Sites)
+            run: npx tsx app/api/scrape-official/route.ts
+            env:
+              SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+              SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+              # DODAJEMO GA I ZA DRUGI SKREJPER AKO I ON PIŠE U BAZU:
+              SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

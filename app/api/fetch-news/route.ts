@@ -4,10 +4,11 @@ const parser = new RSSParser();
 // Inicijalizacija Supabase klijenta
 const supabaseUrl = process.env.SUPABASE_URL || '';
 // Koristimo SERVICE_ROLE_KEY za pisanje, a ANON_KEY kao rezervu
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 if (!supabaseUrl || !supabaseKey) {
-  console.error("❌ Greška: Nedostaju ključevi (URL ili KEY)!");
+  console.error("❌ Greška: Nedostaju ključevi (URL ili SERVICE_ROLE_KEY)!");
+  process.exit(1); // Prekidamo izvršavanje odmah ako ključevi nisu tu
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -73,13 +74,35 @@ export async function GET() {
     { name: 'Tomorrowland', region: 'us' },
   
 ];
+    ////////////////////////////////////////////////////////////////
+    const latinoArtisti = ['reggaeton latino', 'musica latina', 'latin music awards',
+  'Bad Bunny', 'Karol G', 'Myke Towers', 'Maluma', 'J Balvin', 
+  'Daddy Yankee', 'Ozuna', 'Feid', 'Rauw Alejandro', 'Farruko', 
+  'Peso Pluma', 'Becky G', 'Anuel AA', 'Manuel Turizo', 'Arcángel', 
+  'Chencho Corleone', 'Jhayco', 'Nicky Jam', 'Tainy', 'Yandel', 
+  'Fuerza Regida', 'Don Omar', 'Young Miko', 'Wisin', 'Carin Leon', 
+  'Ryan Castro', 'De la Ghetto', 'DJ Luian', 'Grupo Frontera', 'Darell', 
+  'Junior H', 'Ñengo Flow', 'Zion & Lennox', 'Sech', 'Bad Gyal', 
+  'MC Kevin o Chris', 'Tokischa', 'Emilia', 'Dennis DJ', 'Gabito Ballesteros', 
+  'Beéle', 'Romeo Santos', 'Natti Natasha', 'Justin Quiles', 'Jay Wheeler'
+];
+    const latinoQuery = latinoArtisti.join(' OR ');
+    
+    /////////////////////////////////////////////////////////////
+    
+    
+    
+    
+    
+    
+    
     
     
     
     const allResults = await Promise.all([
       fetchNews('music tour', 'us', apiKey),
       fetchNews('uk music news 2026 OR london music scene', 'uk', apiKey),
-      fetchNews('reggaeton latino', 'latino', apiKey),
+      fetchNews(latinoQuery, 'latino', apiKey),
       fetchNews('kpop music', 'asia', apiKey),
       fetchNews('europe music', 'europa', apiKey),
       fetchNews('world hits', 'world', apiKey),
