@@ -11,7 +11,16 @@ if (!supabaseUrl || !supabaseKey) {
   process.exit(1); // Prekidamo izvršavanje odmah ako ključevi nisu tu
 }
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    persistSession: false
+  },
+  realtime: {
+    // Koristimo "as any" da TypeScript ne pravi problem, 
+    // a Supabase Realtime se uspešno isključuje bez podizanja WebSocket konekcije
+    transport: null as any 
+  }
+});
 const MUSIC_KEYWORDS = [
   'music', 'concert', 'album', 'band', 'song', 'artist', 
   'tour', 'festival', 'singer', 'guitarist','drummer','rock band','metal band', 'dj', 'track', 'lyrics', 'kpop', 'jazz', 'reggaeton'
