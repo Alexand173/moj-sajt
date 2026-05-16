@@ -1,25 +1,40 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createServerClient } from '@supabase/ssr';
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get('code');
 
   if (code) {
-    // 1. Običan klijent koji služi da registruje samog korisnika u Authentication tabelu
-    const supabase = createClient(
+    const response = NextResponse.redirect(new URL('/', request.url));
+
+    // Kreiramo server klijent koji automatski ispravno postavlja kolačiće u response
+    const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll().map(({ name, value }) => ({ name, value }));
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              response.cookies.set(name, value, options)
+            );
+          },
+        },
+      }
     );
 
-    // Razmenjujemo kod za sesiju pod tim korisnikom
+    // Razmenjujemo kod za sesiju - ovo automatski upisuje korisnika u Auth i postavlja kolačiće
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error && data?.session?.user) {
       const user = data.session.user;
 
-      // 2. Admin klijent koji služi SAMO da uleti u profiles tabelu i zaobiđe RLS pravilo
+      // Koristimo direktan administratorski klijent samo za profil upis (zaobilaženje RLS-a)
+      const { createClient } = await import('@supabase/supabase-js');
       const supabaseAdmin = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -33,25 +48,9 @@ export async function GET(request: NextRequest) {
           first_name: user.user_metadata.full_name || user.user_metadata.first_name || 'Korisnik',
         }, { onConflict: 'id' });
 
-      // 3. Pravimo preusmeravanje na početnu stranu
-      const response = NextResponse.redirect(new URL('/', request.url));
-
-      // Postavljamo kolačiće kako bi i klijentski deo sajta prepoznao da smo ulogovani
-      response.cookies.set('sb-access-token', data.session.access_token, {
-        path: '/',
-        secure: true,
-        sameSite: 'lax',
-      });
-      response.cookies.set('sb-refresh-token', data.session.refresh_token, {
-        path: '/',
-        secure: true,
-        sameSite: 'lax',
-      });
-
       return response;
     }
   }
 
-  // Ako bilo šta pukne, vrati ga na početnu
   return NextResponse.redirect(new URL('/', request.url));
 }
