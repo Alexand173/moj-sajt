@@ -5,9 +5,9 @@ import { createServerClient } from '@supabase/ssr';
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get('code');
-
+let response = NextResponse.redirect(new URL('/', request.url));
   if (code) {
-    const response = NextResponse.redirect(new URL('/', request.url));
+    response = NextResponse.redirect(new URL('/', request.url));
 
     // Kreiramo server klijent koji automatski ispravno postavlja kolačiće u response
     const supabase = createServerClient(
@@ -52,5 +52,5 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.redirect(new URL('/', request.url));
+  return response;
 }
