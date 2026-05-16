@@ -92,16 +92,12 @@ export async function GET() {
     ];
     
     // Definišemo jednostavne upite za latino muziku koji daju stabilne rezultate na engleskom
-    const latinoUpit1 = '"latin Billboard"';
-    const latinoUpit2 = '"latin music hits"';
+
     
     const allResults = await Promise.all([
       fetchNews('music tour', 'us', apiKey),
       fetchNews('uk music news 2026 OR london music scene', 'uk', apiKey),
-
-      fetchNews(latinoUpit1, 'latino', apiKey),
-      fetchNews(latinoUpit2, 'latino', apiKey),
-
+      fetchNews('reggaeton OR shakira OR "bad bunny" OR "latin music"', 'latino', apiKey),
       fetchNews('kpop music', 'asia', apiKey),
       fetchNews('europe music', 'europa', apiKey),
       fetchNews('world hits', 'world', apiKey),

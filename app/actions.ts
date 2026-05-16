@@ -89,7 +89,7 @@ export async function savePost(formData: FormData) {
   const file = formData.get('post_image') as File | null;
   const region = formData.get('region') as string;
   const title = formData.get('title') as string;
-  const author = formData.get('author') as string;
+  const authorId = formData.get('author_id') as string; // <-- Čitamo ID umesto imena
   const content = formData.get('content') as string;
 
 // 1. Provera broja karaktera (npr. limit 1000)
@@ -138,7 +138,7 @@ export async function savePost(formData: FormData) {
   const { error: dbError } = await supabase.from('community_posts').insert([{ 
     region, 
     title, 
-    author, 
+    author_id: authorId, // <-- Upisujemo ID uvezanog korisnika!
     content, 
     post_image: publicUrlData.publicUrl ,
     password_check: 'moj_koment_202!' // <--- OVO DODAJ (mora biti ista šifra kao u Supabase Editoru)

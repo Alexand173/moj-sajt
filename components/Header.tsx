@@ -1,6 +1,8 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import HeaderAuth from '@/components/HeaderAuth';
+
 
 export default function Header() {
   const pathname = usePathname();
@@ -26,9 +28,9 @@ export default function Header() {
   const regions = [
     { name: 'US', slug: 'us' },
     { name: 'UK', slug: 'uk' },
+    { name: 'EUROPA', slug: 'europa' }, 
     { name: 'LATINO', slug: 'latino' },
     { name: 'ASIA', slug: 'asia' },
-    { name: 'EUROPA', slug: 'europa' },
     { name: 'WORLD', slug: 'world' },
     { name: 'JAZZ', slug: 'jazz' },
     { name: 'CLASSICAL', slug: 'classical' }
@@ -53,10 +55,10 @@ export default function Header() {
   ];
 
   // 3. Pomoćne funkcije za dinamiku
- const getBasePath = () => {
+  const getBasePath = () => {
     if (pathname.includes('/news')) return 'news';
     if (pathname.includes('/tours')) return 'tours';
-    if (pathname.includes('/festivals')) return 'festivals'; // Ovo gađa tvoj folder sa slike
+    if (pathname.includes('/festivals')) return 'festivals'; 
     return 'region'; 
   };
 
@@ -67,89 +69,94 @@ export default function Header() {
   return (
     <header className="fixed top-0 left-0 w-full z-[100] bg-black border-b border-white/10">
       
-    {/* RED 1: LOGO I GLAVNI MENI - Centrirano */}
-<div className="w-full border-b border-white/5">
-  <div className="max-w-[1200px] mx-auto px-4 py-3 flex items-center justify-center gap-6 md:gap-10">
+{/* RED 1: LOGO, GLAVNI MENI I AUTH (Potpuno bezbedan za klikove i centriran) */}
+<div className="w-full border-b border-white/5 bg-black relative z-[50]">
+  <div className="max-w-[1400px] mx-auto px-4 py-3 flex flex-wrap md:flex-nowrap items-center justify-center gap-x-6 gap-y-2 relative z-[60]">
     
-    {/* LOGO */}
- <Link href="/" className="text-xl md:text-2xl font-black italic tracking-tighter uppercase transition-colors">
-  {/* Reč MUSIC sada dobija sivu boju (zinc-400) kada ljubičasto svetlo nije aktivno */}
-  <span className={
-    pathname === "/" || (pathname.startsWith("/region/") && !pathname.includes("/news") && !pathname.includes("/reviews") && !pathname.includes("/festivals") && !pathname.includes("/tours")) 
-    ? "text-white" 
-    : "text-zinc-400"
-  }>
-    MUSIC
-  </span>
+    {/* ZAJEDNIČKI CENTRIRANI NIZ - SADA DOZVOLJAVA PROLAZ KLIKOVA */}
+    <div className="flex flex-wrap md:flex-nowrap items-center justify-center gap-x-5 gap-y-2 min-w-0 pointer-events-auto relative z-[70]">
+      
+      {/* 1. LOGO */}
+      <Link href="/" className="text-xl md:text-2xl font-black italic tracking-tighter uppercase transition-colors shrink-0 relative z-[80]">
+        <span className={
+          pathname === "/" || (pathname.startsWith("/region/") && !pathname.includes("/news") && !pathname.includes("/reviews") && !pathname.includes("/festivals") && !pathname.includes("/tours")) 
+          ? "text-white" 
+          : "text-zinc-400"
+        }>
+          MUSIC
+        </span>
+        <span className={
+          pathname === "/" || (pathname.startsWith("/region/") && !pathname.includes("/news") && !pathname.includes("/reviews") && !pathname.includes("/festivals") && !pathname.includes("/tours")) 
+          ? "text-purple-600" 
+          : "text-white"
+        }>
+          TOP
+        </span>
+      </Link>
 
-  {/* Reč TOP prati istu logiku: ljubičasta na home/charts, bela na ostalim stranicama */}
-  <span className={
-    pathname === "/" || (pathname.startsWith("/region/") && !pathname.includes("/news") && !pathname.includes("/reviews") && !pathname.includes("/festivals") && !pathname.includes("/tours")) 
-    ? "text-purple-600" 
-    : "text-white"
-  }>
-    TOP
-  </span>
-</Link>
+      {/* 2. NAVIGACIJA */}
+      <nav className="flex items-center gap-3 md:gap-5 overflow-x-auto no-scrollbar py-1 shrink min-w-0 relative z-[80]">
+        {pages.map((p) => {
+          const isActive = pathname.startsWith(`/${p.href.split('/')[1]}`);
+          return (
+            <Link 
+              key={p.name} 
+              href={p.href} 
+              className={`text-[10px] font-black tracking-tighter whitespace-nowrap transition-all ${
+                isActive ? 'text-purple-500' : 'text-zinc-500 hover:text-white'
+              }`}
+            >
+              {p.name === 'MTA' && "🏆 "}
+              {p.name}
+            </Link>
+          );
+        })}
+      </nav>
 
-    {/* NAVIGACIJA - Sada stoji odmah pored logoa */}
-    <nav className="flex items-center gap-3 md:gap-6 overflow-x-auto no-scrollbar shrink-0">
-      {pages.map((p) => {
-        const isActive = pathname.startsWith(`/${p.href.split('/')[1]}`);
-        return (
-          <Link 
-            key={p.name} 
-            href={p.href} 
-            className={`text-[10px] font-black tracking-tighter whitespace-nowrap transition-all ${
-              isActive ? 'text-purple-500' : 'text-zinc-500 hover:text-white'
-            }`}
-          >
-            {p.name === 'MTA' && "🏆 "}
-            {p.name}
-          </Link>
-        );
-      })}
-    </nav>
+      {/* 3. AUTH DEO - IZVUČEN NA NAJVIŠI SLOJ DA BI KLIK RADEO 100% */}
+      <div className="shrink-0 border-l border-white/10 pl-4 md:pl-5 relative z-[999] pointer-events-auto">
+        <HeaderAuth />
+      </div>
+
+    </div>
+
   </div>
 </div>
 
-     {/* 2. RED: REGIONI */}
-{showRegions && (
-  <div className="bg-zinc-900/50 border-t border-white/5 py-2 overflow-x-auto">
-    <div className="flex justify-center gap-4 md:gap-8 px-6 min-w-max">
-     {regions.map((r) => {
-  const isActive = pathname.includes(`/${r.slug}`);
-  const base = getBasePath();
-  
-  let finalHref = '';
+      {/* 2. RED: REGIONI */}
+      {showRegions && (
+        <div className="bg-zinc-900/50 border-t border-white/5 py-2 overflow-x-auto">
+          <div className="flex justify-center gap-4 md:gap-8 px-6 min-w-max">
+            {regions.map((r) => {
+              const isActive = pathname.includes(`/${r.slug}`);
+              const base = getBasePath();
+              
+              let finalHref = '';
 
-  if (base === 'festivals') {
-    // Ako smo u festivalima, šaljemo na /festivals/us (što puni [regionName])
-    finalHref = `/festivals/${r.slug}`;
-  } else if (base === 'region') {
-    // Ako smo u top listama, dodajemo žanr (rock ili j-pop)
-    const defaultGenre = r.slug === 'asia' ? 'j-pop' : 'rock';
-    finalHref = `/region/${r.slug}/${defaultGenre}`;
-  } else {
-    // Za News, Tours itd.
-    finalHref = `/${base}/${r.slug}`;
-  }
+              if (base === 'festivals') {
+                finalHref = `/festivals/${r.slug}`;
+              } else if (base === 'region') {
+                const defaultGenre = r.slug === 'asia' ? 'j-pop' : 'rock';
+                finalHref = `/region/${r.slug}/${defaultGenre}`;
+              } else {
+                finalHref = `/${base}/${r.slug}`;
+              }
 
-  return (
-    <Link 
-      key={r.slug} 
-      href={finalHref}
-      className={`text-[10px] font-bold tracking-widest px-3 py-1 transition-all ${
-        isActive ? 'text-white border-b-2 border-purple-500' : 'text-zinc-600 hover:text-zinc-300'
-      }`}
-    >
-      {r.name}
-    </Link>
-  );
-})}
-    </div>
-  </div>
-)}
+              return (
+                <Link 
+                  key={r.slug} 
+                  href={finalHref}
+                  className={`text-[10px] font-bold tracking-widest px-3 py-1 transition-all ${
+                    isActive ? 'text-white border-b-2 border-purple-500' : 'text-zinc-600 hover:text-zinc-300'
+                  }`}
+                >
+                  {r.name}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* RED 3: ŽANROVI */}
       {showGenres && (

@@ -1,37 +1,89 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, use } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import SongCard from '@/components/SongCard';
 import SuggestionForm from '@/components/SuggestionForm';
 import SuggestionList from '@/components/SuggestionList';
+import AdSenseBanner from '@/components/AdSenseBanner';
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-export default function USPage() {
-  // Rešena TypeScript greška dodavanjem <any[]>
+interface PageProps {
+  params: Promise<{ 
+    regionName: string;
+  }>;
+}
+
+export default function RegionalPage({ params }: PageProps) {
+  // 1. Preuzimanje parametra za regiju
+  const resolvedParams = use(params);
+  const region = resolvedParams.regionName.toUpperCase(); // npr. "US", "EUROPA", "ASIA"
+
   const [songs, setSongs] = useState<any[]>([]);
   const [selectedSong, setSelectedSong] = useState<any>(null);
 
+  // 2. Povlačenje 100 najboljih pesama iz baze
   useEffect(() => {
-    async function fetchUSCharts() {
+    async function fetchCharts() {
       const { data } = await supabase
         .from('songs')
         .select('*')
-        .eq('region', 'US')
+        .eq('region', region)
         .order('votes', { ascending: false })
         .limit(100);
       setSongs(data || []);
     }
-    fetchUSCharts();
-  }, []);
+    fetchCharts();
+  }, [region]);
 
-  // Funkcija koja pravi embed link koristeći tvoj youtube_id iz baze
   const getVideoSrc = (id: string) => {
     if (!id) return null;
     return `https://www.youtube.com/embed/${id}`;
   };
+
+  // 3. Mapiranje oglasnih jedinica (AdSense Slot ID) po regijama
+  const adSlots: Record<string, { top: string; mid1: string; mid2: string; mid3: string; bottom: string }> = {
+    "US": {
+      top: "1000000001",
+      mid1: "1000000002",
+      mid2: "1000000003",
+      mid3: "1000000004",
+      bottom: "1000000005"
+    },
+    "EUROPA": {
+      top: "2000000001",
+      mid1: "2000000002",
+      mid2: "2000000003",
+      mid3: "2000000004",
+      bottom: "2000000005"
+    },
+    "LATINO": {
+      top: "3000000001",
+      mid1: "3000000002",
+      mid2: "3000000003",
+      mid3: "3000000004",
+      bottom: "3000000005"
+    },
+    "ASIA": {
+      top: "4000000001",
+      mid1: "4000000002",
+      mid2: "4000000003",
+      mid3: "4000000004",
+      bottom: "4000000005"
+    },
+    "DEFAULT": {
+      top: "0000000001",
+      mid1: "0000000002",
+      mid2: "0000000003",
+      mid3: "0000000004",
+      bottom: "0000000005"
+    }
+  };
+
+  const trenutniSlotovi = adSlots[region] || adSlots.DEFAULT;
 
   return (
     <div className="min-h-screen bg-[#050505] text-white pt-32 pb-20 px-4 md:px-10">
@@ -39,9 +91,12 @@ export default function USPage() {
         
         {/* NASLOV STRANICE */}
         <div className="mb-12 border-l-4 border-red-600 pl-6">
-          <h1 className="text-6xl font-black italic tracking-tighter uppercase">US TOP 100</h1>
-          <p className="text-zinc-500 tracking-[0.5em] text-[10px] font-bold uppercase">Official United States Chart</p>
+          <h1 className="text-6xl font-black italic tracking-tighter uppercase">{region} TOP 100</h1>
+          <p className="text-zinc-500 tracking-[0.5em] text-[10px] font-bold uppercase">Official {region} Chart</p>
         </div>
+
+        {/* --- 1. REKLAMA: ISPOD NASLOVA --- */}
+        <AdSenseBanner adSlot={trenutniSlotovi.top} />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           
@@ -104,29 +159,79 @@ export default function USPage() {
             <span>Rank & Artist</span>
             <span>MTA Points</span>
           </div>
-          {songs.slice(3).map((song, i) => (
-            <div 
-              key={song.id} 
-              onClick={() => setSelectedSong(song)}
-              className="flex items-center justify-between p-5 bg-white/[0.02] border border-white/5 rounded-2xl hover:bg-zinc-900 transition-all cursor-pointer group"
-            >
-              <div className="flex items-center gap-8">
-                <span className="text-zinc-800 font-black italic text-lg w-8">{(i + 4).toString().padStart(2, '0')}</span>
-                <div>
-                  <h4 className="font-bold uppercase group-hover:text-red-500 transition-colors tracking-tight">{song.title}</h4>
-                  <p className="text-[10px] text-zinc-500 uppercase font-medium">{song.artist_name}</p>
+
+          {songs.slice(3).map((song, i) => {
+            const trenutnaPozicija = i + 4; 
+
+            return (
+              <div key={song.id}>
+                {/* Kartica pesme */}
+                <div 
+                  onClick={() => setSelectedSong(song)}
+                  className="flex items-center justify-between p-5 bg-white/[0.02] border border-white/5 rounded-2xl hover:bg-zinc-900 transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center gap-8">
+                    <span className="text-zinc-800 font-black italic text-lg w-8">{trenutnaPozicija.toString().padStart(2, '0')}</span>
+                    <div>
+                      <h4 className="font-bold uppercase group-hover:text-red-500 transition-colors tracking-tight">{song.title}</h4>
+                      <p className="text-[10px] text-zinc-500 uppercase font-medium">{song.artist_name}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-10">
+                    <span className="text-[10px] font-bold text-zinc-700 bg-white/5 px-3 py-1 rounded-md uppercase">{song.genre}</span>
+                    <span className="text-lg font-mono font-black text-zinc-400 group-hover:text-white">{song.votes.toLocaleString()}</span>
+                    <div className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center group-hover:bg-red-600 group-hover:border-red-600 transition-all">
+                      <span className="text-[10px]">▶</span>
+                    </div>
+                  </div>
                 </div>
+
+                {/* --- 2. REKLAMA: Nakon 25. mesta --- */}
+                {trenutnaPozicija === 25 && (
+                  <div className="py-4">
+                    <AdSenseBanner adSlot={trenutniSlotovi.mid1} />
+                  </div>
+                )}
+
+                {/* --- 3. REKLAMA: Nakon 50. mesta --- */}
+                {trenutnaPozicija === 50 && (
+                  <div className="py-4">
+                    <AdSenseBanner adSlot={trenutniSlotovi.mid2} />
+                  </div>
+                )}
+
+                {/* --- 4. REKLAMA: Nakon 75. mesta --- */}
+                {trenutnaPozicija === 75 && (
+                  <div className="py-4">
+                    <AdSenseBanner adSlot={trenutniSlotovi.mid3} />
+                  </div>
+                )}
               </div>
-              <div className="flex items-center gap-10">
-                <span className="text-[10px] font-bold text-zinc-700 bg-white/5 px-3 py-1 rounded-md uppercase">{song.genre}</span>
-                <span className="text-lg font-mono font-black text-zinc-400 group-hover:text-white">{song.votes.toLocaleString()}</span>
-                <div className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center group-hover:bg-red-600 group-hover:border-red-600 transition-all">
-                  <span className="text-[10px]">▶</span>
-                </div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
+
+        {/* --- 5. REKLAMA: NA SAMOM DNU LISTE PESAMA --- */}
+        <div className="mt-12">
+          <AdSenseBanner adSlot={trenutniSlotovi.bottom} />
+        </div>
+
+       {/* --- SEKCIJA ZA PREDLOGE (Suggestion Form & List) --- */}
+          <div className="mt-24 grid grid-cols-1 lg:grid-cols-3 gap-12 border-t border-white/5 pt-16">
+            
+            {/* Leva kolona: Naslov i objašnjenje */}
+            <div className="lg:col-span-1">
+              <h2 className="text-3xl font-black italic uppercase tracking-tight mb-4">Predloži pesmu</h2>
+              <p className="text-zinc-500 text-sm mb-8">Is your favorite song missing? Suggest it now!</p>
+            </div>
+
+            {/* Desne dve kolone: Naša pametna komponenta koja prikazuje i naslov i celu listu predloga */}
+            <div className="lg:col-span-2">
+              <SuggestionForm region={region} />
+            </div>
+
+          </div>
+
       </div>
 
       {/* --- POP-UP MODAL PROZOR --- */}

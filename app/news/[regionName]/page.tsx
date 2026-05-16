@@ -4,31 +4,64 @@ import Link from 'next/link';
 import AddPostTrigger from '@/components/AddPostTrigger';
 import AddCommentTrigger from '@/components/AddCommentTrigger';
 import AddAlbumTrigger from '@/components/AddAlbumTrigger';
+// Uvozimo AlbumGallery za prelistavanje i lightbox efekat
+import AlbumGallery from '@/components/AlbumGallery';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export default async function BillboardNewsPage({ 
-  params, 
-  searchParams 
-}: { 
+export default async function BillboardNewsPage({
+  params,
+  searchParams
+}: {
   params: Promise<{ regionName: string }>;
   searchParams: Promise<{ [key: string]: string | undefined }>;
 }) {
   noStore();
   const { regionName } = await params;
-  const { blogId, albumId } = await searchParams; 
-  
+  const { blogId, albumId } = await searchParams;
+ 
   const region = regionName.toLowerCase();
 
   const [officialRes, latestRes, blogRes, discRes, concertRes] = await Promise.all([
     supabase.from('news').select('*').eq('region', region).eq('category', 'OFFICIAL').order('created_at', { ascending: false }).limit(50),
     supabase.from('news').select('*').eq('region', region).eq('category', 'LATEST').order('created_at', { ascending: false }).limit(12),
-    supabase.from('community_posts').select('*').eq('region', region).order('created_at', { ascending: false }).limit(3),
+    supabase
+  .from('community_posts')
+  .select(`
+    id,
+    title,
+    content,
+    created_at,
+    region,
+    post_image,
+    author_id,
+    profiles (
+      first_name,
+      avatar_url
+    )
+  `)
+  .eq('region', region)
+  .order('created_at', { ascending: false })
+  .limit(3),
     supabase.from('discussions').select('*').eq('region', region).order('created_at', { ascending: false }).limit(3),
-    supabase.from('concert_albums').select('*').eq('region', region).order('created_at', { ascending: false }).limit(4)
+    supabase.from('concert_albums').select(`
+        id,
+        album_name,
+        created_at,
+        region,
+        images,
+        author_id,
+        profiles (
+          first_name,
+          avatar_url
+        )
+      `)
+      .eq('region', region)
+      .order('created_at', { ascending: false })
+      .limit(4)
   ]);
 
   const officialNews = officialRes.data || [];
@@ -42,12 +75,11 @@ export default async function BillboardNewsPage({
 
   const featuredNews = latestNews[0];
   const otherNews = latestNews.slice(1);
-{/* Dodaj ovo pre return ili direktno iznad map-a */}
-{console.log("Šta je u images:", activeAlbum?.images)}
+
   return (
     <div className="min-h-screen bg-white text-black pt-2 pb-5 font-sans uppercase font-black">
       <div className="max-w-[1700px] mx-auto px-6">
-        
+       
         <div className="border-b-[4px] border-black mt-4 mb-6 pb-2 flex justify-between items-end">
           <Link href={`/news/${region}`}>
             <h1 className="text-5xl font-bold leading-none tracking-tighter uppercase">
@@ -58,7 +90,7 @@ export default async function BillboardNewsPage({
         </div>
 
         <div className="flex flex-col lg:grid lg:grid-cols-12 gap-12">
-          
+         
           {/* LEVA KOLONA */}
           <aside className="order-3 lg:order-none lg:col-span-3 border-t-4 lg:border-t-0 lg:border-r-4 border-black pt-10 lg:pt-0 lg:pr-8 mt-10 lg:mt-0">
             <h2 className="text-2xl bg-black text-white px-3 py-1 inline-block mb-10 tracking-widest uppercase">
@@ -83,11 +115,9 @@ export default async function BillboardNewsPage({
                   &larr; BACK TO FEED
                 </Link>
                 <h1 className="text-4xl font-black uppercase mb-6">{activeAlbum.album_name}</h1>
-                <div className="grid grid-cols-2 gap-4">
-                  {activeAlbum.images?.map((img: string, i: number) => (
-                    <img key={i} src={img} className="w-full aspect-square object-cover border-2 border-black" alt="Album" />
-                  ))}
-                </div>
+                
+                {/* OVDE JE UBACEN ALBUM GALLERY SA MEHANIZMOM KLIK-ZA-FULLSIZE I DESNIM SKROLOVANJEM */}
+                <AlbumGallery images={activeAlbum.images || []} albumName={activeAlbum.album_name} />
               </div>
             ) : activeBlog ? (
               <div className="bg-white p-6 border-4 border-black">
@@ -139,7 +169,11 @@ export default async function BillboardNewsPage({
                 <AddPostTrigger region={region} />
                 <div className="space-y-6 mt-6">
                   {communityPosts.map((post) => {
-                    const initials = post.author?.charAt(0).toUpperCase() || '?';
+                    const profile = Array.isArray(post.profiles) ? post.profiles[0] : post.profiles;
+                    const authorName = profile?.first_name || 'ANONYMOUS';
+                    const authorAvatar = profile?.avatar_url;
+                    const initials = authorName.charAt(0).toUpperCase() || '?';
+
                     return (
                       <Link key={post.id} href={`/news/${region}?blogId=${post.id}`} className="group block">
                         <div className="flex gap-3 items-start">
@@ -151,8 +185,18 @@ export default async function BillboardNewsPage({
                           <div className="flex-1">
                             <p className="font-bold text-sm leading-tight group-hover:text-purple-600 transition underline decoration-2">"{post.title}"</p>
                             <div className="flex items-center gap-2 mt-1">
-                              <div className="w-4 h-4 bg-black rounded-full flex items-center justify-center text-[8px] text-white font-bold">{initials}</div>
-                              <p className="text-[10px] text-zinc-500 uppercase font-medium">@{post.author}</p>
+                              {authorAvatar ? (
+                                <img 
+                                  src={authorAvatar} 
+                                  alt={authorName} 
+                                  className="w-4 h-4 rounded-full border border-black object-cover"
+                                />
+                              ) : (
+                                <div className="w-4 h-4 bg-black rounded-full flex items-center justify-center text-[8px] text-white font-bold">
+                                  {initials}
+                                </div>
+                              )}
+                              <p className="text-[10px] text-zinc-500 uppercase font-medium">@{authorName.toLowerCase()}</p>
                             </div>
                           </div>
                         </div>

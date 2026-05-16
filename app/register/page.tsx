@@ -1,0 +1,136 @@
+'use client';
+
+import { useState } from 'react';
+import { supabase } from '@/lib/supabase'; // Uvozimo direktno tvoj supabase klijent
+import Link from 'next/link';
+
+export default function RegisterPage() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage('');
+
+    // Koristimo uvezeni supabase objekat
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          first_name: firstName,
+          last_name: lastName,
+          avatar_url: avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150',
+        },
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+
+    setLoading(false);
+
+    if (error) {
+      setMessage(`ERROR: ${error.message.toUpperCase()}`);
+    } else {
+      setMessage('SUCCESS: CHECK YOUR EMAIL TO CONFIRM REGISTRATION!');
+      setEmail('');
+      setPassword('');
+      setFirstName('');
+      setLastName('');
+      setAvatarUrl('');
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-black text-white flex items-center justify-center px-4 font-sans uppercase font-black py-12">
+      <div className="max-w-md w-full border-4 border-white p-8 bg-zinc-950 shadow-[8px_8px_0px_0px_rgba(147,51,234,1)]">
+        <h2 className="text-3xl font-black tracking-tighter mb-6 text-center border-b-4 border-white pb-4 text-white">
+          JOIN THE FEED
+        </h2>
+
+        {message && (
+          <div className="p-3 border-2 border-purple-500 bg-purple-950/50 text-purple-300 text-xs font-bold mb-6">
+            {message}
+          </div>
+        )}
+
+        <form onSubmit={handleRegister} className="space-y-4 text-left">
+          <div>
+            <label className="block text-xs font-bold mb-1 text-zinc-400">FIRST NAME</label>
+            <input
+              type="text"
+              required
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              className="w-full p-2 border-2 border-zinc-800 bg-zinc-900 focus:border-purple-500 focus:outline-none text-sm font-medium normal-case text-white"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold mb-1 text-zinc-400">LAST NAME</label>
+            <input
+              type="text"
+              required
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              className="w-full p-2 border-2 border-zinc-800 bg-zinc-900 focus:border-purple-500 focus:outline-none text-sm font-medium normal-case text-white"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold mb-1 text-zinc-400">AVATAR URL (OPTIONAL)</label>
+            <input
+              type="url"
+              placeholder="https://..."
+              value={avatarUrl}
+              onChange={(e) => setAvatarUrl(e.target.value)}
+              className="w-full p-2 border-2 border-zinc-800 bg-zinc-900 focus:border-purple-500 focus:outline-none text-sm font-medium normal-case text-white"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold mb-1 text-zinc-400">EMAIL ADDRESS</label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full p-2 border-2 border-zinc-800 bg-zinc-900 focus:border-purple-500 focus:outline-none text-sm font-medium normal-case text-white"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold mb-1 text-zinc-400">PASSWORD</label>
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full p-2 border-2 border-zinc-800 bg-zinc-900 focus:border-purple-500 focus:outline-none text-sm font-medium normal-case text-white"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3 bg-purple-600 text-white border-2 border-white hover:bg-white hover:text-black transition duration-300 font-bold"
+          >
+            {loading ? 'CREATING ACCOUNT...' : 'REGISTER'}
+          </button>
+        </form>
+
+        <p className="text-center text-xs mt-6 text-zinc-400">
+          ALREADY REGISTERED?{' '}
+          <Link href="/login" className="underline hover:text-purple-500 text-white">
+            LOG IN HERE
+          </Link>
+        </p>
+      </div>
+    </div>
+  );
+}
