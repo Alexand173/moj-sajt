@@ -4,6 +4,9 @@ import "./globals.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Script from "next/script"; // <-- 1. Uvozimo Next.js Script komponentu
+import { Analytics } from '@vercel/analytics/react';
+import { GoogleAnalytics } from '@next/third-parties/google';
+
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -42,6 +45,10 @@ export default function RootLayout({
         </main>
 
         <Footer />
+
+        {/* --- OVDE NA SAMO DNO, ODMAH IZNAD </body>, DODAJEMO OBE ANALITIKE --- */}
+        <Analytics />
+        <GoogleAnalytics gaId="G-XXXXXX" /> {/* <-- Ovde posle upiši svoj pravi Google ID */}
       </body>
     </html>
   );
