@@ -13,12 +13,27 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
+  // Funkcija za brzu registraciju preko Google-a i Facebook-a
+  const handleSocialSignUp = async (providerName: 'google' | 'facebook') => {
+    setMessage('');
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: providerName,
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+
+    if (error) {
+      setMessage(`ERROR: ${error.message.toUpperCase()}`);
+    }
+  };
+
+  // Tvoja funkcija za ručnu registraciju
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setMessage('');
 
-    // Koristimo uvezeni supabase objekat
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -54,11 +69,37 @@ export default function RegisterPage() {
         </h2>
 
         {message && (
-          <div className="p-3 border-2 border-purple-500 bg-purple-950/50 text-purple-300 text-xs font-bold mb-6">
+          <div className="p-3 border-2 border-purple-500 bg-purple-950/50 text-purple-300 text-xs font-bold mb-6 normal-case">
             {message}
           </div>
         )}
 
+        {/* --- SEKCIJA ZA BRZU REGISTRACIJU (GOOGLE & FACEBOOK) --- */}
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <button
+            onClick={() => handleSocialSignUp('google')}
+            type="button"
+            className="py-2.5 border-2 border-zinc-800 bg-zinc-900 hover:border-white hover:bg-zinc-800 transition text-xs font-bold tracking-tight text-center text-white cursor-pointer"
+          >
+            GOOGLE
+          </button>
+          <button
+            onClick={() => handleSocialSignUp('facebook')}
+            type="button"
+            className="py-2.5 border-2 border-zinc-800 bg-zinc-900 hover:border-white hover:bg-zinc-800 transition text-xs font-bold tracking-tight text-center text-white cursor-pointer"
+          >
+            FACEBOOK
+          </button>
+        </div>
+
+        {/* --- LINIJA RAZDELNIK --- */}
+        <div className="flex items-center text-center text-zinc-500 text-[10px] tracking-widest mb-6">
+          <div className="flex-1 h-[2px] bg-zinc-800"></div>
+          <span className="px-3 font-bold">OR ENTER DETAILS MANUALLY</span>
+          <div className="flex-1 h-[2px] bg-zinc-800"></div>
+        </div>
+
+        {/* --- RUČNA FORMA --- */}
         <form onSubmit={handleRegister} className="space-y-4 text-left">
           <div>
             <label className="block text-xs font-bold mb-1 text-zinc-400">FIRST NAME</label>
@@ -118,7 +159,7 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-purple-600 text-white border-2 border-white hover:bg-white hover:text-black transition duration-300 font-bold"
+            className="w-full py-3 bg-purple-600 text-white border-2 border-white hover:bg-white hover:text-black transition duration-300 font-bold cursor-pointer"
           >
             {loading ? 'CREATING ACCOUNT...' : 'REGISTER'}
           </button>

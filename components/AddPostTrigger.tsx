@@ -52,7 +52,7 @@ export default function CommunityPage({ region }: { region: string }) {
 
           >
 
-            Odustani
+            Cancel
 
           </button>
 
