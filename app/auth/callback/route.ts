@@ -7,19 +7,24 @@ export async function GET(request: NextRequest) {
   const code = requestUrl.searchParams.get('code');
 
   if (code) {
-    // Koristimo SERVICE_ROLE_KEY da zaobiđemo RLS restrikcije tokom same registracije
-    const supabaseAdmin = createClient(
+    // 1. Običan klijent koji služi da registruje samog korisnika u Authentication tabelu
+    const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
 
-    // 1. Razmeni kod za sesiju
-    const { data, error } = await supabaseAdmin.auth.exchangeCodeForSession(code);
+    // Razmenjujemo kod za sesiju pod tim korisnikom
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error && data?.session?.user) {
       const user = data.session.user;
 
-      // 2. Upisujemo profil koristeći admin privilegije (Ruter prolazi RLS)
+      // 2. Admin klijent koji služi SAMO da uleti u profiles tabelu i zaobiđe RLS pravilo
+      const supabaseAdmin = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+
       await supabaseAdmin
         .from('profiles')
         .upsert({
@@ -28,9 +33,10 @@ export async function GET(request: NextRequest) {
           first_name: user.user_metadata.full_name || user.user_metadata.first_name || 'Korisnik',
         }, { onConflict: 'id' });
 
-      // 3. Pravimo odgovor i ručno ubacujemo kolačiće u brauzer
+      // 3. Pravimo preusmeravanje na početnu stranu
       const response = NextResponse.redirect(new URL('/', request.url));
 
+      // Postavljamo kolačiće kako bi i klijentski deo sajta prepoznao da smo ulogovani
       response.cookies.set('sb-access-token', data.session.access_token, {
         path: '/',
         secure: true,
@@ -46,6 +52,6 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Ako bilo šta omane, bezbedno vrati korisnika na početnu stranu
+  // Ako bilo šta pukne, vrati ga na početnu
   return NextResponse.redirect(new URL('/', request.url));
 }
