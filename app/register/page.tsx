@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { supabase } from '@/lib/supabase'; // Uvozimo direktno tvoj supabase klijent
+import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 
 export default function RegisterPage() {
@@ -13,42 +13,47 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
-  // Funkcija za brzu registraciju preko Google-a i Facebook-a
+  const getRedirectUrl = () => {
+    if (typeof window !== 'undefined') {
+      return window.location.hostname.includes('localhost')
+        ? 'http://localhost:3000/auth/callback'
+        : 'https://www.musictop.net/auth/callback';
+    }
+    // fallback (should not happen in client component)
+    return 'https://www.musictop.net/auth/callback';
+  };
+
   const handleSocialSignUp = async (providerName: 'google' | 'facebook') => {
-  if (typeof window === 'undefined') return;
+    setLoading(true);
+    const redirectTo = getRedirectUrl();
 
-  const isProduction = !window.location.hostname.includes('localhost');
-  const targetRedirect = isProduction 
-    ? 'https://www.musictop.net/auth/callback' 
-    : 'http://localhost:3000/auth/callback';
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: providerName,
+      options: {
+        redirectTo,
+        queryParams:
+          providerName === 'google'
+            ? {
+                access_type: 'offline',
+                prompt: 'consent',
+              }
+            : undefined,
+      },
+    });
 
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider: providerName,
-    options: {
-      redirectTo: targetRedirect, // 🔥 Prisilna putanja rešava problem sa modalom
-      queryParams: providerName === 'google' ? {
-        access_type: 'offline',
-        prompt: 'consent',
-      } : undefined,
-    },
-  });
+    if (error) {
+      setMessage(`ERROR: ${error.message.toUpperCase()}`);
+      setLoading(false); // only set loading false if we stay on page
+    }
+    // If successful, browser will redirect – no need to setLoading(false)
+  };
 
-  if (error) {
-    console.error(`REGISTER ERROR: ${error.message.toUpperCase()}`);
-  }
-};
-
-  // Tvoja funkcija za ručnu registraciju
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setMessage('');
 
-    // Provera okruženja za potvrdu mejla
-    const isProduction = typeof window !== 'undefined' && !window.location.hostname.includes('localhost');
-    const targetRedirect = isProduction 
-      ? 'https://www.musictop.net/auth/callback' 
-      : 'http://localhost:3000/auth/callback';
+    const redirectTo = getRedirectUrl();
 
     const { error } = await supabase.auth.signUp({
       email,
@@ -57,9 +62,11 @@ export default function RegisterPage() {
         data: {
           first_name: firstName,
           last_name: lastName,
-          avatar_url: avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150',
+          avatar_url:
+            avatarUrl ||
+            'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150',
         },
-        emailRedirectTo: targetRedirect, // 🔥 Link iz mejla će sada ispravno aktivirati route.ts na serveru
+        emailRedirectTo: redirectTo,
       },
     });
 
@@ -69,8 +76,6 @@ export default function RegisterPage() {
       setMessage(`ERROR: ${error.message.toUpperCase()}`);
     } else {
       setMessage('SUCCESS: CHECK YOUR EMAIL TO CONFIRM REGISTRATION!');
-      setEmail('');
-      setPassword('');
       setEmail('');
       setPassword('');
       setFirstName('');
@@ -92,32 +97,33 @@ export default function RegisterPage() {
           </div>
         )}
 
-        {/* --- SEKCIJA ZA BRZU REGISTRACIJU (GOOGLE & FACEBOOK) --- */}
+        {/* Social Buttons */}
         <div className="grid grid-cols-2 gap-3 mb-6">
           <button
             onClick={() => handleSocialSignUp('google')}
+            disabled={loading}
             type="button"
-            className="py-2.5 border-2 border-zinc-800 bg-zinc-900 hover:border-white hover:bg-zinc-800 transition text-xs font-bold tracking-tight text-center text-white cursor-pointer"
+            className="py-2.5 border-2 border-zinc-800 bg-zinc-900 hover:border-white hover:bg-zinc-800 transition text-xs font-bold tracking-tight text-center text-white disabled:opacity-50 disabled:cursor-not-allowed"
           >
             GOOGLE
           </button>
           <button
             onClick={() => handleSocialSignUp('facebook')}
+            disabled={loading}
             type="button"
-            className="py-2.5 border-2 border-zinc-800 bg-zinc-900 hover:border-white hover:bg-zinc-800 transition text-xs font-bold tracking-tight text-center text-white cursor-pointer"
+            className="py-2.5 border-2 border-zinc-800 bg-zinc-900 hover:border-white hover:bg-zinc-800 transition text-xs font-bold tracking-tight text-center text-white disabled:opacity-50 disabled:cursor-not-allowed"
           >
             FACEBOOK
           </button>
         </div>
 
-        {/* --- LINIJA RAZDELNIK --- */}
         <div className="flex items-center text-center text-zinc-500 text-[10px] tracking-widest mb-6">
           <div className="flex-1 h-[2px] bg-zinc-800"></div>
           <span className="px-3 font-bold">OR ENTER DETAILS MANUALLY</span>
           <div className="flex-1 h-[2px] bg-zinc-800"></div>
         </div>
 
-        {/* --- RUČNA FORMA --- */}
+        {/* Manual Form */}
         <form onSubmit={handleRegister} className="space-y-4 text-left">
           <div>
             <label className="block text-xs font-bold mb-1 text-zinc-400">FIRST NAME</label>
@@ -177,7 +183,7 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-purple-600 text-white border-2 border-white hover:bg-white hover:text-black transition duration-300 font-bold cursor-pointer"
+            className="w-full py-3 bg-purple-600 text-white border-2 border-white hover:bg-white hover:text-black transition duration-300 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'CREATING ACCOUNT...' : 'REGISTER'}
           </button>
