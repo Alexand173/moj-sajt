@@ -15,29 +15,28 @@ export default function RegisterPage() {
 
   // Funkcija za brzu registraciju preko Google-a i Facebook-a
   const handleSocialSignUp = async (providerName: 'google' | 'facebook') => {
-    setMessage('');
-    
-    // Provera okruženja (Produkcija vs Lokal)
-    const isProduction = typeof window !== 'undefined' && !window.location.hostname.includes('localhost');
-    const targetRedirect = isProduction 
-      ? 'https://www.musictop.net/auth/callback' 
-      : 'http://localhost:3000/auth/callback';
+  if (typeof window === 'undefined') return;
 
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: providerName,
-      options: {
-        redirectTo: targetRedirect, // 🔥 Zakucana putanja eliminise gubljenje rute
-        queryParams: providerName === 'google' ? {
-          access_type: 'offline',
-          prompt: 'consent',
-        } : undefined,
-      },
-    });
+  const isProduction = !window.location.hostname.includes('localhost');
+  const targetRedirect = isProduction 
+    ? 'https://www.musictop.net/auth/callback' 
+    : 'http://localhost:3000/auth/callback';
 
-    if (error) {
-      setMessage(`ERROR: ${error.message.toUpperCase()}`);
-    }
-  };
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: providerName,
+    options: {
+      redirectTo: targetRedirect, // 🔥 Prisilna putanja rešava problem sa modalom
+      queryParams: providerName === 'google' ? {
+        access_type: 'offline',
+        prompt: 'consent',
+      } : undefined,
+    },
+  });
+
+  if (error) {
+    console.error(`REGISTER ERROR: ${error.message.toUpperCase()}`);
+  }
+};
 
   // Tvoja funkcija za ručnu registraciju
   const handleRegister = async (e: React.FormEvent) => {

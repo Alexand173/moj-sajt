@@ -13,13 +13,14 @@ export default function LoginPage() {
   const router = useRouter();
 
   // Funkcija za brzu prijavu preko Google-a i Facebook-a
+ // Funkcija za brzu prijavu preko Google-a i Facebook-a
   const handleSocialLogin = async (providerName: 'google' | 'facebook') => {
     setErrorMsg('');
     
-    // Proveravamo da li kôd trči na Vercel produkciji ili na tvom kompjuteru (localhost)
-    const isProduction = typeof window !== 'undefined' && !window.location.hostname.includes('localhost');
+    // 🔥 SIGURNA PROVERA OKRUŽENJA: Next.js prepoznaje produkciju čak i unutar modala
+    const isProduction = process.env.NODE_ENV === 'production';
     
-    // Prisilno i tačno definišemo putanju da je ruter ne bi izgubio
+    // Prisilno šaljemo korisnika na apsolutnu callback rutu
     const targetRedirect = isProduction 
       ? 'https://www.musictop.net/auth/callback' 
       : 'http://localhost:3000/auth/callback';
@@ -27,7 +28,7 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: providerName,
       options: {
-        redirectTo: targetRedirect, // 🔥 Više nema šanse da preusmeri na pogrešnu stranicu!
+        redirectTo: targetRedirect, // 🔥 Zakucana putanja uništava pogrešan /region/us/rock redirect
         queryParams: providerName === 'google' ? {
           access_type: 'offline',
           prompt: 'consent',
