@@ -20,6 +20,11 @@ export default function RegisterPage() {
       provider: providerName,
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
+        // DODAJEMO OVO: Prisiljava Google da uvek potvrdi nalog u hodu i reši konflikt sa "Confirm email" opcijom
+        queryParams: providerName === 'google' ? {
+          access_type: 'offline',
+          prompt: 'consent',
+        } : undefined,
       },
     });
 
@@ -30,9 +35,10 @@ export default function RegisterPage() {
 
   // Tvoja funkcija za ručnu registraciju
   const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setMessage('');
+   // Kako treba da piše:
+e.preventDefault();
+setLoading(true); // <--- Ovako je ispravno!
+setMessage('');
 
     const { error } = await supabase.auth.signUp({
       email,
