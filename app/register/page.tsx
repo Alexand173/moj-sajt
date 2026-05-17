@@ -16,11 +16,17 @@ export default function RegisterPage() {
   // Funkcija za brzu registraciju preko Google-a i Facebook-a
   const handleSocialSignUp = async (providerName: 'google' | 'facebook') => {
     setMessage('');
+    
+    // Provera okruženja (Produkcija vs Lokal)
+    const isProduction = typeof window !== 'undefined' && !window.location.hostname.includes('localhost');
+    const targetRedirect = isProduction 
+      ? 'https://www.musictop.net/auth/callback' 
+      : 'http://localhost:3000/auth/callback';
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: providerName,
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-        // DODAJEMO OVO: Prisiljava Google da uvek potvrdi nalog u hodu i reši konflikt sa "Confirm email" opcijom
+        redirectTo: targetRedirect, // 🔥 Zakucana putanja eliminise gubljenje rute
         queryParams: providerName === 'google' ? {
           access_type: 'offline',
           prompt: 'consent',
@@ -35,10 +41,15 @@ export default function RegisterPage() {
 
   // Tvoja funkcija za ručnu registraciju
   const handleRegister = async (e: React.FormEvent) => {
-   // Kako treba da piše:
-e.preventDefault();
-setLoading(true); // <--- Ovako je ispravno!
-setMessage('');
+    e.preventDefault();
+    setLoading(true);
+    setMessage('');
+
+    // Provera okruženja za potvrdu mejla
+    const isProduction = typeof window !== 'undefined' && !window.location.hostname.includes('localhost');
+    const targetRedirect = isProduction 
+      ? 'https://www.musictop.net/auth/callback' 
+      : 'http://localhost:3000/auth/callback';
 
     const { error } = await supabase.auth.signUp({
       email,
@@ -49,7 +60,7 @@ setMessage('');
           last_name: lastName,
           avatar_url: avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150',
         },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: targetRedirect, // 🔥 Link iz mejla će sada ispravno aktivirati route.ts na serveru
       },
     });
 
@@ -59,6 +70,8 @@ setMessage('');
       setMessage(`ERROR: ${error.message.toUpperCase()}`);
     } else {
       setMessage('SUCCESS: CHECK YOUR EMAIL TO CONFIRM REGISTRATION!');
+      setEmail('');
+      setPassword('');
       setEmail('');
       setPassword('');
       setFirstName('');

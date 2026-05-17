@@ -16,11 +16,18 @@ export default function LoginPage() {
   const handleSocialLogin = async (providerName: 'google' | 'facebook') => {
     setErrorMsg('');
     
+    // Proveravamo da li kôd trči na Vercel produkciji ili na tvom kompjuteru (localhost)
+    const isProduction = typeof window !== 'undefined' && !window.location.hostname.includes('localhost');
+    
+    // Prisilno i tačno definišemo putanju da je ruter ne bi izgubio
+    const targetRedirect = isProduction 
+      ? 'https://www.musictop.net/auth/callback' 
+      : 'http://localhost:3000/auth/callback';
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: providerName,
       options: {
-        // window.location.origin na musictop.net daje ispravan domen dynamic-ki
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: targetRedirect, // 🔥 Više nema šanse da preusmeri na pogrešnu stranicu!
         queryParams: providerName === 'google' ? {
           access_type: 'offline',
           prompt: 'consent',
