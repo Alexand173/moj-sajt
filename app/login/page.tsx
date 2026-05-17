@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase'; // Uvozimo tvoj supabase klijent
+import { getOAuthRedirect } from '@/lib/oauth';
+
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
