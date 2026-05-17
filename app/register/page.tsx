@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
+import { getOAuthRedirect } from '@/lib/oauth';   // ✅ Utility
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('');
@@ -13,39 +14,25 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
-  const getRedirectUrl = () => {
-    if (typeof window !== 'undefined') {
-      return window.location.hostname.includes('localhost')
-        ? 'http://localhost:3000/auth/callback'
-        : 'https://www.musictop.net/auth/callback';
-    }
-    // fallback (should not happen in client component)
-    return 'https://www.musictop.net/auth/callback';
-  };
-
   const handleSocialSignUp = async (providerName: 'google' | 'facebook') => {
     setLoading(true);
-    const redirectTo = getRedirectUrl();
+    const redirectTo = getOAuthRedirect();
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: providerName,
       options: {
         redirectTo,
-        queryParams:
-          providerName === 'google'
-            ? {
-                access_type: 'offline',
-                prompt: 'consent',
-              }
-            : undefined,
+        queryParams: providerName === 'google' ? {
+          access_type: 'offline',
+          prompt: 'consent',
+        } : undefined,
       },
     });
 
     if (error) {
       setMessage(`ERROR: ${error.message.toUpperCase()}`);
-      setLoading(false); // only set loading false if we stay on page
+      setLoading(false);
     }
-    // If successful, browser will redirect – no need to setLoading(false)
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -53,7 +40,7 @@ export default function RegisterPage() {
     setLoading(true);
     setMessage('');
 
-    const redirectTo = getRedirectUrl();
+    const redirectTo = getOAuthRedirect(); // For email confirmation
 
     const { error } = await supabase.auth.signUp({
       email,
@@ -62,9 +49,7 @@ export default function RegisterPage() {
         data: {
           first_name: firstName,
           last_name: lastName,
-          avatar_url:
-            avatarUrl ||
-            'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150',
+          avatar_url: avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150',
         },
         emailRedirectTo: redirectTo,
       },
@@ -97,7 +82,6 @@ export default function RegisterPage() {
           </div>
         )}
 
-        {/* Social Buttons */}
         <div className="grid grid-cols-2 gap-3 mb-6">
           <button
             onClick={() => handleSocialSignUp('google')}
@@ -123,7 +107,6 @@ export default function RegisterPage() {
           <div className="flex-1 h-[2px] bg-zinc-800"></div>
         </div>
 
-        {/* Manual Form */}
         <form onSubmit={handleRegister} className="space-y-4 text-left">
           <div>
             <label className="block text-xs font-bold mb-1 text-zinc-400">FIRST NAME</label>
@@ -135,7 +118,6 @@ export default function RegisterPage() {
               className="w-full p-2 border-2 border-zinc-800 bg-zinc-900 focus:border-purple-500 focus:outline-none text-sm font-medium normal-case text-white"
             />
           </div>
-
           <div>
             <label className="block text-xs font-bold mb-1 text-zinc-400">LAST NAME</label>
             <input
@@ -146,7 +128,6 @@ export default function RegisterPage() {
               className="w-full p-2 border-2 border-zinc-800 bg-zinc-900 focus:border-purple-500 focus:outline-none text-sm font-medium normal-case text-white"
             />
           </div>
-
           <div>
             <label className="block text-xs font-bold mb-1 text-zinc-400">AVATAR URL (OPTIONAL)</label>
             <input
@@ -157,7 +138,6 @@ export default function RegisterPage() {
               className="w-full p-2 border-2 border-zinc-800 bg-zinc-900 focus:border-purple-500 focus:outline-none text-sm font-medium normal-case text-white"
             />
           </div>
-
           <div>
             <label className="block text-xs font-bold mb-1 text-zinc-400">EMAIL ADDRESS</label>
             <input
@@ -168,7 +148,6 @@ export default function RegisterPage() {
               className="w-full p-2 border-2 border-zinc-800 bg-zinc-900 focus:border-purple-500 focus:outline-none text-sm font-medium normal-case text-white"
             />
           </div>
-
           <div>
             <label className="block text-xs font-bold mb-1 text-zinc-400">PASSWORD</label>
             <input
@@ -179,7 +158,6 @@ export default function RegisterPage() {
               className="w-full p-2 border-2 border-zinc-800 bg-zinc-900 focus:border-purple-500 focus:outline-none text-sm font-medium normal-case text-white"
             />
           </div>
-
           <button
             type="submit"
             disabled={loading}
