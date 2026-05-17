@@ -5,11 +5,17 @@ import { createServerClient } from '@supabase/ssr';
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get('code');
-let response = NextResponse.redirect(new URL('/', request.url));
-  if (code) {
-    response = NextResponse.redirect(new URL('/', request.url));
+  
+  // Ako koda uopšte nema, vrati ga na početnu
+  if (!code) {
+    return NextResponse.redirect(new URL('/', request.url));
+  }
 
-    // Kreiramo server klijent koji automatski ispravno postavlja kolačiće u response
+  // Inicijalizujemo response objekat na koji kačimo kolačiće
+  const response = NextResponse.redirect(new URL('/', request.url));
+
+  try {
+    // Kreiramo standardni server klijent za razmenu sesije
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -27,20 +33,28 @@ let response = NextResponse.redirect(new URL('/', request.url));
       }
     );
 
-    // Razmenjujemo kod za sesiju - ovo automatski upisuje korisnika u Auth i postavlja kolačiće
-    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    // Menjamo privremeni Google kod za pravu sesiju korisnika
+    const { data, error: authError } = await supabase.auth.exchangeCodeForSession(code);
 
-    if (!error && data?.session?.user) {
+    if (authError) {
+      console.error('AUTH_EXCHANGE_ERROR:', authError.message);
+      // Ako pukne razmena, šaljemo ga na login stranicu i ispisujemo tačnu grešku u URL-u
+      return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(authError.message)}`, request.url));
+    }
+
+    // Ako je sesija uspešno napravljena, upisujemo profil u bazu preko Admin klijenta
+    if (data?.session?.user) {
       const user = data.session.user;
 
-      // Koristimo direktan administratorski klijent samo za profil upis (zaobilaženje RLS-a)
+      // Direktno uvozimo osnovni supabase-js klijent za zaobilaženje RLS-a sa SERVICE_ROLE ključem
       const { createClient } = await import('@supabase/supabase-js');
       const supabaseAdmin = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!
       );
 
-      await supabaseAdmin
+      // Upisujemo ili ažuriramo profil korisnika u tabeli 'profiles'
+      const { error: profileError } = await supabaseAdmin
         .from('profiles')
         .upsert({
           id: user.id,
@@ -48,9 +62,16 @@ let response = NextResponse.redirect(new URL('/', request.url));
           first_name: user.user_metadata.full_name || user.user_metadata.first_name || 'Korisnik',
         }, { onConflict: 'id' });
 
-      return response;
+      if (profileError) {
+        console.error('PROFIL_UPSERT_ERROR:', profileError.message);
+        // Čak i ako upis profila ne uspe, ne prekidamo login, pustićemo korisnika unutra
+      }
     }
-  }
 
-  return response;
+    return response;
+
+  } catch (globalError: any) {
+    console.error('SISTEMSKI_CALLBACK_ERROR:', globalError);
+    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(globalError.message || 'Sistemska greska')}`, request.url));
+  }
 }
