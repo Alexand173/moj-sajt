@@ -53,11 +53,12 @@ export async function GET(request: NextRequest) {
 
       if (profileError) {
         console.error('PROFILE_UPSERT_ERROR:', profileError);
-        // Ne blokiramo login čak i ako profil zapne, sajt će raditi preko email-a
       }
     }
 
-    return response;
+    // 🔥 OVO JE TA LINIJA - Ona stoji ovde na kraju uspešnog procesa:
+    return response; 
+    
   } catch (err: any) {
     console.error('CALLBACK_SYSTEM_ERROR:', err);
     return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(err.message)}`, baseUrl));

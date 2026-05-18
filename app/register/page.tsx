@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
-import { getOAuthRedirect } from '@/lib/oauth';   // ✅ Utility
+import { getOAuthRedirect } from '@/lib/oauth';
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('');
@@ -14,29 +14,47 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
-  // 🔥 Promenili smo ime u handleSocialLogin jer ga dugmići dole tako traže!
-  const handleSocialLogin = async (providerName: 'google' | 'facebook') => {
-    
+  // 🟢 1. FUNKCIJA ZA GOOGLE REGISTRACIJU
+  const handleGoogleRegister = async () => {
     if (typeof window === 'undefined') return;
     
-    // 💡 POPRAVLJENO: Target stavljamo direktno na Supabase callback URL koji je odobren u Google konzoli!
-    // U app/register/page.tsx unutar handleSocialLogin funkcije:
-const targetRedirect = 'https://irqjjoksexiasddmxbgs.supabase.co/auth/v1/callback?next=/';
+    const isProduction = process.env.NODE_ENV === 'production';
+    const baseUrl = isProduction ? 'https://www.musictop.net' : 'http://localhost:3000';
+    const targetRedirect = `${baseUrl}/auth/callback`;
 
     const { error } = await supabase.auth.signInWithOAuth({
-      provider: providerName,
+      provider: 'google',
       options: {
         redirectTo: targetRedirect,
-        queryParams: providerName === 'google' ? {
+        queryParams: {
           access_type: 'offline',
-          prompt: 'consent',
-        } : undefined,
+          prompt: 'select_account', // Promenjeno na select_account da lakše biraš nalog
+        },
       },
     });
 
     if (error) {
-      // 💡 Umesto setErrorMsg koji ne postoji, ispisujemo grešku bezbedno u konzolu
-      console.error(`REGISTER OAUTH ERROR: ${error.message.toUpperCase()}`);
+      console.error(`REGISTER GOOGLE ERROR: ${error.message.toUpperCase()}`);
+    }
+  };
+
+  // 🔵 2. FUNKCIJA ZA FACEBOOK REGISTRACIJU
+  const handleFacebookRegister = async () => {
+    if (typeof window === 'undefined') return;
+
+    const isProduction = process.env.NODE_ENV === 'production';
+    const baseUrl = isProduction ? 'https://www.musictop.net' : 'http://localhost:3000';
+    const targetRedirect = `${baseUrl}/auth/callback`;
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'facebook',
+      options: {
+        redirectTo: targetRedirect,
+      },
+    });
+
+    if (error) {
+      console.error(`REGISTER FACEBOOK ERROR: ${error.message.toUpperCase()}`);
     }
   };
 
@@ -45,7 +63,7 @@ const targetRedirect = 'https://irqjjoksexiasddmxbgs.supabase.co/auth/v1/callbac
     setLoading(true);
     setMessage('');
 
-    const redirectTo = getOAuthRedirect(); // For email confirmation
+    const redirectTo = getOAuthRedirect();
 
     const { error } = await supabase.auth.signUp({
       email,
@@ -87,9 +105,10 @@ const targetRedirect = 'https://irqjjoksexiasddmxbgs.supabase.co/auth/v1/callbac
           </div>
         )}
 
+        {/* Ovde su dugmići koji sada pozivaju te dve tačne funkcije */}
         <div className="grid grid-cols-2 gap-3 mb-6">
           <button
-            onClick={() => handleSocialLogin('google')}
+            onClick={handleGoogleRegister}
             disabled={loading}
             type="button"
             className="py-2.5 border-2 border-zinc-800 bg-zinc-900 hover:border-white hover:bg-zinc-800 transition text-xs font-bold tracking-tight text-center text-white disabled:opacity-50 disabled:cursor-not-allowed"
@@ -97,7 +116,7 @@ const targetRedirect = 'https://irqjjoksexiasddmxbgs.supabase.co/auth/v1/callbac
             GOOGLE
           </button>
           <button
-            onClick={() => handleSocialLogin('facebook')}
+            onClick={handleFacebookRegister}
             disabled={loading}
             type="button"
             className="py-2.5 border-2 border-zinc-800 bg-zinc-900 hover:border-white hover:bg-zinc-800 transition text-xs font-bold tracking-tight text-center text-white disabled:opacity-50 disabled:cursor-not-allowed"
