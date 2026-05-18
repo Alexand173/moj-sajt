@@ -15,8 +15,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL('/', baseUrl));
   }
 
-  // Pripremamo čist i siguran redirect na /feed sa punim domenom
-  const response = NextResponse.redirect(new URL('/feed', baseUrl));
+  // ✅ POPRAVLJENO: Umesto na nepostojeći /feed, šaljemo korisnika na početnu stranu '/'
+  const response = NextResponse.redirect(new URL('/', baseUrl));
 
   try {
     const supabase = createServerClient(
