@@ -31,29 +31,27 @@ export default function HeaderAuth() {
           }
         }
       } catch (err) {
-        console.error("Supabase provera greška:", err);
+        console.error("Supabase provera greska:", err);
       }
     };
 
     checkUserAndProfile();
 
-    // 🔥 POPRAVLJENO: Sređena sintaksa i dodat 'any' tip bez nepotrebnog dupliranja funkcija
- // U components/HeaderAuth.tsx unutar useEffect-a:
-// 🔥 POPRAVLJENO & INTELIGENTNO: Čeka trigger u bazi ako profil kasni par milisekundi
+    // ✅ POPRAVLJENO: Sintaksa je sada cista, bez duplih asinhronih funkcija koje blokiraju izvrsavanje
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: any, session: any) => {
       if (session?.user) {
         setUser(session.user);
         
-        // 1. Pokušavamo da uzmemo profil odmah
+        // Pokusavamo da uzmemo profil odmah
         let { data } = await supabase
           .from('profiles')
           .select('first_name, avatar_url')
           .eq('id', session.user.id)
           .single();
           
-        // 2. Ako profil još nije upisan (bazi treba malo vremena), sačekamo 600ms i pokušamo opet
+        // Ako baza kasni sa okidacem (trigger-om), sacekamo malo i povucemo opet
         if (!data) {
-          await new Promise((resolve) => setTimeout(resolve, 600));
+          await new Promise((resolve) => setTimeout(resolve, 800));
           const retry = await supabase
             .from('profiles')
             .select('first_name, avatar_url')
@@ -72,11 +70,10 @@ export default function HeaderAuth() {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [router]);
 
   const handleLogout = async () => {
     try {
-      // 1. Prvo čistimo lokalni klijentski state da UI odmah reaguje
       setUser(null);
       setProfile(null);
 
@@ -84,14 +81,12 @@ export default function HeaderAuth() {
         localStorage.clear();
         sessionStorage.clear();
 
-        // 2. Ručno čišćenje Supabase tokena iz localStorage
         Object.keys(localStorage).forEach((key) => {
           if (key.startsWith('sb-')) {
             localStorage.removeItem(key);
           }
         });
 
-        // 3. Brisanje kolačića (cookies)
         const cookies = document.cookie.split(";");
         for (let i = 0; i < cookies.length; i++) {
           const cookie = cookies[i];
@@ -102,12 +97,10 @@ export default function HeaderAuth() {
         }
       }
 
-      // 4. Pozivamo zvanični signOut
       await supabase.auth.signOut();
     } catch (e) {
       console.error("Supabase signOut tiha greska:", e);
     } finally {
-      // 5. Hard reload na početnu stranicu - vraća LOGIN i REGISTER garantovano
       if (typeof window !== 'undefined') {
         window.location.href = '/';
       }
@@ -162,9 +155,8 @@ export default function HeaderAuth() {
         REGISTER
       </button>
     </div>
-    
   );
-
-  
 }
+
+// ✅ Sprecava Vercel i Next.js da kesiraju auth stanje na statickim rutama
 export const dynamic = 'force-dynamic';
