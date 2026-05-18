@@ -21,58 +21,53 @@ export default function HeaderAuth() {
   const router = useRouter();
 
   useEffect(() => {
-    // 🛡️ SIGURNOSNA PROVERA: Ako uopšte nema Supabase kolačića u browseru, odmah prekini loading (korisnik je gost)
-    if (typeof window !== 'undefined') {
-      const hasSessionCookie = document.cookie.split(';').some(c => c.trim().startsWith('sb-'));
-      if (!hasSessionCookie) {
-        setIsAuthenticating(false);
-      }
-    }
+    let isMounted = true;
 
-    const fetchUserAndProfile = async (currentUser: any) => {
-      if (!currentUser) {
-        setUser(null);
-        setProfile(null);
-        setIsAuthenticating(false);
-        return;
-      }
+    // Glavna i jedina sigurna funkcija za proveru korisnika i profila
+    const checkAuth = async () => {
+      try {
+        // Tražimo sesiju preko zvaničnog SDK-a koji sam čita sve tipove kolačića
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!isMounted) return;
 
-      setUser(currentUser);
+        if (session?.user) {
+          setUser(session.user);
+          
+          // Ako imamo korisnika, bezbedno povlačimo profil iz baze
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('first_name, avatar_url')
+            .eq('id', session.user.id)
+            .single();
 
-      // Agresivna petlja: Tražimo profil iz baze na svakih 300ms (maksimalno 5 puta)
-      let profileData = null;
-      for (let i = 0; i < 5; i++) {
-        const { data } = await supabase
-          .from('profiles')
-          .select('first_name, avatar_url')
-          .eq('id', currentUser.id)
-          .single();
-
-        if (data) {
-          profileData = data;
-          break;
+          if (isMounted && profileData) {
+            setProfile(profileData);
+          }
+        } else {
+          setUser(null);
+          setProfile(null);
         }
-        await new Promise((resolve) => setTimeout(resolve, 300));
+      } catch (error) {
+        console.error("Greška pri autentifikaciji:", error);
+      } finally {
+        // 🚨 KLJUČNI SPAS: Loading SE GASI pod obavezno, bio korisnik ulogovan ili ne!
+        if (isMounted) {
+          setIsAuthenticating(false);
+        }
       }
-
-      if (profileData) {
-        setProfile(profileData);
-      }
-      setIsAuthenticating(false);
     };
 
-    // 1. Provera aktivne sesije odmah pri učitavanju
-    supabase.auth.getUser().then(({ data: { user: currentUser } }) => {
-      fetchUserAndProfile(currentUser);
-    }).catch(() => {
-      setIsAuthenticating(false);
-    });
+    // Pokreni proveru odmah
+    checkAuth();
 
-    // 2. Instant reakcija na promenu stanja sa ugrađenim hard-refresh-om za keš
+    // Prati promene stanja (npr. kada klikne na Login ili Logout)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!isMounted) return;
+      
       if (event === 'SIGNED_IN' && session?.user) {
-        setIsAuthenticating(true);
-        await fetchUserAndProfile(session.user);
+        setUser(session.user);
+        setIsAuthenticating(false);
         router.refresh();
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
@@ -82,14 +77,9 @@ export default function HeaderAuth() {
       }
     });
 
-    // 3. BACK-UP TAJMER: Ako se kôd zaglavi duže od 2.5 sekunde zbog Vercel keša, prisilno ugasi loading
-    const backupTimer = setTimeout(() => {
-      setIsAuthenticating(false);
-    }, 2500);
-
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
-      clearTimeout(backupTimer);
     };
   }, [router, supabase]);
 
@@ -97,34 +87,33 @@ export default function HeaderAuth() {
     try {
       setIsAuthenticating(true);
       await supabase.auth.signOut();
-      
       if (typeof window !== 'undefined') {
         localStorage.clear();
         sessionStorage.clear();
         window.location.href = '/';
       }
     } catch (e) {
-      console.error("Signout error:", e);
+      console.error("Greška pri odjavi:", e);
       setIsAuthenticating(false);
     }
   };
 
-  // ⏳ 1. STANJE ČEKANJA
+  // ⏳ 1. KRATKOTRAJNI LOADER (Sada se gasi čim stigne bilo kakav odgovor iz SDK-a)
   if (isAuthenticating) {
     return (
       <div className="flex items-center shrink-0 relative z-[9999] pointer-events-auto">
-        <span className="text-[10px] tracking-widest text-purple-500 font-black anonymity-pulse animate-pulse">
+        <span className="text-[10px] tracking-widest text-purple-500 font-black animate-pulse">
           LOADING...
         </span>
       </div>
     );
   }
 
-  // 🟢 2. ULOGOVAN KORISNIK
+  // 🟢 2. KORISNIK JE USPEŠNO PRONAĐEN I ULOGOVAN
   if (user) {
     const displayName = profile?.first_name 
       ? `${profile.first_name}`.toUpperCase() 
-      : user.email?.split('@')[0].toUpperCase();
+      : user.email?.split('@')[0].toUpperCase() || 'KORISNIK';
 
     const avatar = profile?.avatar_url || 'https://images.unsplash.com/photo-153713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150';
 
@@ -150,7 +139,7 @@ export default function HeaderAuth() {
     );
   }
 
-  // 🔴 3. GOST (LOGIN / REGISTER DUGMIĆI)
+  // 🔴 3. GOST (Ako nema sesije, prikazujemo normalna dugmad umesto loadinga)
   return (
     <div className="flex items-center gap-2 shrink-0 relative z-[9999] pointer-events-auto">
       <button 
