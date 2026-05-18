@@ -39,26 +39,37 @@ export default function HeaderAuth() {
 
     // 🔥 POPRAVLJENO: Sređena sintaksa i dodat 'any' tip bez nepotrebnog dupliranja funkcija
  // U components/HeaderAuth.tsx unutar useEffect-a:
-const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: any, session: any) => {
-  if (session?.user) {
-    setUser(session.user);
-    const { data } = await supabase
-      .from('profiles')
-      .select('first_name, avatar_url')
-      .eq('id', session.user.id)
-      .single();
-    if (data) setProfile(data);
-    
-    // 🔥 DODAJ OVU LINIJU: Prisili Next.js da osveži Header komponente na živo
-    router.refresh();
-  } else {
-    setUser(null);
-    setProfile(null);
-    
-    // 🔥 DODAJ OVU LINIJU:
-    router.refresh();
-  }
-});
+// 🔥 POPRAVLJENO & INTELIGENTNO: Čeka trigger u bazi ako profil kasni par milisekundi
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: any, session: any) => {
+      if (session?.user) {
+        setUser(session.user);
+        
+        // 1. Pokušavamo da uzmemo profil odmah
+        let { data } = await supabase
+          .from('profiles')
+          .select('first_name, avatar_url')
+          .eq('id', session.user.id)
+          .single();
+          
+        // 2. Ako profil još nije upisan (bazi treba malo vremena), sačekamo 600ms i pokušamo opet
+        if (!data) {
+          await new Promise((resolve) => setTimeout(resolve, 600));
+          const retry = await supabase
+            .from('profiles')
+            .select('first_name, avatar_url')
+            .eq('id', session.user.id)
+            .single();
+          data = retry.data;
+        }
+        
+        if (data) setProfile(data);
+        router.refresh();
+      } else {
+        setUser(null);
+        setProfile(null);
+        router.refresh();
+      }
+    });
 
     return () => subscription.unsubscribe();
   }, []);
@@ -151,5 +162,9 @@ const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event:
         REGISTER
       </button>
     </div>
+    
   );
+
+  
 }
+export const dynamic = 'force-dynamic';
