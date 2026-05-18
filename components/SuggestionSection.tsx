@@ -1,13 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
+// 🚨 POPRAVLJENO: Koristimo createBrowserClient da delimo sesiju sa celim sajtom
+import { createBrowserClient } from '@supabase/ssr';
 import SuggestionList from './SuggestionList';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 interface SuggestionSectionProps {
   regionName: string;
@@ -22,10 +18,17 @@ export default function SuggestionSection({
 }: SuggestionSectionProps) {
   const [refreshTrigger, setRefreshTrigger] = useState(false);
 
+  // 🚨 Inicijalizacija modernog SSR klijenta za klijentske komponente
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
   const handleAddSuggestionClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     
     try {
+      // 🚨 Sada će ovo uspešno pročitati kolačiće nakon Google/Facebook prijave
       const { data: { session }, error: authError } = await supabase.auth.getSession();
 
       if (authError) {
@@ -57,7 +60,8 @@ export default function SuggestionSection({
             youtube_id: ytId,
             region: regionName.trim().toUpperCase(),
             genre_id: Number(genreId),
-            votes: 1
+            votes: 1,
+            user_id: session.user.id // 💡 Dobra praksa: Beleži ko je uneo predlog
           }
         ]);
 

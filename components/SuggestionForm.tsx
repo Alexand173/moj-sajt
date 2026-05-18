@@ -1,18 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+// 🚨 POPRAVLJENO: Koristimo createBrowserClient iz SSR paketa umesto običnog createClient
+import { createBrowserClient } from '@supabase/ssr';
 
 interface SuggestionFormProps {
   region: string;
   genreId?: number;
   genreName?: string;
-  onSuccess?: () => void; // Opciona funkcija da zatvori modal i osveži listu zdesna
+  onSuccess?: () => void;
 }
 
 export default function SuggestionForm({ 
@@ -27,7 +23,12 @@ export default function SuggestionForm({
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Funkcija za vađenje čistog ID-ja iz YouTube linka
+  // 🚨 Inicijalizacija klijenta koji deli iste kolačiće sa HeaderAuth komponentom
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
   const extractYoutubeId = (url: string) => {
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
     const match = url.match(regExp);
@@ -39,6 +40,16 @@ export default function SuggestionForm({
     setSubmitting(true);
     setErrorMsg('');
 
+    // 🚨 1. PROVERA: Vučemo svežu sesiju iz browsera direktno na klik!
+    const { data: { session } } = await supabase.auth.getSession();
+
+    // 🚨 2. PROVERA: Ako sesije nema, odmah izbacujemo poruku i prekidamo funkciju
+    if (!session?.user) {
+      alert("🔒 ACCESS DENIED: You must log in or register to submit a suggestion!");
+      setSubmitting(false);
+      return;
+    }
+
     const cleanYoutubeId = extractYoutubeId(youtubeId.trim());
 
     if (cleanYoutubeId.length !== 11) {
@@ -47,7 +58,7 @@ export default function SuggestionForm({
       return;
     }
 
-    // Upisujemo u Supabase 'suggestions' tabelu prema tvojoj šemi sa slike
+    // Upisujemo u Supabase 'suggestions' tabelu
     const { error } = await supabase
       .from('suggestions')
       .insert([
@@ -56,8 +67,9 @@ export default function SuggestionForm({
           song_title: songTitle.trim(),
           youtube_id: cleanYoutubeId,
           region: region.toUpperCase(),
-          genre_id: genreId || null, // Ako smo na korenskoj stranici regiona gde nema žanra, biće null
-          votes: 1 // Svaki novi predlog kreće sa 1 glasom automatski
+          genre_id: genreId || null, 
+          votes: 1,
+          user_id: session.user.id // 💡 Bonus dobra praksa: beležiš ko je poslao predlog
         }
       ]);
 
@@ -66,13 +78,11 @@ export default function SuggestionForm({
       setErrorMsg('Greška pri čuvanju: ' + error.message);
       setSubmitting(false);
     } else {
-      // Uspešno uneto! Čistimo polja forme
       setArtistName('');
       setSongTitle('');
       setYoutubeId('');
       setSubmitting(false);
 
-      // Javljamo roditelju (sekciji) da zatvori modal i osveži listu predloga
       if (onSuccess) {
         onSuccess();
       }
@@ -97,7 +107,6 @@ export default function SuggestionForm({
       )}
 
       <div className="space-y-3">
-        {/* INPUT: Izvođač */}
         <div>
           <label className="block text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
             Naziv Izvođača / Grupe
@@ -112,7 +121,6 @@ export default function SuggestionForm({
           />
         </div>
 
-        {/* INPUT: Naziv pesme */}
         <div>
           <label className="block text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
             Naziv Pesme
@@ -127,7 +135,6 @@ export default function SuggestionForm({
           />
         </div>
 
-        {/* INPUT: YouTube URL */}
         <div>
           <label className="block text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1.5">
             YouTube Link ili ID videa
@@ -143,7 +150,6 @@ export default function SuggestionForm({
         </div>
       </div>
 
-      {/* SUBMIT BUTTON */}
       <button
         type="submit"
         disabled={submitting}
