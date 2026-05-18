@@ -12,7 +12,7 @@ interface UserProfile {
 export default function HeaderAuth() {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  // ⏳ UVODIMO STAND-BY STANJE (Uvek kreće kao true dok ne proverimo sve)
+  // ⏳ STAND-BY STANJE: Kreće kao true dok se sve ne učita i proveri
   const [isAuthenticating, setIsAuthenticating] = useState(true);
   const router = useRouter();
 
@@ -35,22 +35,20 @@ export default function HeaderAuth() {
       } catch (err) {
         console.error("Supabase provera greska:", err);
       } finally {
-        // Završena prva provera pri učitavanju stranice
         setIsAuthenticating(false);
       }
     };
 
     checkUserAndProfile();
 
-    // 🔄 Osluškujemo promene (Google prijavu)
+    // ✅ POPRAVLJENO: Čista sintaksa koja sluša promene i upravlja stand-by stanjem
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: any, session: any) => {
-      // Čim detektujemo promenu stanja (npr. SIGNED_IN), palimo stand-by
       setIsAuthenticating(true);
 
       if (session?.user) {
         setUser(session.user);
         
-        // 🔁 "AWAIT" petlja: Pokušavamo da uhvatimo profil iz baze do 5 puta (na svakih 400ms)
+        // 🔁 "AWAIT" PETLJA: Pokušava da uhvati profil iz baze do 5 puta (na svakih 400ms)
         let profileData = null;
         for (let i = 0; i < 5; i++) {
           const { data } = await supabase
@@ -61,9 +59,9 @@ export default function HeaderAuth() {
           
           if (data) {
             profileData = data;
-            break; // Uspešno upisano u SQL bazu, prekidamo čekanje!
+            break; // Profil je pronađen u SQL bazi, prekidamo čekanje!
           }
-          // Ako još nije upisano, sačekaj 400ms pa probaj ponovo
+          // Ako baza još uvek zapisuje, sačekaj 400ms pa probaj ponovo
           await new Promise((resolve) => setTimeout(resolve, 400));
         }
         
@@ -75,7 +73,6 @@ export default function HeaderAuth() {
         router.refresh();
       }
 
-      // Sve je upisano i provereno, gasimo stand-by!
       setIsAuthenticating(false);
     });
 
@@ -118,7 +115,7 @@ export default function HeaderAuth() {
     }
   };
 
-  // ⏳ SLUČAJ NA ČEKANJU (STAND-BY): Dok traje upis u bazu, piše LOADING...
+  // ⏳ 1. SLUČAJ NA ČEKANJU (STAND-BY): Dok traje provera i upis u bazu, piše LOADING...
   if (isAuthenticating) {
     return (
       <div className="flex items-center shrink-0 relative z-[9999] pointer-events-auto">
@@ -129,7 +126,7 @@ export default function HeaderAuth() {
     );
   }
 
-  // 🟢 SLUČAJ 1: KORISNIK JE KONAČNO ULOGOVAN (I UPISAN U PROFILES)
+  // 🟢 2. SLUČAJ: KORISNIK JE KONAČNO ULOGOVAN
   if (user) {
     const displayName = profile?.first_name 
       ? `${profile.first_name}`.toUpperCase() 
@@ -159,7 +156,7 @@ export default function HeaderAuth() {
     );
   }
 
-  // 🔴 SLUČAJ 2: KORISNIK JE GOST (NIJE ULOGOVAN)
+  // 🔴 3. SLUČAJ: GOST (KORISNIK NIJE ULOGOVAN)
   return (
     <div className="flex items-center gap-2 shrink-0 relative z-[9999] pointer-events-auto">
       <button 
@@ -180,4 +177,5 @@ export default function HeaderAuth() {
   );
 }
 
+// ⚡ Zabranjuje Vercel-u da kešira ovu komponentu na statičkim stranicama kategorija
 export const dynamic = 'force-dynamic';
