@@ -20,7 +20,8 @@ export default function RegisterPage() {
     if (typeof window === 'undefined') return;
     
     // 💡 POPRAVLJENO: Target stavljamo direktno na Supabase callback URL koji je odobren u Google konzoli!
-    const targetRedirect = 'https://irqjjoksexiasddmxbgs.supabase.co/auth/v1/callback';
+    // U app/register/page.tsx unutar handleSocialLogin funkcije:
+const targetRedirect = 'https://irqjjoksexiasddmxbgs.supabase.co/auth/v1/callback?next=/';
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: providerName,
