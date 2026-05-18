@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
 
 interface UserProfile {
@@ -10,123 +10,117 @@ interface UserProfile {
 }
 
 export default function HeaderAuth() {
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  // ⏳ STAND-BY STANJE: Kreće kao true dok se sve ne učita i proveri
   const [isAuthenticating, setIsAuthenticating] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    const checkUserAndProfile = async () => {
-      try {
-        const { data: { user: activeUser } } = await supabase.auth.getUser();
-        if (activeUser) {
-          setUser(activeUser);
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('first_name, avatar_url')
-            .eq('id', activeUser.id)
-            .single();
-          
-          if (!error && data) {
-            setProfile(data);
-          }
-        }
-      } catch (err) {
-        console.error("Supabase provera greska:", err);
-      } finally {
+    // 🛡️ SIGURNOSNA PROVERA: Ako uopšte nema Supabase kolačića u browseru, odmah prekini loading (korisnik je gost)
+    if (typeof window !== 'undefined') {
+      const hasSessionCookie = document.cookie.split(';').some(c => c.trim().startsWith('sb-'));
+      if (!hasSessionCookie) {
         setIsAuthenticating(false);
       }
-    };
+    }
 
-    checkUserAndProfile();
-
-    // ✅ POPRAVLJENO: Čista sintaksa koja sluša promene i upravlja stand-by stanjem
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: any, session: any) => {
-      setIsAuthenticating(true);
-
-      if (session?.user) {
-        setUser(session.user);
-        
-        // 🔁 "AWAIT" PETLJA: Pokušava da uhvati profil iz baze do 5 puta (na svakih 400ms)
-        let profileData = null;
-        for (let i = 0; i < 5; i++) {
-          const { data } = await supabase
-            .from('profiles')
-            .select('first_name, avatar_url')
-            .eq('id', session.user.id)
-            .single();
-          
-          if (data) {
-            profileData = data;
-            break; // Profil je pronađen u SQL bazi, prekidamo čekanje!
-          }
-          // Ako baza još uvek zapisuje, sačekaj 400ms pa probaj ponovo
-          await new Promise((resolve) => setTimeout(resolve, 400));
-        }
-        
-        if (profileData) setProfile(profileData);
-        router.refresh();
-      } else {
+    const fetchUserAndProfile = async (currentUser: any) => {
+      if (!currentUser) {
         setUser(null);
         setProfile(null);
-        router.refresh();
+        setIsAuthenticating(false);
+        return;
       }
 
+      setUser(currentUser);
+
+      // Agresivna petlja: Tražimo profil iz baze na svakih 300ms (maksimalno 5 puta)
+      let profileData = null;
+      for (let i = 0; i < 5; i++) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('first_name, avatar_url')
+          .eq('id', currentUser.id)
+          .single();
+
+        if (data) {
+          profileData = data;
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      }
+
+      if (profileData) {
+        setProfile(profileData);
+      }
+      setIsAuthenticating(false);
+    };
+
+    // 1. Provera aktivne sesije odmah pri učitavanju
+    supabase.auth.getUser().then(({ data: { user: currentUser } }) => {
+      fetchUserAndProfile(currentUser);
+    }).catch(() => {
       setIsAuthenticating(false);
     });
 
-    return () => subscription.unsubscribe();
-  }, [router]);
+    // 2. Instant reakcija na promenu stanja sa ugrađenim hard-refresh-om za keš
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        setIsAuthenticating(true);
+        await fetchUserAndProfile(session.user);
+        router.refresh();
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+        setProfile(null);
+        setIsAuthenticating(false);
+        router.refresh();
+      }
+    });
+
+    // 3. BACK-UP TAJMER: Ako se kôd zaglavi duže od 2.5 sekunde zbog Vercel keša, prisilno ugasi loading
+    const backupTimer = setTimeout(() => {
+      setIsAuthenticating(false);
+    }, 2500);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(backupTimer);
+    };
+  }, [router, supabase]);
 
   const handleLogout = async () => {
     try {
       setIsAuthenticating(true);
-      setUser(null);
-      setProfile(null);
-
+      await supabase.auth.signOut();
+      
       if (typeof window !== 'undefined') {
         localStorage.clear();
         sessionStorage.clear();
-
-        Object.keys(localStorage).forEach((key) => {
-          if (key.startsWith('sb-')) {
-            localStorage.removeItem(key);
-          }
-        });
-
-        const cookies = document.cookie.split(";");
-        for (let i = 0; i < cookies.length; i++) {
-          const cookie = cookies[i];
-          const eqPos = cookie.indexOf("=");
-          const name = eqPos > -1 ? cookie.substr(0, eqPos).trim() : cookie.trim();
-          document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;";
-          document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;domain=" + window.location.hostname + ";";
-        }
-      }
-
-      await supabase.auth.signOut();
-    } catch (e) {
-      console.error("Supabase signOut tiha greska:", e);
-    } finally {
-      if (typeof window !== 'undefined') {
         window.location.href = '/';
       }
+    } catch (e) {
+      console.error("Signout error:", e);
+      setIsAuthenticating(false);
     }
   };
 
-  // ⏳ 1. SLUČAJ NA ČEKANJU (STAND-BY): Dok traje provera i upis u bazu, piše LOADING...
+  // ⏳ 1. STANJE ČEKANJA
   if (isAuthenticating) {
     return (
       <div className="flex items-center shrink-0 relative z-[9999] pointer-events-auto">
-        <span className="text-[10px] tracking-widest text-purple-500 font-black animate-pulse">
+        <span className="text-[10px] tracking-widest text-purple-500 font-black anonymity-pulse animate-pulse">
           LOADING...
         </span>
       </div>
     );
   }
 
-  // 🟢 2. SLUČAJ: KORISNIK JE KONAČNO ULOGOVAN
+  // 🟢 2. ULOGOVAN KORISNIK
   if (user) {
     const displayName = profile?.first_name 
       ? `${profile.first_name}`.toUpperCase() 
@@ -156,7 +150,7 @@ export default function HeaderAuth() {
     );
   }
 
-  // 🔴 3. SLUČAJ: GOST (KORISNIK NIJE ULOGOVAN)
+  // 🔴 3. GOST (LOGIN / REGISTER DUGMIĆI)
   return (
     <div className="flex items-center gap-2 shrink-0 relative z-[9999] pointer-events-auto">
       <button 
@@ -177,5 +171,4 @@ export default function HeaderAuth() {
   );
 }
 
-// ⚡ Zabranjuje Vercel-u da kešira ovu komponentu na statičkim stranicama kategorija
 export const dynamic = 'force-dynamic';
