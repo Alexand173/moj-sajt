@@ -10,32 +10,31 @@ export default function CommunityForm({ region }: { region: string }) {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
+useEffect(() => {
+  const checkUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    setUser(user);
 
-      if (user) {
-        // Izvlačimo profil da bismo imali ime i avatar
-        const { data } = await supabase
-          .from('profiles')
-          .select('first_name, avatar_url')
-          .eq('id', user.id)
-          .single();
-        setProfile(data);
-      }
-      setLoading(false);
-    };
+    if (user) {
+      const { data } = await supabase
+        .from('profiles')
+        .select('first_name, avatar_url')
+        .eq('id', user.id)
+        .single();
+      setProfile(data);
+    }
+    setLoading(false);
+  };
 
-    checkUser();
+  checkUser();
 
-    // Pratimo ako se stanje promeni
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
+  // 🔥 POPRAVLJENO: Dodati eksplicitni tipovi za _event i session
+  const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
+    setUser(session?.user ?? null);
+  });
 
-    return () => subscription.unsubscribe();
-  }, []);
+  return () => subscription.unsubscribe();
+}, []);
 
   // Dok se učitava status korisnika, prikazujemo jednostavan skelet
   if (loading) {

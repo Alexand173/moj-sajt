@@ -39,7 +39,8 @@ export default function AddAlbumTrigger({ region }: { region: string }) {
 
     checkUser();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // 🔥 POPRAVLJENO: Dodati eksplicitni tipovi (any) da TypeScript ne pravi grešku tokom build-a
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
       setUser(session?.user ?? null);
     });
 
@@ -102,26 +103,26 @@ export default function AddAlbumTrigger({ region }: { region: string }) {
     }
 
     // Upis u bazu podataka
-   if (imageUrls.length > 0) {
-  try {
-    const { error: dbError } = await supabase.from('concert_albums').insert([{ 
-      album_name: albumName, 
-      region: region, 
-      images: imageUrls,
-      author_id: user.id // <--- Šaljemo ID ulogovanog korisnika u novu kolonu!
-    }]);
+    if (imageUrls.length > 0) {
+      try {
+        const { error: dbError } = await supabase.from('concert_albums').insert([{ 
+          album_name: albumName, 
+          region: region, 
+          images: imageUrls,
+          author_id: user.id // <--- Šaljemo ID ulogovanog korisnika u novu kolonu!
+        }]);
 
-    if (dbError) throw dbError;
+        if (dbError) throw dbError;
 
-    alert("Album successfully created!");
-    
-    // Resetovanje forme
-    setFileStatuses([]);
-    setFiles([]);
-    (e.target as HTMLFormElement).reset();
-  } catch (err) {
-    console.error("Error saving to database:", err);
-    alert("Images uploaded, but saving to the database failed. Please try again.");
+        alert("Album successfully created!");
+        
+        // Resetovanje forme
+        setFileStatuses([]);
+        setFiles([]);
+        (e.target as HTMLFormElement).reset();
+      } catch (err) {
+        console.error("Error saving to database:", err);
+        alert("Images uploaded, but saving to the database failed. Please try again.");
       }
     } else {
       alert("No images were successfully uploaded.");

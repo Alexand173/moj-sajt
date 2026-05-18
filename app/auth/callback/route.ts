@@ -7,12 +7,16 @@ export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get('code');
 
+  // Dinamički određujemo tvoj glavni domen u zavisnosti od toga da li si na localhostu ili na Vercelu
+  const isProduction = process.env.NODE_ENV === 'production';
+  const baseUrl = isProduction ? 'https://www.musictop.net' : 'http://localhost:3000';
+
   if (!code) {
-    return NextResponse.redirect(new URL('/', request.url));
+    return NextResponse.redirect(new URL('/', baseUrl));
   }
 
-  // Prepare response (redirect on success)
-  const response = NextResponse.redirect(new URL('/feed', request.url));
+  // Pripremamo čist i siguran redirect na /feed sa punim domenom
+  const response = NextResponse.redirect(new URL('/feed', baseUrl));
 
   try {
     const supabase = createServerClient(
@@ -32,15 +36,15 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    // Exchange the code for a session
+    // Razmena koda za sesiju
     const { error: authError } = await supabase.auth.exchangeCodeForSession(code);
 
     if (authError) {
       console.error('AUTH_EXCHANGE_ERROR:', authError);
-      return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(authError.message)}`, request.url));
+      return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(authError.message)}`, baseUrl));
     }
 
-    // Optionally upsert profile using service_role
+    // Upsert profila u bazu preko service_role ključa
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.user) {
       const supabaseAdmin = createClient(
@@ -61,6 +65,6 @@ export async function GET(request: NextRequest) {
     return response;
   } catch (err: any) {
     console.error('CALLBACK_SYSTEM_ERROR:', err);
-    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(err.message)}`, request.url));
+    return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(err.message)}`, baseUrl));
   }
 }

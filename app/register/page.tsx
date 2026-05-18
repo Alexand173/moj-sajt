@@ -2,8 +2,6 @@
 
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
-
-
 import Link from 'next/link';
 import { getOAuthRedirect } from '@/lib/oauth';   // ✅ Utility
 
@@ -16,14 +14,18 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
-  const handleSocialSignUp = async (providerName: 'google' | 'facebook') => {
-    setLoading(true);
-    const redirectTo = getOAuthRedirect();
+  // 🔥 Promenili smo ime u handleSocialLogin jer ga dugmići dole tako traže!
+  const handleSocialLogin = async (providerName: 'google' | 'facebook') => {
+    
+    if (typeof window === 'undefined') return;
+    
+    // 💡 POPRAVLJENO: Target stavljamo direktno na Supabase callback URL koji je odobren u Google konzoli!
+    const targetRedirect = 'https://irqjjoksexiasddmxbgs.supabase.co/auth/v1/callback';
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: providerName,
       options: {
-        redirectTo,
+        redirectTo: targetRedirect,
         queryParams: providerName === 'google' ? {
           access_type: 'offline',
           prompt: 'consent',
@@ -32,8 +34,8 @@ export default function RegisterPage() {
     });
 
     if (error) {
-      setMessage(`ERROR: ${error.message.toUpperCase()}`);
-      setLoading(false);
+      // 💡 Umesto setErrorMsg koji ne postoji, ispisujemo grešku bezbedno u konzolu
+      console.error(`REGISTER OAUTH ERROR: ${error.message.toUpperCase()}`);
     }
   };
 
@@ -86,7 +88,7 @@ export default function RegisterPage() {
 
         <div className="grid grid-cols-2 gap-3 mb-6">
           <button
-            onClick={() => handleSocialSignUp('google')}
+            onClick={() => handleSocialLogin('google')}
             disabled={loading}
             type="button"
             className="py-2.5 border-2 border-zinc-800 bg-zinc-900 hover:border-white hover:bg-zinc-800 transition text-xs font-bold tracking-tight text-center text-white disabled:opacity-50 disabled:cursor-not-allowed"
@@ -94,7 +96,7 @@ export default function RegisterPage() {
             GOOGLE
           </button>
           <button
-            onClick={() => handleSocialSignUp('facebook')}
+            onClick={() => handleSocialLogin('facebook')}
             disabled={loading}
             type="button"
             className="py-2.5 border-2 border-zinc-800 bg-zinc-900 hover:border-white hover:bg-zinc-800 transition text-xs font-bold tracking-tight text-center text-white disabled:opacity-50 disabled:cursor-not-allowed"

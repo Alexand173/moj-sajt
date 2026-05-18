@@ -37,22 +37,21 @@ export default function HeaderAuth() {
 
     checkUserAndProfile();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (session?.user) {
-          setUser(session.user);
-          const { data } = await supabase
-            .from('profiles')
-            .select('first_name, avatar_url')
-            .eq('id', session.user.id)
-            .single();
-          if (data) setProfile(data);
-        } else {
-          setUser(null);
-          setProfile(null);
-        }
+    // 🔥 POPRAVLJENO: Sređena sintaksa i dodat 'any' tip bez nepotrebnog dupliranja funkcija
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: any, session: any) => {
+      if (session?.user) {
+        setUser(session.user);
+        const { data } = await supabase
+          .from('profiles')
+          .select('first_name, avatar_url')
+          .eq('id', session.user.id)
+          .single();
+        if (data) setProfile(data);
+      } else {
+        setUser(null);
+        setProfile(null);
       }
-    );
+    });
 
     return () => subscription.unsubscribe();
   }, []);
