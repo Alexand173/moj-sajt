@@ -12,6 +12,8 @@ interface UserProfile {
 export default function HeaderAuth() {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  // ⏳ UVODIMO STAND-BY STANJE (Uvek kreće kao true dok ne proverimo sve)
+  const [isAuthenticating, setIsAuthenticating] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
@@ -32,41 +34,49 @@ export default function HeaderAuth() {
         }
       } catch (err) {
         console.error("Supabase provera greska:", err);
+      } finally {
+        // Završena prva provera pri učitavanju stranice
+        setIsAuthenticating(false);
       }
     };
 
     checkUserAndProfile();
 
-    // ✅ POPRAVLJENO: Sintaksa je sada cista, bez duplih asinhronih funkcija koje blokiraju izvrsavanje
+    // 🔄 Osluškujemo promene (Google prijavu)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: any, session: any) => {
+      // Čim detektujemo promenu stanja (npr. SIGNED_IN), palimo stand-by
+      setIsAuthenticating(true);
+
       if (session?.user) {
         setUser(session.user);
         
-        // Pokusavamo da uzmemo profil odmah
-        let { data } = await supabase
-          .from('profiles')
-          .select('first_name, avatar_url')
-          .eq('id', session.user.id)
-          .single();
-          
-        // Ako baza kasni sa okidacem (trigger-om), sacekamo malo i povucemo opet
-        if (!data) {
-          await new Promise((resolve) => setTimeout(resolve, 800));
-          const retry = await supabase
+        // 🔁 "AWAIT" petlja: Pokušavamo da uhvatimo profil iz baze do 5 puta (na svakih 400ms)
+        let profileData = null;
+        for (let i = 0; i < 5; i++) {
+          const { data } = await supabase
             .from('profiles')
             .select('first_name, avatar_url')
             .eq('id', session.user.id)
             .single();
-          data = retry.data;
+          
+          if (data) {
+            profileData = data;
+            break; // Uspešno upisano u SQL bazu, prekidamo čekanje!
+          }
+          // Ako još nije upisano, sačekaj 400ms pa probaj ponovo
+          await new Promise((resolve) => setTimeout(resolve, 400));
         }
         
-        if (data) setProfile(data);
+        if (profileData) setProfile(profileData);
         router.refresh();
       } else {
         setUser(null);
         setProfile(null);
         router.refresh();
       }
+
+      // Sve je upisano i provereno, gasimo stand-by!
+      setIsAuthenticating(false);
     });
 
     return () => subscription.unsubscribe();
@@ -74,6 +84,7 @@ export default function HeaderAuth() {
 
   const handleLogout = async () => {
     try {
+      setIsAuthenticating(true);
       setUser(null);
       setProfile(null);
 
@@ -107,7 +118,18 @@ export default function HeaderAuth() {
     }
   };
 
-  // 🟢 SLUČAJ 1: KORISNIK JE ULOGOVAN
+  // ⏳ SLUČAJ NA ČEKANJU (STAND-BY): Dok traje upis u bazu, piše LOADING...
+  if (isAuthenticating) {
+    return (
+      <div className="flex items-center shrink-0 relative z-[9999] pointer-events-auto">
+        <span className="text-[10px] tracking-widest text-purple-500 font-black animate-pulse">
+          LOADING...
+        </span>
+      </div>
+    );
+  }
+
+  // 🟢 SLUČAJ 1: KORISNIK JE KONAČNO ULOGOVAN (I UPISAN U PROFILES)
   if (user) {
     const displayName = profile?.first_name 
       ? `${profile.first_name}`.toUpperCase() 
@@ -137,7 +159,7 @@ export default function HeaderAuth() {
     );
   }
 
-  // 🔴 SLUČAJ 2: KORISNIK JE GOST
+  // 🔴 SLUČAJ 2: KORISNIK JE GOST (NIJE ULOGOVAN)
   return (
     <div className="flex items-center gap-2 shrink-0 relative z-[9999] pointer-events-auto">
       <button 
@@ -158,5 +180,4 @@ export default function HeaderAuth() {
   );
 }
 
-// ✅ Sprecava Vercel i Next.js da kesiraju auth stanje na statickim rutama
 export const dynamic = 'force-dynamic';
