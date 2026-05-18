@@ -1,13 +1,11 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
-import { createClient } from '@supabase/supabase-js';
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get('code');
 
-  // Dinamički određujemo tvoj glavni domen u zavisnosti od toga da li si na localhostu ili na Vercelu
   const isProduction = process.env.NODE_ENV === 'production';
   const baseUrl = isProduction ? 'https://www.musictop.net' : 'http://localhost:3000';
 
@@ -15,7 +13,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL('/', baseUrl));
   }
 
-  // ✅ POPRAVLJENO: Umesto na nepostojeći /feed, šaljemo korisnika na početnu stranu '/'
   const response = NextResponse.redirect(new URL('/', baseUrl));
 
   try {
@@ -36,30 +33,28 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    // Razmena koda za sesiju
-    const { error: authError } = await supabase.auth.exchangeCodeForSession(code);
+    // 1. Razmeni kod za aktivnu sesiju
+    const { data, error: authError } = await supabase.auth.exchangeCodeForSession(code);
 
     if (authError) {
       console.error('AUTH_EXCHANGE_ERROR:', authError);
       return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(authError.message)}`, baseUrl));
     }
 
-    // Upsert profila u bazu preko service_role ključa
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.user) {
-      const supabaseAdmin = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!,
-        { auth: { autoRefreshToken: false, persistSession: false } }
-      );
-
-      await supabaseAdmin
+    // 2. Ako imamo korisnika, upiši ga DIREKTNO u profiles tabelu sa njegovom sesijom
+    if (data?.user) {
+      const { error: profileError } = await supabase
         .from('profiles')
         .upsert({
-          id: session.user.id,
-          email: session.user.email,
-          first_name: session.user.user_metadata?.full_name || 'User',
+          id: data.user.id,
+          email: data.user.email,
+          first_name: data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || 'User',
         }, { onConflict: 'id' });
+
+      if (profileError) {
+        console.error('PROFILE_UPSERT_ERROR:', profileError);
+        // Ne blokiramo login čak i ako profil zapne, sajt će raditi preko email-a
+      }
     }
 
     return response;
