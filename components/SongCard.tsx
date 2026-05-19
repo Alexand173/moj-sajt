@@ -79,15 +79,16 @@ export default function SongCard({ song, rank, variant = 'standard' }: SongCardP
       <div className={`relative bg-[#080808] rounded-[2.5rem] md:rounded-[3.5rem] overflow-hidden border transition-all duration-700 group ${currentStyle.container}`}>
         
         {/* MEDIA AREA */}
-        <div className="absolute inset-0 w-full h-full">
-          <Image
-            src={song.slika_url || '/placeholder.png'}
-            alt={song.title}
-            fill
-            className={`object-cover transition-all duration-1000 ${isHovered ? 'scale-110 blur-2xl opacity-30' : 'scale-100 opacity-60'}`}
-          />
+<div className="absolute inset-0 w-full h-full">
+  <Image
+    src={song.slika_url || '/placeholder.png'}
+    alt={song.title}
+    fill
+    unoptimized // <-- DODAJ SAMO OVU LINIJU BILO GDE OVDE
+    className={`object-cover transition-all duration-1000 ${isHovered ? 'scale-110 blur-2xl opacity-30' : 'scale-100 opacity-60'}`}
+  />
 
-          {isHovered && song.youtube_id && (
+  {isHovered && song.youtube_id && (
             <div className="absolute inset-0 flex items-center justify-center p-4 md:p-8 animate-in zoom-in-110 fade-in duration-500">
               <div className="w-full h-full rounded-[2rem] overflow-hidden border border-white/10 shadow-2xl bg-black relative">
                 <iframe
