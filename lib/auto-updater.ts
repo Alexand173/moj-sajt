@@ -20,176 +20,64 @@ export async function updateMusicCharts() {
    
   const mojePesme = [
   
-"Milky - Just The Way You Are",
-
-"Disco Lines & Tinashe - No Broke Boys",
-
-"Anotr / 54 Ultra - Talk To You",
-
-"Prospa / Cloonee - Free Your Mind",
-
-"Haven ft. Kaitlin Aragon - I Run",
-
-"Calvin Harris / Douglas - Blessings",
-
-"Sonny Fodera / D.O.D / Baskcomb - Think About Us",
-
-"Bebe Rexha & Faithless - New Religion",
-
-"Chrystal - The Days",
-
-"Michael Jackson - They Don't Care About Us",
-
-"Calvin Harris - Feel So Close",
-
-"Disclosure ft. Sam Smith - Latch",
-
-"Ewan Mcvicar - Share The House",
-
-"DJ Snake ft. Justin Bieber - Let Me Love You",
-
-"Robin S - Show Me Love",
-
-"Rihanna ft. Calvin Harris - We Found Love",
-
-"MK ft. Chrystal - Dior",
-
-"Lonown / Riserayss - Worry",
-
-"Sonny Fodera / Jazzy / D.O.D - Somedays",
-
-"Bl3ss / Camrinwatsin / Bbyclose - Kisses",
-
-"Casso / Raye / D-Block Europe - Prada",
-
-"Calvin Harris - Summer",
-
-"Avicii - Wake Me Up",
-
-"Mike Posner - I Took A Pill In Ibiza",
-
-"Bob Sinclar ft. Steve Edwards - World Hold On (Fisher Rework)",
-
-"Clean Bandit ft. Jess Glynne - Rather Be",
-
-"Skrillex & Diplo / Justin Bieber - Where Are U Now",
-
-"Calvin Harris & Disciples - How Deep Is Your Love",
-
-"David Guetta ft. Sia - Titanium",
-
-"Faithless - Insomnia",
-
-"Morgan Seatree - Say My Name",
-
-"Chainsmokers & Coldplay - Something Just Like This",
-
-"LF System - Afraid To Feel",
-
-"Stardust - Music Sounds Better With You",
-
-"Calvin Harris & Dua Lipa - One Kiss",
-
-"Jonas Blue & Malive - Edge of Desire",
-
-"Calvin Harris & Kasabian - Release The Pressure",
-
-"Major Lazer ft. Mø & DJ Snake - Lean On",
-
-"Calvin Harris ft. Rihanna - This Is What You Came For",
-
-"Everything But The Girl - Missing",
-"Tinie Tempah, Alex Mills - Energy",
-
-"Josh Baker, Sienna Sophia - Come Closer (feat. Sienna Sophia)",
-
-"Simon Field, Eyez - Chain Gun (Radio Edit)",
-
-"Benny Benassi, Tobias Gerard - DISCOTEKA",
-
-"SOSA - Be Without You",
-
-"Odd Mob, OMNOM, HYPERBEAM - Coming Up (It's Dare)",
-
-"SIDEPIECE - Cry For You (2025)",
-
-"Matroda, KLP - Bullshit",
-
-"DJ Glen, Shady Jones - Hypnotize",
-
-"Ethan Walsh - Look Good",
-
-"Simon Field - PanAm - Radio Edit",
-
-"Le Zinc - House Is A River",
-
-"Jamback - Positive",
-
-"Vinter - Space Pump (Space Jam)",
-
-"Kolter, Nate Dogg - Liquor Store (feat. Nate Dogg)",
-
-"James Hype, A.D.O.R. - Behaviour (feat. A.D.O.R.)",
-
-"HUGEL, Maesic, Omada - Dubai Shit - Extended Mix",
-
-"Jump Kid - Jump Kid",
-
-"Sonny Fodera, D.O.D, Poppy Baskcomb - Think About Us",
-
-"PLUS2 - Rhythm n' Beat",
-
-"L.P. Rhythm - Versatile",
-
-"Cloonee, Young M.A, InntRaw, HNTR - Stephanie - HNTR Remix",
-
-"Sammy Virji, Chris Lake, RoRo - 925",
-
-"Fallon - Diet Coke",
-
-"Shermanology - Give You My Luv",
-
-"BUJA (BR) - Dagger Hit",
-
-"John Newman, SIX40TWO - Something In The Water",
-
-"Sidney Charles - Take It Back (To The Old School)",
-
-"Mason Collective - Restless",
-
-"HILLS - Coolin",
-
-"Luuk Van Dijk - Disco Tetris - Edit",
-
-"OMRI., Dakota - Unholy",
-
-"Dimon - I Just Wanna",
-
-"Chris Stussy - It's About Us",
-
-"CHANEY, Paige Bea - Falling Into You",
-
-"Dom Dolla, Daya - Dreamin (feat. Daya)",
-
-"Danny Howard, Joshwa, Mahalia Fontaine - (This Is A) Warning",
-
-"Elbio & Denis - Work Me",
-
-"Büya, OJOG - Pjanoo",
-
-"Simon Field, Angie Brown - Trouble",
-
-"Todd Terry, Simon Field - My House Is On Fire",
-
-"Kokiri, Kelli-Leigh - Let's Get Out (feat. Kelli-Leigh)",
-
-"Biscits - Freak",
-
-"FISHER, AR/CO - Ocean",
-
-"Riordan - Gimme",
-
-"Charli xcx, Skream & Benga - Von dutch remix with skream & benga",
+"Muse - Cryogen",
+"Tigercub - A Black Moon",
+"FEDZ - H.R. FUKNSTUF",
+"DON BROCO, Sam Carter - True Believers (Feat. Sam Carter)",
+"Enter Shikari - LOSE YOUR SELF",
+"GRAYWOLF - Shattered Horizons",
+"YONAKA - Eat You Alive",
+"Muse - Unravelling",
+"Lucyvivor - Exile Symphony",
+"DEAD SUGAR - KENOPSIA",
+"Lost In Details - Memory Of Mine",
+"Biffy Clyro - True Believer",
+"Tokeo - Flava",
+"Coach Party - Nurse Depression",
+"Trash Boat - Rain",
+"Lucyvivor - Milk and Venom",
+"Chalk - Tongue",
+"YONAKA - Hit Me When I'm Sore",
+"Tigercub - Fall In Fall Out",
+"MOULD, Perfect Binding - Lists",
+"WAIL - NIGHTS",
+"Secret Cameras - Together Till The End",
+"n0trixx - hysteria [БЕГП]",
+"Kid Kapichi - Dark Days Are Coming",
+"nineplanfailed - house",
+"Love Is Noise - Everyone Bleeds",
+"PRESIDENT - Dionysus",
+"n0trixx, Sarunas Brazionis - harmless",
+"GRAYWOLF - Scream",
+"YONAKA - Cruel",
+"Tigercub - I'm Breaking Out",
+"Lucyvivor, n0trixx - Serpent Script",
+"Witch Fever - I SEE IT",
+"WAIL - FEEL A CHANGE",
+"Sleep Token - Gethsemane",
+"Bring Me The Horizon - Wonderwall - Spotify Singles",
+"Reflection Black - Shadow Self",
+"Lucyvivor - Eden",
+"PRESIDENT - Destroy Me",
+"Hot Milk - Swallow This",
+"WARGASM (UK) - Vigilantes",
+"Black Sabbath - Iron Man - 2009 Remaster",
+"DEADLETTER - It Comes Creeping",
+"GRAYWOLF - We'll Bring You Down - Live At The Creek",
+"Bring Me The Horizon - Kool-Aid",
+"Marta Vega - Bruised",
+"Inhaler - Hole In The Ground",
+"Secret Cameras - Back Against The Wall",
+"And it was Night - What's Beyond the Light?",
+"RUT! - DAWN",
+"Secret Cameras - Under Attack",
+"Lessens - Holding Room",
+"Coach Party - Girls!",
+"RUT! - Fake Lights",
+"BathTub - MARRY ME?",
+"RUT! - I HATE U",
+"Secret Cameras - You Couldn't See Me",
+"Kid Kapichi - Rabbit Hole",
 ];
 
     for (const query of mojePesme) {
@@ -215,7 +103,7 @@ export async function updateMusicCharts() {
           slika_url: thumb || '',
           youtube_id: videoId || '',
           region: 'UK',       // <--- DODAJ REGION
-          genre_id: 6 ,        // <--- DODAJ ID ŽANRA (npr. 1 za Rock)
+          genre_id: 1 ,        // <--- DODAJ ID ŽANRA (npr. 1 za Rock)
           year: 2026,         // <--- DODAJ GODINU
           is_chart: true      // <--- DA BUDE AKTIVNA
         }, { onConflict: 'title' });
