@@ -25,12 +25,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-           {/* --- OVDE ZALEPI --- */}
-           <script
-           dangerouslySetInnerHTML={{
-            __html: `<meta name="impact-site-verification" value="43444915-bed2-46dc-987e-a11bf2cd3c46">`,
-          }}
-        />
+        <meta name="impact-site-verification" {...({ value: "43444915-bed2-46dc-987e-a11bf2cd3c46" } as any)} />
      
         {/* 2. Google AdSense Skripta */}
         {/* ZAMENI "ca-pub-XXXXXXXXXXXXXXXX" sa tvojim pravim AdSense ID-jem iz konzole! */}
