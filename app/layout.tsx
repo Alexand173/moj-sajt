@@ -13,6 +13,12 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "MUSIC TOP | Global Charts & MTA Awards",
   description: "Official Music Top Awards and Global Music Charts",
+
+verification: {
+    other: {
+      "impact-site-verification": "43444915-bed2-46dc-987e-a11bf2cd3c46",
+    },
+  },
 };
 
 export default function RootLayout({

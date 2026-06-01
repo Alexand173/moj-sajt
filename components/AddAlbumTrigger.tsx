@@ -40,7 +40,7 @@ export default function AddAlbumTrigger({ region }: { region: string }) {
     checkUser();
 
     // 🔥 POPRAVLJENO: Dodati eksplicitni tipovi (any) da TypeScript ne pravi grešku tokom build-a
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
+const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {      
       setUser(session?.user ?? null);
     });
 
