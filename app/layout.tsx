@@ -25,8 +25,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <meta name="impact-site-verification" {...({ value: "5249bdc7-0ed1-4b18-9553-325cd16c3543" } as any)} />
-     
+         <meta name='impact-site-verification' content='e731ab44-d92b-4034-9fa2-f684ac52903b' />
         {/* 2. Google AdSense Skripta */}
         {/* ZAMENI "ca-pub-XXXXXXXXXXXXXXXX" sa tvojim pravim AdSense ID-jem iz konzole! */}
         <Script
