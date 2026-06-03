@@ -28,12 +28,13 @@ export default function RootLayout({
          <meta name='impact-site-verification' content='e731ab44-d92b-4034-9fa2-f684ac52903b' />
         {/* 2. Google AdSense Skripta */}
         {/* ZAMENI "ca-pub-XXXXXXXXXXXXXXXX" sa tvojim pravim AdSense ID-jem iz konzole! */}
-        <Script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5019317238845372"
-          strategy="afterInteractive"
-          crossOrigin="anonymous"
-        />
+        {/* Koristi običan script tag umesto <Script /> za verifikaciju */}
+  <script 
+    async 
+    src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5019317238845372" 
+    crossOrigin="anonymous">
+  </script>
+        /
       </head>
       {/* 3. Tvoj originalni body sa flex-col stilovima */}
       <body 
