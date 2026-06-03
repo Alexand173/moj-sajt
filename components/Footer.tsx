@@ -35,10 +35,16 @@ export default function Footer() {
               Charts & Genres
             </h4>
             <ul className="flex flex-col gap-1.5 font-bold text-[11px] uppercase">
-              <li><Link href="/charts/pop" className="hover:text-purple-600 transition-colors">Pop & Rock</Link></li>
-              <li><Link href="/charts/k-pop" className="hover:text-purple-600 transition-colors">K-Pop & J-Pop</Link></li>
-              <li><Link href="/charts/hip-hop" className="hover:text-purple-600 transition-colors">Hip-Hop & Soul</Link></li>
-              <li><Link href="/charts/jazz" className="hover:text-purple-600 transition-colors">Jazz & Classic</Link></li>
+              <li><Link href="/charts/us/pop" className="hover:text-purple-600 transition-colors">Pop</Link></li>
+              <li><Link href="/charts/us/rock" className="hover:text-purple-600 transition-colors">Rock</Link></li>
+              <li><Link href="/charts/us/hip-hop" className="hover:text-purple-600 transition-colors">Hip-Hop & Rap</Link></li>
+              <li><Link href="/charts/us/country" className="hover:text-purple-600 transition-colors">Country</Link></li>
+              <li><Link href="/charts/us/dance" className="hover:text-purple-600 transition-colors">Dance</Link></li>
+              <li><Link href="/charts/asia/j-pop" className="hover:text-purple-600 transition-colors">J-Pop</Link></li>
+              <li><Link href="/charts/asia/j-rock-metal" className="hover:text-purple-600 transition-colors">J-Rock</Link></li>
+              <li><Link href="/charts/us/rb-soul" className="hover:text-purple-600 transition-colors">R&B & Soul</Link></li>
+              <li><Link href="/charts/jazz" className="hover:text-purple-600 transition-colors">Jazz</Link></li>
+              <li><Link href="/charts/classical" className="hover:text-purple-600 transition-colors">Classic</Link></li>
             </ul>
           </div>
 
@@ -47,10 +53,27 @@ export default function Footer() {
               MTA Awards
             </h4>
             <ul className="flex flex-col gap-1.5 font-bold text-[11px] uppercase">
-              <li><Link href="/news" className="hover:text-purple-600 transition-colors">Latest News</Link></li>
-              <li><Link href="/festivals" className="hover:text-purple-600 transition-colors">Festivals 2026</Link></li>
-              <li><Link href="/concerts" className="hover:text-purple-600 transition-colors">Concert Dates</Link></li>
-            </ul>
+  {/* Link za News koji vodi na /news/us */}
+  <li>
+    <Link href="/news/us" className="hover:text-purple-600 transition-colors">
+      Latest News
+    </Link>
+  </li>
+
+  {/* Link za Festivals koji vodi na /festivals/us */}
+  <li>
+    <Link href="/festivals/us" className="hover:text-purple-600 transition-colors">
+      Festivals 2026
+    </Link>
+  </li>
+
+  {/* Link za Concert Dates koji vodi na /tours/us (kako si ranije pomenuo) ili /concerts/us */}
+  <li>
+    <Link href="/tours/us" className="hover:text-purple-600 transition-colors">
+      Concert Dates
+    </Link>
+  </li>
+</ul>
           </div>
 
           <div className="space-y-3">
