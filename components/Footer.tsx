@@ -35,16 +35,16 @@ export default function Footer() {
               Charts & Genres
             </h4>
             <ul className="flex flex-col gap-1.5 font-bold text-[11px] uppercase">
-              <li><Link href="/charts/us/pop" className="hover:text-purple-600 transition-colors">Pop</Link></li>
-              <li><Link href="/charts/us/rock" className="hover:text-purple-600 transition-colors">Rock</Link></li>
-              <li><Link href="/charts/us/hip-hop" className="hover:text-purple-600 transition-colors">Hip-Hop & Rap</Link></li>
-              <li><Link href="/charts/us/country" className="hover:text-purple-600 transition-colors">Country</Link></li>
-              <li><Link href="/charts/us/dance" className="hover:text-purple-600 transition-colors">Dance</Link></li>
-              <li><Link href="/charts/asia/j-pop" className="hover:text-purple-600 transition-colors">J-Pop</Link></li>
-              <li><Link href="/charts/asia/j-rock-metal" className="hover:text-purple-600 transition-colors">J-Rock</Link></li>
-              <li><Link href="/charts/us/rb-soul" className="hover:text-purple-600 transition-colors">R&B & Soul</Link></li>
-              <li><Link href="/charts/jazz" className="hover:text-purple-600 transition-colors">Jazz</Link></li>
-              <li><Link href="/charts/classical" className="hover:text-purple-600 transition-colors">Classic</Link></li>
+              <li><Link href="/region/us/pop" className="hover:text-purple-600 transition-colors">Pop</Link></li>
+              <li><Link href="/region/us/rock" className="hover:text-purple-600 transition-colors">Rock</Link></li>
+              <li><Link href="/region/us/hip-hop" className="hover:text-purple-600 transition-colors">Hip-Hop & Rap</Link></li>
+              <li><Link href="/region/us/country" className="hover:text-purple-600 transition-colors">Country</Link></li>
+              <li><Link href="/region/us/dance" className="hover:text-purple-600 transition-colors">Dance</Link></li>
+              <li><Link href="/region/asia/j-pop" className="hover:text-purple-600 transition-colors">J-Pop</Link></li>
+              <li><Link href="/region/asia/j-rock-metal" className="hover:text-purple-600 transition-colors">J-Rock</Link></li>
+              <li><Link href="/region/us/rb-soul" className="hover:text-purple-600 transition-colors">R&B & Soul</Link></li>
+              <li><Link href="/region/jazz" className="hover:text-purple-600 transition-colors">Jazz</Link></li>
+              <li><Link href="/region/classical" className="hover:text-purple-600 transition-colors">Classic</Link></li>
             </ul>
           </div>
 
