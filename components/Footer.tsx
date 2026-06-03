@@ -7,7 +7,7 @@ export default function Footer() {
     <footer className="w-full bg-white text-black border-t-[8px] border-black pt-16 pb-8 overflow-hidden mt-auto">
       <div className="max-w-[1700px] mx-auto px-6">
         
-        {/* LOGO SEKCIJA - Smanjen font sa 15vw na 8vw / 10vw */}
+        {/* LOGO SEKCIJA */}
         <div className="mb-12 border-b-2 border-black pb-4">
           <h2 className="text-[10vw] md:text-[8vw] font-black uppercase italic leading-[0.8] tracking-tighter select-none">
             MUSIC<span className="text-purple-600">TOP</span>
@@ -18,28 +18,38 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* LINKOVI - Čistija i manja mreža */}
+        {/* --- NOVO: SEO TEXT BLOCK --- */}
+        <div className="mb-16 max-w-4xl">
+          <h3 className="text-[11px] font-black tracking-[0.2em] uppercase text-zinc-400 mb-3">About Music Top</h3>
+          <p className="text-[13px] md:text-sm leading-relaxed font-medium text-zinc-800">
+            Currently most popular songs in all genres including **Rock, Pop, Hip-Hop, R&B/Soul, Country, Dance, J-Pop, J-Rock, K-Pop, Jazz, and Classic**. 
+            All world music charts are ranked by audience votes. Follow **MTA awards**, festival announcements, latest music news, and official concert dates for global artists.
+          </p>
+        </div>
+
+        {/* LINKOVI */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-16">
           
           <div className="space-y-3">
             <h4 className="text-[10px] font-black tracking-[0.2em] uppercase text-zinc-400">
-              Regions
+              Charts & Genres
             </h4>
             <ul className="flex flex-col gap-1.5 font-bold text-[11px] uppercase">
-              <li><Link href="/news/us" className="hover:text-purple-600 transition-colors">United States</Link></li>
-              <li><Link href="/news/uk" className="hover:text-purple-600 transition-colors">United Kingdom</Link></li>
-              <li><Link href="/news/asia" className="hover:text-purple-600 transition-colors">Asia Pacific</Link></li>
+              <li><Link href="/charts/pop" className="hover:text-purple-600 transition-colors">Pop & Rock</Link></li>
+              <li><Link href="/charts/k-pop" className="hover:text-purple-600 transition-colors">K-Pop & J-Pop</Link></li>
+              <li><Link href="/charts/hip-hop" className="hover:text-purple-600 transition-colors">Hip-Hop & Soul</Link></li>
+              <li><Link href="/charts/jazz" className="hover:text-purple-600 transition-colors">Jazz & Classic</Link></li>
             </ul>
           </div>
 
           <div className="space-y-3">
             <h4 className="text-[10px] font-black tracking-[0.2em] uppercase text-zinc-400">
-              Content
+              MTA Awards
             </h4>
             <ul className="flex flex-col gap-1.5 font-bold text-[11px] uppercase">
-              <li><Link href="/news/us" className="hover:text-purple-600 transition-colors">Latest News</Link></li>
-              <li><Link href="/reviews" className="hover:text-purple-600 transition-colors">Reviews</Link></li>
-              <li><Link href="/festivals" className="hover:text-purple-600 transition-colors">Festivals</Link></li>
+              <li><Link href="/news" className="hover:text-purple-600 transition-colors">Latest News</Link></li>
+              <li><Link href="/festivals" className="hover:text-purple-600 transition-colors">Festivals 2026</Link></li>
+              <li><Link href="/concerts" className="hover:text-purple-600 transition-colors">Concert Dates</Link></li>
             </ul>
           </div>
 
@@ -48,29 +58,29 @@ export default function Footer() {
               Legal
             </h4>
             <ul className="flex flex-col gap-1.5 font-bold text-[11px] uppercase">
-              <li><Link href="#" className="hover:text-purple-600 transition-colors">Privacy</Link></li>
-              <li><Link href="#" className="hover:text-purple-600 transition-colors">Terms</Link></li>
+              <li><Link href="/privacy" className="hover:text-purple-600 transition-colors">Privacy Policy</Link></li>
+              <li><Link href="/terms" className="hover:text-purple-600 transition-colors">Terms of Service</Link></li>
             </ul>
           </div>
 
           <div className="space-y-3">
             <h4 className="text-[10px] font-black tracking-[0.2em] uppercase text-zinc-400">
-              Connect
+              Newsletter
             </h4>
             <div className="flex flex-col gap-2">
               <input 
                 type="email" 
-                placeholder="NEWSLETTER" 
-                className="border-b-2 border-black py-1 text-[10px] font-black focus:outline-none focus:border-purple-600 w-full"
+                placeholder="YOUR@EMAIL.COM" 
+                className="border-b-2 border-black py-1 text-[10px] font-black focus:outline-none focus:border-purple-600 w-full bg-transparent"
               />
             </div>
           </div>
         </div>
 
-        {/* COPYRIGHT - Minimalistički na dnu */}
+        {/* COPYRIGHT */}
         <div className="pt-6 border-t border-black/5 flex flex-col md:flex-row justify-between gap-4 items-center">
           <div className="text-[9px] font-bold tracking-widest text-zinc-500 uppercase">
-            © {currentYear} MUSICTOP MEDIA GROUP / ALL RIGHTS RESERVED.
+            © {currentYear} MUSICTOP MEDIA GROUP / ALL RIGHTS RESERVED. OFFICIAL MTA SOURCE.
           </div>
           <div className="flex gap-5 font-black text-[9px] tracking-[0.2em] italic uppercase">
             <span className="cursor-pointer hover:text-purple-600">IG</span>
