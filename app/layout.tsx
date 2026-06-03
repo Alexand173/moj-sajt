@@ -10,11 +10,49 @@ import { GoogleAnalytics } from '@next/third-parties/google';
 
 const inter = Inter({ subsets: ["latin"] });
 
+
+
 export const metadata: Metadata = {
-  title: "MUSIC TOP | Global Charts & MTA Awards",
-  description: "Official Music Top Awards and Global Music Charts",
+  title: {
+    default: "MUSIC TOP | Global Music Charts & Concert Tickets 2026 & MTA Awards",
+    template: "%s | MUSIC TOP"
+  },
+  description: "Currently most popular songs in all music genres rock, pop hip-hop r&b/soul country dance, j-pop, j-rock, k-pop, jazz, classic ,ranked by audience votes, mta awards, the latest music news, and find official concert dates and festival tickets worldwide,  listen to the latest world music charts from the usa, europe, latin america and asia. follow mta awards, concert announcements, festivals and buy tickets. World Music in one place.",
+  keywords: [
+    "music charts", 
+    "global music top", 
+    "concert tickets 2026", 
+    "MTA awards", 
+    "top 100 songs", 
+    "music festivals", 
+    "tour dates",
+   "audience voting", "MTA awards 2026", "concert dates", 
+    "buy festival tickets", "popular songs by genre", "K-Pop charts", 
+    "Rock charts", "Hip-Hop music charts", "Pop music charts", "R&B/Soul charts", "Country music charts", "Dance music charts", "J-Pop charts", 
+    "J-Rock charts", "Jazz charts", "Classic music charts", 
+    "latest music news", "world music charts", "music awards 2026"
 
 
+  ],
+  openGraph: {
+    title: "MUSIC TOP | Global Music Charts & Concert Tickets & Festivals &  MTA Awards",
+    description: "Official Music Top Awards and Global Music Charts. Don't miss out on the latest concert dates!",
+    url: "https://musictop.net",
+    siteName: "MUSIC TOP",
+    images: [
+      {
+        url: "/og-image.png", // Ako imaš logo ili sliku sajta, stavi je ovde
+        width: 1200,
+        height: 630,
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  }
 };
 
 export default function RootLayout({
