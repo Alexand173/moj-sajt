@@ -95,8 +95,7 @@ export default function RegionalPage({ params }: PageProps) {
           <p className="text-zinc-500 tracking-[0.5em] text-[10px] font-bold uppercase">Official {region} Chart</p>
         </div>
 
-        {/* --- 1. REKLAMA: ISPOD NASLOVA --- */}
-        <AdSenseBanner adSlot={trenutniSlotovi.top} />
+       
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           
@@ -152,7 +151,10 @@ export default function RegionalPage({ params }: PageProps) {
             </div>
           ))}
         </div>
-
+{/* --- 1. REKLAMA: PREMEŠTENA OVDE (Između 3. i 4. mesta) --- */}
+        <div className="mt-16">
+          <AdSenseBanner adSlot={trenutniSlotovi.top} />
+        </div>
         {/* --- OSTALIH 97: STANDARDNA LISTA --- */}
         <div className="mt-16 space-y-3">
           <div className="px-8 py-2 text-[10px] font-bold text-zinc-600 tracking-[0.3em] flex justify-between uppercase">
