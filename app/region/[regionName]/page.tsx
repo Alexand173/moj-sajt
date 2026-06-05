@@ -95,11 +95,10 @@ export default function RegionalPage({ params }: PageProps) {
           <p className="text-zinc-500 tracking-[0.5em] text-[10px] font-bold uppercase">Official {region} Chart</p>
         </div>
 
-       
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* TOP 3 PESME GLAVNI GRID */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
           
-          {/* --- BROJ 1: NAJVEĆI PROZOR (Zauzima ceo red) --- */}
+          {/* --- BROJ 1: NAJVEĆI PROZOR --- */}
           {songs[0] && (
             <div className="md:col-span-2 group bg-zinc-900/40 rounded-[3rem] overflow-hidden border border-white/10 hover:border-red-600/50 transition-all shadow-2xl">
               <div className="aspect-video w-full bg-black">
@@ -125,7 +124,7 @@ export default function RegionalPage({ params }: PageProps) {
             </div>
           )}
 
-          {/* --- BROJ 2 I 3: SREDNJI PROZORI (Jedan pored drugog) --- */}
+          {/* --- BROJ 2 I 3: SREDNJI PROZORI --- */}
           {songs.slice(1, 3).map((song, i) => (
             <div key={song.id} className="bg-zinc-900/30 rounded-[2.5rem] overflow-hidden border border-white/5 hover:border-zinc-500 transition-all shadow-xl">
               <div className="aspect-video bg-black">
@@ -151,12 +150,14 @@ export default function RegionalPage({ params }: PageProps) {
             </div>
           ))}
         </div>
-{/* --- 1. REKLAMA: PREMEŠTENA OVDE (Između 3. i 4. mesta) --- */}
-        <div className="mt-16">
+
+        {/* --- 1. REKLAMA: SADA JE SIGURNO ISPOD PRVE 3 PESME (IZMEĐU 3. i 4. MESTA) --- */}
+        <div className="my-12 w-full clearfix">
           <AdSenseBanner adSlot={trenutniSlotovi.top} />
         </div>
+
         {/* --- OSTALIH 97: STANDARDNA LISTA --- */}
-        <div className="mt-16 space-y-3">
+        <div className="mt-12 space-y-3">
           <div className="px-8 py-2 text-[10px] font-bold text-zinc-600 tracking-[0.3em] flex justify-between uppercase">
             <span>Rank & Artist</span>
             <span>MTA Points</span>
@@ -218,21 +219,16 @@ export default function RegionalPage({ params }: PageProps) {
           <AdSenseBanner adSlot={trenutniSlotovi.bottom} />
         </div>
 
-       {/* --- SEKCIJA ZA PREDLOGE (Suggestion Form & List) --- */}
-          <div className="mt-24 grid grid-cols-1 lg:grid-cols-3 gap-12 border-t border-white/5 pt-16">
-            
-            {/* Leva kolona: Naslov i objašnjenje */}
-            <div className="lg:col-span-1">
-              <h2 className="text-3xl font-black italic uppercase tracking-tight mb-4">Predloži pesmu</h2>
-              <p className="text-zinc-500 text-sm mb-8">Is your favorite song missing? Suggest it now!</p>
-            </div>
-
-            {/* Desne dve kolone: Naša pametna komponenta koja prikazuje i naslov i celu listu predloga */}
-            <div className="lg:col-span-2">
-              <SuggestionForm region={region} />
-            </div>
-
+       {/* --- SEKCIJA ZA PREDLOGE --- */}
+        <div className="mt-24 grid grid-cols-1 lg:grid-cols-3 gap-12 border-t border-white/5 pt-16">
+          <div className="lg:col-span-1">
+            <h2 className="text-3xl font-black italic uppercase tracking-tight mb-4">Predloži pesmu</h2>
+            <p className="text-zinc-500 text-sm mb-8">Is your favorite song missing? Suggest it now!</p>
           </div>
+          <div className="lg:col-span-2">
+            <SuggestionForm region={region} />
+          </div>
+        </div>
 
       </div>
 
