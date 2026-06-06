@@ -159,6 +159,8 @@ export default async function FilteredPage({ params }: PageProps) {
           </div>
         )}
 
+        
+        
         {/* TIER 3: OSTALE PESME (STANDARDNE SA REKLAMAMA IZMEĐU) */}
         {songs.length > 3 && (
           <div className="pt-20 border-t border-white/5">

@@ -63,6 +63,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+         <meta name="google-site-verification" content="google-site-verification: google0f815af240dfb5bc.html"></meta>
          <meta name='impact-site-verification' content='e731ab44-d92b-4034-9fa2-f684ac52903b' />
         {/* 2. Google AdSense Skripta */}
         {/* ZAMENI "ca-pub-XXXXXXXXXXXXXXXX" sa tvojim pravim AdSense ID-jem iz konzole! */}
