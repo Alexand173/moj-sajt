@@ -192,10 +192,6 @@ export default function RegionalPage({ params }: PageProps) {
 
 
 
-        {/* --- 1. REKLAMA: ISPOD NASLOVA --- */}
-
-        <AdSenseBanner adSlot={trenutniSlotovi.top} />
-
 
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -303,27 +299,18 @@ export default function RegionalPage({ params }: PageProps) {
             </div>
 
           ))}
-             {/* --- 1. REKLAMA: ISPOD NASLOVA --- */}
+        </div>
 
-            <AdSenseBanner adSlot={trenutniSlotovi.top} />
-          </div>
-
-
+        {/* --- 1. REKLAMA: IZMEĐU 3. I 4. MESTA --- */}
+        <div className="mt-12">
+          <AdSenseBanner adSlot={trenutniSlotovi.top} />
+        </div>
 
         {/* --- OSTALIH 97: STANDARDNA LISTA --- */}
-
         <div className="mt-16 space-y-3">
-
-           {/* --- 1. REKLAMA: ISPOD NASLOVA --- */}
-
-        <AdSenseBanner adSlot={trenutniSlotovi.top} />
-
           <div className="px-8 py-2 text-[10px] font-bold text-zinc-600 tracking-[0.3em] flex justify-between uppercase">
-
             <span>Rank & Artist</span>
-
             <span>MTA Points</span>
-
           </div>
 
 

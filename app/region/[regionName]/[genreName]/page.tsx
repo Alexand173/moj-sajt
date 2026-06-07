@@ -138,11 +138,6 @@ export default async function FilteredPage({ params }: PageProps) {
       {/* GLAVNI SADRŽAJ SA TIER SISTEMOM */}
       <main className="max-w-[1600px] mx-auto px-10 pb-40 space-y-16">
 
-        {/* --- 1. REKLAMA: ISPOD HERO SEKCIJE --- */}
-        <div className="pb-8">
-          <AdSenseBanner adSlot={trenutniSlotovi.top} />
-        </div>
-
         {/* TIER 1: PESMA BROJ 1 (NAJVEĆA) */}
         {songs[0] && (
           <div className="w-full">
@@ -159,7 +154,10 @@ export default async function FilteredPage({ params }: PageProps) {
           </div>
         )}
 
-        
+        {/* --- 1. REKLAMA: IZMEĐU 3. I 4. MESTA --- */}
+        <div className="py-8">
+          <AdSenseBanner adSlot={trenutniSlotovi.top} />
+        </div>
         
         {/* TIER 3: OSTALE PESME (STANDARDNE SA REKLAMAMA IZMEĐU) */}
         {songs.length > 3 && (
