@@ -29,29 +29,61 @@ const GENRE_MAP: Record<string, number> = {
   'jazz': 13,
   'classical': 14
 };
-
-type PageProps = {
+type RegionGenrePageProps = {
   params: Promise<{ regionName: string; genreName: string }>;
 };
-
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+// MOĆNA I TAČNA SEO FUNKCIJA SA UPITOM U BAZU
+export async function generateMetadata({ params }: RegionGenrePageProps): Promise<Metadata> {
   const resolvedParams = await params;
-  const region = resolvedParams.regionName.toUpperCase();
-  const genre = resolvedParams.genreName.charAt(0).toUpperCase() + resolvedParams.genreName.slice(1);
+  const genreSlug = resolvedParams.genreName.toLowerCase();
+  
+  // 1. Nalazimo ID žanra iz mape
+  const genreId = GENRE_MAP[genreSlug];
+
+  // 2. Vučemo tačan naziv žanra direktno iz Supabase tabele 'genres' na osnovu ID-ja
+  let genreNameFormatted = resolvedParams.genreName.charAt(0).toUpperCase() + resolvedParams.genreName.slice(1);
+  if (genreId) {
+    const { data: genreData } = await supabase
+      .from('genres')
+      .select('name')
+      .eq('id', genreId)
+      .single();
+    
+    if (genreData?.name) {
+      genreNameFormatted = genreData.name; // Uzima "R&B/Soul", "Dance/Electronic", "J-ROCK & METAL"...
+    }
+  }
+
+  // 3. Formatiranje regiona (npr. 'us' -> 'US', 'europa' -> 'Europa')
+  const regionRaw = resolvedParams.regionName.toUpperCase();
+  const region = regionRaw === 'US' || regionRaw === 'UK'
+    ? regionRaw
+    : regionRaw.charAt(0).toUpperCase() + regionRaw.slice(1).toLowerCase();
+
   const currentMonth = new Date().toLocaleString('en-US', { month: 'long' });
   const currentYear = new Date().getFullYear();
 
+  const title = `Best ${genreNameFormatted} Songs in ${region} - Top 100 Chart ${currentMonth} ${currentYear}`;
+  const description = `Discover the best ${genreNameFormatted} music in ${region}. Official audience-ranked top 100 chart featuring the most popular ${genreNameFormatted} tracks. Updated daily for ${currentMonth} ${currentYear}.`;
+
   return {
-    title: `Best ${genre} Songs in ${region} - Top 100 Chart ${currentMonth} ${currentYear}`,
-    description: `Discover the best ${genre} music in ${region}. Official audience-ranked top 100 chart featuring the most popular ${genre} tracks. Updated daily for ${currentMonth} ${currentYear}.`,
+    title,
+    description,
     openGraph: {
-      title: `${region} ${genre} Top 100 | MUSIC TOP`,
-      description: `Vote and follow the official ${genre} music chart in ${region}.`,
+      title: `${region} ${genreNameFormatted} Top 100 | MUSIC TOP`,
+      description: `Vote and follow the official ${genreNameFormatted} music chart in ${region}.`,
+      url: `https://musictop.net/region/${resolvedParams.regionName.toLowerCase()}/${genreSlug}`,
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
     }
   };
 }
 
-export default async function FilteredPage({ params }: PageProps) {
+export default async function FilteredPage({ params }: RegionGenrePageProps) {
   // Razrešavanje parametara iz URL-a (Next.js 15 standard)
   const resolvedParams = await params;
   const regionName = resolvedParams?.regionName;
