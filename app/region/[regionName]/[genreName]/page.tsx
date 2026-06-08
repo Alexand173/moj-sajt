@@ -4,10 +4,12 @@ import { notFound } from 'next/navigation';
 import SuggestionSection from '@/components/SuggestionSection';
 import AdSenseBanner from '@/components/AdSenseBanner';
 import SuggestionScrollBadge from '@/components/SuggestionScrollBadge';
+import StructuredData from '@/components/StructuredData';
+import { Metadata } from 'next';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
 // Mapa za povezivanje naziva iz URL-a sa ID-evima u bazi
@@ -31,6 +33,23 @@ const GENRE_MAP: Record<string, number> = {
 type PageProps = {
   params: Promise<{ regionName: string; genreName: string }>;
 };
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const resolvedParams = await params;
+  const region = resolvedParams.regionName.toUpperCase();
+  const genre = resolvedParams.genreName.charAt(0).toUpperCase() + resolvedParams.genreName.slice(1);
+  const currentMonth = new Date().toLocaleString('en-US', { month: 'long' });
+  const currentYear = new Date().getFullYear();
+
+  return {
+    title: `Best ${genre} Songs in ${region} - Top 100 Chart ${currentMonth} ${currentYear}`,
+    description: `Discover the best ${genre} music in ${region}. Official audience-ranked top 100 chart featuring the most popular ${genre} tracks. Updated daily for ${currentMonth} ${currentYear}.`,
+    openGraph: {
+      title: `${region} ${genre} Top 100 | MUSIC TOP`,
+      description: `Vote and follow the official ${genre} music chart in ${region}.`,
+    }
+  };
+}
 
 export default async function FilteredPage({ params }: PageProps) {
   // Razrešavanje parametara iz URL-a (Next.js 15 standard)
@@ -101,8 +120,22 @@ export default async function FilteredPage({ params }: PageProps) {
 
   const trenutniSlotovi = adSlots[adKey] || adSlots.DEFAULT;
 
+  const itemListSchema = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    "name": `${region} ${genreName.toUpperCase()} Top 100`,
+    "description": `Top 100 ${genreName} songs in ${region}`,
+    "itemListElement": songs.slice(0, 10).map((song: any, index: number) => ({
+      "@type": "ListItem",
+      "position": index + 1,
+      "name": song.title,
+      "url": `https://musictop.net/region/${regionName.toLowerCase()}/${genreName.toLowerCase()}`
+    }))
+  };
+
   return (
     <div className="min-h-screen bg-[#050505] text-white overflow-x-hidden selection:bg-purple-500">
+      <StructuredData data={itemListSchema} />
       {/* DINAMIČKA POZADINA */}
       <div className="fixed inset-0 -z-10">
         <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] bg-purple-900/10 blur-[150px] rounded-full animate-pulse" />

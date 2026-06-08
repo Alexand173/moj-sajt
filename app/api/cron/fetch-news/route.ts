@@ -9,38 +9,42 @@ const supabase = createClient(
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
-// Funkcija koja piše članak
-async function generateFullArticle(title: string, snippet: string) {
+// Funkcija koja piše članak sa SEO optimizacijom
+async function generateFullArticle(originalTitle: string, snippet: string) {
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     const prompt = `
-      You are a senior music journalist at Rolling Stone magazine. 
-      I will give you a headline and a small snippet, and you MUST write a 
-      long, detailed, and engaging feature article (minimum 400 words).
+      You are a senior music journalist and SEO expert. 
+      I will give you a headline and a small snippet, and you MUST generate a response in JSON format.
 
-      HEADLINE: "${title}"
+      HEADLINE: "${originalTitle}"
       CONTEXT: "${snippet}"
 
-      INSTRUCTIONS:
-      1. Expansion: Use your internal knowledge about the artist(s) mentioned to add background, history, and context.
-      2. Structure: 
-         - Lead: A catchy opening about the current news.
-         - Body: 2-3 deep paragraphs about the artist's career and why this news matters.
-         - Fan Perspective: Mention the global impact and social media buzz.
-         - Outro: What this means for the future of the artist.
-      3. Tone: Professional, analytical, and rhythmic.
-      4. Length: BE VERBOSE. Describe the atmosphere, the sound, and the industry impact in detail.
+      JSON STRUCTURE:
+      {
+        "seoTitle": "A catchy, keyword-rich SEO title (max 60 chars)",
+        "seoDescription": "A compelling meta description summarizing the news (max 155 chars)",
+        "articleContent": "A long, detailed feature article (minimum 400 words). Use background history, fan perspective, and industry impact."
+      }
 
-      Do not mention that you are an AI. Do not use generic filler. Write a REAL article.
+      INSTRUCTIONS:
+      1. Tone: Professional, analytical, and rhythmic.
+      2. Format: Return ONLY valid JSON. No markdown formatting around the JSON.
     `;
 
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
-
-    // Provera: Ako je i dalje prekratko, kažemo mu da dopuni (opciono)
-    return responseText;
+    
+    // Čistimo JSON ako AI doda markdown blokove
+    const cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+    const parsed = JSON.parse(cleanJson);
+    return parsed;
   } catch (error) {
-    return snippet;
+    return {
+      seoTitle: originalTitle,
+      seoDescription: snippet.slice(0, 150),
+      articleContent: snippet
+    };
   }
 }
 
@@ -60,12 +64,12 @@ export async function GET(request: Request) {
 
     // 3. AI petlja
     for (const article of data.articles) {
-      const fullContent = await generateFullArticle(article.title, article.description || "");
+      const aiResult = await generateFullArticle(article.title, article.description || "");
 
       enrichedNews.push({
-        title: article.title,
-        excerpt: article.description?.slice(0, 200) || "",
-        content: fullContent, 
+        title: aiResult.seoTitle || article.title,
+        excerpt: aiResult.seoDescription || article.description?.slice(0, 200) || "",
+        content: aiResult.articleContent || "Full article coming soon...", 
         image: article.urlToImage || 'https://images.unsplash.com/photo-1514525253361-bee8a48790c3',
         category: 'AI EXCLUSIVE',
         // OVDE KORISTIMO VARIJABLU DEFINISANU NA VRHU
