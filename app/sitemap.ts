@@ -1,6 +1,7 @@
 import { MetadataRoute } from 'next';
 import { createClient } from '@supabase/supabase-js';
 
+// Inicijalizacija Supabase klijenta sa servisnim ključem za bezbedno čitanje sa servera
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -16,7 +17,7 @@ const GENRES = [
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = 'https://musictop.net';
 
-  // 1. Static routes
+  // 1. STATIČKE RUTE (Početna, recenzije, nagrade, login, registracija)
   const staticRoutes = [
     '',
     '/reviews',
@@ -27,29 +28,34 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     url: `${baseUrl}${route}`,
     lastModified: new Date(),
     changeFrequency: 'daily' as const,
-    priority: 1.0,
+    priority: 1.0, // Početna i statičke važne stranice imaju najveći prioritet
   }));
 
-  // 2. Regional routes
-  const regionalRoutes = REGIONS.flatMap((region) => {
+  // 2. REGIONALNE TURNEJE (Folder: tours/[regionName])
+  // Generiše linkove poput: https://musictop.net/tours/us
+  const mainRegionalRoutes = REGIONS.map((region) => {
     const regionLower = region.toLowerCase();
-    return [
-      {
-        url: `${baseUrl}/region/${regionLower}`,
-        lastModified: new Date(),
-        changeFrequency: 'daily' as const,
-        priority: 0.8,
-      },
-      ...GENRES.map((genre) => ({
-        url: `${baseUrl}/region/${regionLower}/${genre}`,
-        lastModified: new Date(),
-        changeFrequency: 'daily' as const,
-        priority: 0.7,
-      })),
-    ];
+    return {
+      url: `${baseUrl}/tours/${regionLower}`,
+      lastModified: new Date(),
+      changeFrequency: 'daily' as const,
+      priority: 0.8,
+    };
   });
 
-  // 3. News routes (fetch latest 100)
+  // 3. TOP LISTE PO ŽANROVIMA (Folder: region/[regionName]/[genreName])
+  // Generiše linkove poput: https://musictop.net/region/us/rock
+  const genreTopListsRoutes = REGIONS.flatMap((region) => {
+    const regionLower = region.toLowerCase();
+    return GENRES.map((genre) => ({
+      url: `${baseUrl}/region/${regionLower}/${genre}`,
+      lastModified: new Date(),
+      changeFrequency: 'daily' as const,
+      priority: 0.7,
+    }));
+  });
+
+  // 4. DINAMIČKE STRANICE VESTI (Povlačenje poslednjih 100 vesti iz baze)
   const { data: news } = await supabase
     .from('news')
     .select('id, region, created_at')
@@ -57,11 +63,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     .limit(100);
 
   const newsRoutes = (news || []).map((article) => ({
-    url: `${baseUrl}/news/${article.region.toLowerCase()}`, // Simplified based on current news structure
+    url: `${baseUrl}/news/${article.region.toLowerCase()}`, 
     lastModified: new Date(article.created_at),
     changeFrequency: 'weekly' as const,
     priority: 0.6,
   }));
 
-  return [...staticRoutes, ...regionalRoutes, ...newsRoutes];
+  // Spajanje svih generisanih ruta u jednu veliku mapu sajta koju šaljemo Google-u
+  return [...staticRoutes, ...mainRegionalRoutes, ...genreTopListsRoutes, ...newsRoutes];
 }
