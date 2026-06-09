@@ -22,6 +22,16 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '5mb',
     },
   },
+  // Ovde dodajemo serversko preusmeravanje za Google bota
+  async redirects() {
+    return [
+      {
+        source: '/',
+        destination: '/region/us/rock',
+        permanent: true, // Ovo šalje 301 status kod koji Google AdSense traži
+      },
+    ];
+  },
 };
 
 export default nextConfig;
