@@ -22,7 +22,76 @@ interface ConcertsListProps {
   mid2: string;
   mid3: string;
   mid4: string;
-  bottom: string; // <-- Prihvatamo bottom slot
+  bottom: string;
+}
+
+// =========================================================================
+// 🚀 PAMETNA I POPRAVLJENA FUNKCIJA ZA AUTOMATSKU UGRADNJU AFILIJAT KODA 🚀
+// =========================================================================
+function generisiAffiliateLink(izvorniLink: string): string {
+  if (!izvorniLink) return '#';
+
+  // Ako je link u bazi već afilijat, ne diraj ga uopšte
+  if (izvorniLink.includes('evyy.net')) return izvorniLink;
+
+  // Tvoj jedinstveni Account ID (isti je za ceo svet)
+  const mojImpactId = "7366014"; 
+  const proveraLinka = izvorniLink.toLowerCase();
+
+  // =========================================================================
+  // BAZA PODATAKA ZA SVE DRŽAVE (Svi zvanični domeni su sačuvani!)
+  // =========================================================================
+  const affiliateMape: Record<string, { mediaRail: string; campaign: string }> = {
+    'moshtix.com.au':       { mediaRail: '1958987', campaign: '23905' }, // Moshtix AU
+    'ticketmaster.com':     { mediaRail: '264167',  campaign: '4272'  }, // Ticketmaster (US)
+    'ticketmaster.be':      { mediaRail: '1958966', campaign: '23894' }, // Ticketmaster Belgium
+    'moshtix.co.nz':        { mediaRail: '1958990', campaign: '23906' }, // Moshtix NZ
+    'quicket.co.za':        { mediaRail: '3003989', campaign: '36141' }, // Quicket South Africa
+    'ticketmaster.com.au':  { mediaRail: '1965672', campaign: '24024' }, // Ticketmaster Australia
+    'ticketmaster.at':      { mediaRail: '1958968', campaign: '23895' }, // Ticketmaster Austria
+    'ticketmaster.com.br':  { mediaRail: '2127876', campaign: '27025' }, // Ticketmaster Brazil
+    'ticketmaster.cl':      { mediaRail: '2127878', campaign: '27026' }, // Ticketmaster Chile
+    'ticketmaster.cz':      { mediaRail: '1958979', campaign: '23901' }, // Ticketmaster Czech Republic
+    'ticketmaster.dk':      { mediaRail: '1958964', campaign: '23893' }, // Ticketmaster Denmark
+    'ticketmaster.fi':      { mediaRail: '1958962', campaign: '23892' }, // Ticketmaster Finland
+    'ticketmaster.fr':      { mediaRail: '1958960', campaign: '23891' }, // Ticketmaster France
+    'ticketmaster.de':      { mediaRail: '1958958', campaign: '23890' }, // Ticketmaster Germany
+    'ticketmaster.gr':      { mediaRail: 'XXXXX',   campaign: 'YYYYY' }, // Ticketmaster Greece
+    'ticketmaster.ie':      { mediaRail: '1958956', campaign: '23889' }, // Ticketmaster Ireland
+    'ticketmaster.it':      { mediaRail: '1958975', campaign: '23899' }, // Ticketmaster Italia
+    'ticketmaster.com.mx':  { mediaRail: '1958981', campaign: '23902' }, // Ticketmaster Mexico
+    'ticketmaster.nl':      { mediaRail: '1958954', campaign: '23888' }, // Ticketmaster Nederland
+    'ticketmaster.co.nz':   { mediaRail: '1965674', campaign: '24025' }, // Ticketmaster New Zealand
+    'ticketmaster.no':      { mediaRail: '1958977', campaign: '23900' }, // Ticketmaster Norway
+    'ticketmaster.pe':      { mediaRail: '2127881', campaign: '27028' }, // Ticketmaster Peru
+    'ticketmaster.pl':      { mediaRail: '1958971', campaign: '23896' }, // Ticketmaster Poland
+    'ticketmaster.ch':      { mediaRail: '1958973', campaign: '23898' }, // Ticketmaster Schweiz
+    'ticketmaster.co.za':   { mediaRail: '1958983', campaign: '23903' }, // Ticketmaster South Africa
+    'ticketmaster.es':      { mediaRail: '1958952', campaign: '23886' }, // Ticketmaster Spain
+    'ticketmaster.se':      { mediaRail: '1958950', campaign: '23885' }, // Ticketmaster Sweden
+    'ticketmaster.com.tr':  { mediaRail: '1958996', campaign: '23908' }, // Ticketmaster Türkiye
+    'ticketmaster.ae':      { mediaRail: '1958985', campaign: '23904' }, // Ticketmaster UAE
+    'ticketmaster.co.uk':   { mediaRail: '1965662', campaign: '24023' }, // Ticketmaster UK
+  };
+
+  // NOVO: Sortiramo domene od najdužih ka kraćim (da npr. .com.mx ima prednost u odnosu na običan .com)
+  const sortiraniDomeni = Object.keys(affiliateMape).sort((a, b) => b.length - a.length);
+
+  // Prolazimo kroz pametno sortirane domene
+  for (const domen of sortiraniDomeni) {
+    if (proveraLinka.includes(domen)) {
+      const { mediaRail, campaign } = affiliateMape[domen];
+      
+      if (mediaRail === 'XXXXX') {
+        return `https://ticketmaster.evyy.net/c/${mojImpactId}/264167/4272?u=${encodeURIComponent(izvorniLink)}`;
+      }
+      
+      return `https://ticketmaster.evyy.net/c/${mojImpactId}/${mediaRail}/${campaign}?u=${encodeURIComponent(izvorniLink)}`;
+    }
+  }
+
+  // Ako se pojavi neki domen koji uopšte nije na listi, ide na američki ruter kao back-up
+  return `https://ticketmaster.evyy.net/c/${mojImpactId}/264167/4272?u=${encodeURIComponent(izvorniLink)}`;
 }
 
 export default function ConcertsList({ dataZaPrikaz, mid1, mid2, mid3, mid4, bottom }: ConcertsListProps) {
@@ -55,7 +124,6 @@ export default function ConcertsList({ dataZaPrikaz, mid1, mid2, mid3, mid4, bot
 
   const ukupno = dataZaPrikaz ? dataZaPrikaz.length : 0;
 
-  // --- PAMETNA DINAMIČKA LOGIKA ZA REKLAME ---
   let prikaziCetiriSrednje = ukupno > 100;
 
   let indexMid1 = -1;
@@ -64,13 +132,11 @@ export default function ConcertsList({ dataZaPrikaz, mid1, mid2, mid3, mid4, bot
   let indexMid4 = -1;
 
   if (prikaziCetiriSrednje) {
-    // Ako ima preko 100 koncerata, delimo ih ravnomerno
     indexMid1 = Math.floor(ukupno * 0.25) - 1;
     indexMid2 = Math.floor(ukupno * 0.50) - 1;
     indexMid3 = Math.floor(ukupno * 0.75) - 1;
-    indexMid4 = ukupno - 3; // Staviti malo pre samog kraja da se ne sudari sa bottom banerom
+    indexMid4 = ukupno - 3;
   } else if (ukupno > 1) {
-    // Ako ima 100 ili manje, samo 1 reklama na polovini liste
     indexMid1 = Math.floor(ukupno / 2) - 1;
   }
 
@@ -140,10 +206,10 @@ export default function ConcertsList({ dataZaPrikaz, mid1, mid2, mid3, mid4, bot
                             <p className="font-semibold">{event.location}</p>
                           </div>
                           <a
-                            href={event.ticket_link}
+                            href={generisiAffiliateLink(event.ticket_link)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="bg-black text-white px-3 py-1 rounded-md hover:bg-gray-800 transition"
+                            className="bg-black text-white px-3 py-1 rounded-md hover:bg-gray-800 transition font-medium"
                           >
                             Tickets
                           </a>
@@ -182,10 +248,7 @@ export default function ConcertsList({ dataZaPrikaz, mid1, mid2, mid3, mid4, bot
             ))}
           </div>
 
-          {/* --- 4. BEZBEDNA REKLAMA NA SAMOM DNU ---
-              Nalazi se izvan .map petlje i unutar glavnog div-a, 
-              što joj garantuje da se ispisuje tačno jednom na dnu liste bez sudaranja!
-          */}
+          {/* REKLAMA NA SAMOM DNU */}
           <div className="pt-8 px-4">
             <AdSenseBanner adSlot={bottom} />
           </div>
