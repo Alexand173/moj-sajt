@@ -29,7 +29,7 @@ async function fetchYouTubeId(festivalName: string) {
 export async function GET() {
   // 2. TVOJI PODACI (Ovo možeš dopuniti sa više festivala)
   const rawFestivals = [
-   { name: 'Coachella 2026', region: 'us', location: 'Indio, CA', date_start: '2026-04-10', description: 'Premier music and arts festival.', lineup: ['Lana Del Rey', 'Tyler, The Creator'], tickets_url: 'https://coachella.com', image_url: 'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3' },
+  { name: 'Coachella 2026', region: 'us', location: 'Indio, CA', date_start: '2026-04-10', description: 'Premier music and arts festival.', lineup: ['Lana Del Rey', 'Tyler, The Creator'], tickets_url: 'https://coachella.com', image_url: 'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3' },
   { name: 'EDC Las Vegas 2026', region: 'us', location: 'Las Vegas, NV', date_start: '2026-05-15', description: 'Massive EDM experience.', lineup: ['Tiësto', 'David Guetta'], tickets_url: 'https://lasvegas.electricdaisycarnival.com', image_url: 'https://images.unsplash.com/photo-1540340061722-9293d5163008' },
   { name: 'Bonnaroo 2026', region: 'us', location: 'Manchester, TN', date_start: '2026-06-11', description: 'Iconic farm festival.', lineup: ['Red Hot Chili Peppers'], tickets_url: 'https://bonnaroo.com', image_url: 'https://images.unsplash.com/photo-1470229722910-72e2d0673d3d' },
   { name: 'Lollapalooza 2026', region: 'us', location: 'Chicago, IL', date_start: '2026-08-01', description: 'Grant Park multi-genre.', lineup: ['Metallica', 'Dua Lipa'], tickets_url: 'https://lollapalooza.com', image_url: 'https://images.unsplash.com/photo-1459749411177-042180ce673f' },
