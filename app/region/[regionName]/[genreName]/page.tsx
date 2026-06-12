@@ -179,21 +179,24 @@ export default async function FilteredPage({ params }: RegionGenrePageProps) {
   {/* Na desktopu delimo na dve prostrane kolone: Levo naslov (flex-1), Desno predlozi (flex-[2] - duplo širi) */}
   <div className="flex flex-col lg:flex-row items-start justify-between gap-10 w-full">
     
-    {/* LEVA STRANA: NASLOV (Zadržava svoju prirodnu širinu na PC-ju) */}
-    <div className="w-full lg:max-w-[350px] shrink-0">
-      <div className="flex items-center gap-3 mb-6">
-        <span className="relative flex h-2 w-2">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-        </span>
-        <span className="text-[10px] font-black tracking-[0.5em] text-zinc-400 uppercase">
-          {regionName} {genreName} • Live Chart 2026
-        </span>
-      </div>
-      <h1 className="text-4xl md:text-6xl font-black leading-[0.9] tracking-tighter bg-gradient-to-b from-white via-white to-white/20 bg-clip-text text-transparent uppercase select-none">
-        The Top {songs.length}.
-      </h1>
-    </div>
+   {/* LEVA STRANA: NASLOV */}
+<div className="w-full lg:max-w-[500px] shrink-0">
+  <div className="flex items-center gap-3 mb-6">
+    <span className="relative flex h-2 w-2">
+      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+    </span>
+    <span className="text-[10px] font-black tracking-[0.5em] text-zinc-400 uppercase">
+      {regionName} {genreName} • Live Chart 2026
+    </span>
+  </div>
+  
+  {/* OVO JE KLJUČNO ZA SEO: */}
+  <h1 className="text-4xl md:text-6xl font-black leading-[0.9] tracking-tighter bg-gradient-to-b from-white via-white to-white/20 bg-clip-text text-transparent uppercase select-none">
+    {regionName} {genreName} <br/> 
+    <span className="text-purple-500">Top {songs.length}</span>
+  </h1>
+</div>
 
   
 
