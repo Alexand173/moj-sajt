@@ -102,7 +102,7 @@ export default async function FilteredPage({ params }: RegionGenrePageProps) {
     .eq('region', regionName.toUpperCase())
     .eq('genre_id', genreId)
     .order('votes', { ascending: false })
-    .limit(100);
+    .limit(200);
 
   if (!songs || songs.length === 0) {
     return (
