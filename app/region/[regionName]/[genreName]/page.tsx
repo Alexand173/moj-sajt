@@ -69,6 +69,9 @@ export async function generateMetadata({ params }: RegionGenrePageProps): Promis
   return {
     title,
     description,
+    alternates: {
+      canonical: `https://musictop.net/region/${resolvedParams.regionName.toLowerCase()}/${genreSlug}`,
+    },
     openGraph: {
       title: `${region} ${genreNameFormatted} Top 100 | MUSIC TOP`,
       description: `Vote and follow the official ${genreNameFormatted} music chart in ${region}.`,
