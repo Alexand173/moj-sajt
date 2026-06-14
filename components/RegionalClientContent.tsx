@@ -6,6 +6,7 @@ import SuggestionForm from '@/components/SuggestionForm';
 import AdSenseBanner from '@/components/AdSenseBanner';
 
 interface RegionalClientContentProps {
+  
   initialSongs: any[];
   region: string;
 }
