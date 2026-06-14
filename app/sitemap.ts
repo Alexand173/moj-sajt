@@ -27,16 +27,16 @@ const mainRoutes = [
   // 3. Generisanje svih kombinacija (Region -> Žanr)
   const dynamicRoutes = Object.entries(siteStructure).flatMap(([region, genres]) => {
     // Stranica regiona (npr. /region/us)
-    const regionPage = { url: `/region/${region}`, priority: 0.8 };
+   
     
     // Stranice žanrova (npr. /region/us/rock)
-    const genrePages = genres.map((genre) => ({
-      url: `/region/${region}/${genre}`,
-      priority: 0.7,
-    }));
-    
-    return [regionPage, ...genrePages];
-  });
+   const genrePages = genres.map((genre) => ({
+    url: `/region/${region}/${genre}`,
+    priority: 0.7,
+  }));
+  
+  return genrePages; // Vraćamo samo listu žanrova
+});
 
   // 4. Vesti po regionima
   const newsByRegionRoutes = Object.keys(siteStructure).map((region) => ({
