@@ -91,35 +91,27 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <StructuredData data={organizationSchema} />
-        <meta name="google-site-verification" content="google-site-verification: google0f815af240dfb5bc.html"></meta>
+        <meta name="google-site-verification" content="google-site-verification: google0f815af240dfb5bc.html" />
         <meta name='impact-site-verification' content='e731ab44-d92b-4034-9fa2-f684ac52903b' />
-        {/* 2. Google AdSense Skripta */}
-        {/* ZAMENI "ca-pub-XXXXXXXXXXXXXXXX" sa tvojim pravim AdSense ID-jem iz konzole! */}
-        {/* Koristi običan script tag umesto <Script /> za verifikaciju */}
-  <script 
-    async 
-    src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5019317238845372" 
-    crossOrigin="anonymous">
-  </script>
-        /
+        
+        {/* Koristimo next/script za bolju kontrolu */}
+        <Script 
+          async 
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5019317238845372" 
+          crossOrigin="anonymous"
+          strategy="afterInteractive" // Ovo je ključno za izbegavanje hydration grešaka
+        />
       </head>
-      {/* 3. Tvoj originalni body sa flex-col stilovima */}
       <body 
         className={`${inter.className} bg-black text-white flex flex-col min-h-screen`} 
-        suppressHydrationWarning={true}
       >
         <Header />
-        
-        {/* Main zauzima sav slobodan prostor i gura footer na dno */}
         <main className="pt-32 flex-grow">
           {children}
         </main>
-
         <Footer />
-
-        {/* --- OVDE NA SAMO DNO, ODMAH IZNAD </body>, DODAJEMO OBE ANALITIKE --- */}
         <Analytics />
-        <GoogleAnalytics gaId="G-XXXXXX" /> {/* <-- Ovde posle upiši svoj pravi Google ID */}
+        <GoogleAnalytics gaId="G-XXXXXX" />
       </body>
     </html>
   );
