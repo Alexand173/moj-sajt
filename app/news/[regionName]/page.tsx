@@ -27,7 +27,7 @@ export default async function BillboardNewsPage({
 
   const [officialRes, latestRes, blogRes, discRes, concertRes] = await Promise.all([
     supabase.from('news').select('*').eq('region', region).eq('category', 'OFFICIAL').order('created_at', { ascending: false }).limit(50),
-    supabase.from('news').select('*').eq('region', region).eq('category', 'LATEST').order('created_at', { ascending: false }).limit(12),
+    supabase.from('news').select('*').eq('region', region).eq('category', 'LATEST').order('created_at', { ascending: false }).limit(50),
     supabase
   .from('community_posts')
   .select(`
