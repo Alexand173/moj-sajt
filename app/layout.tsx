@@ -101,6 +101,8 @@ export default function RootLayout({
           crossOrigin="anonymous"
           strategy="afterInteractive" // Ovo je ključno za izbegavanje hydration grešaka
         />
+
+        
       </head>
       <body 
         className={`${inter.className} bg-black text-white flex flex-col min-h-screen`} 

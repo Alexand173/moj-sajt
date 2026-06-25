@@ -30,7 +30,7 @@ export default function AdSenseBanner({ adSlot }: AdSenseBannerProps) {
       <ins
         className="adsbygoogle"
         style={{ display: 'block', width: '100%', height: '120px', position: 'relative', zIndex: 5 }}
-        data-ad-client="ca-pub-XXXXXXXXXX" // Zameni sa svojim ID-jem kasnije
+        data-ad-client="ca-pub-5019317238845372" // Zameni sa svojim ID-jem kasnije
         data-ad-slot={adSlot}
         data-ad-format="horizontal"
         data-full-width-responsive="true"
