@@ -20,6 +20,11 @@ export const metadata: Metadata = {
     template: "%s | MUSIC TOP"
   },
   description: "Discover the most popular songs globally. Follow the Official MUSIC TOP charts, vote for your favorite artists, find worldwide concert dates, and get the latest AI-exclusive music news. Your ultimate destination for global music rankings and festival tickets.",
+  verification: {
+    other: {
+      'google-adsense-account': 'ca-pub-5019317238845372',
+    },
+  },
   keywords: [
     "music charts 2026", 
     "global music top 100", 
