@@ -13,22 +13,20 @@ const supabase = createClient(
 
 export async function updateAllViews() {
   try {
-    console.log("--- START AUTOMATSKOG OSVEŽAVANJA ZA SVE PESME ---");
+    console.log("--- START AUTOMATSKOG ČIŠĆENJA I OSVEŽAVANJA ---");
 
     let allSongs = [];
     let hasMore = true;
     let page = 0;
     const PAGE_SIZE = 1000;
 
-    // 1. PAMETNO POVLAČENJE: Vučemo pesme u krugovima od po 1000 sve dok ne pokupimo SVE pesme iz baze
+    // 1. Povlačimo pesme iz baze u krugovima
     while (hasMore) {
-      console.log(`Preuzimam pesme iz baze (krug ${page + 1})...`);
-      
       const { data: songs, error: dbError } = await supabase
         .from('songs')
         .select('id, youtube_id, title')
-        .not('youtube_id', 'eq', '') // Preskačemo ako nema YouTube ID
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1); // Paginacija (0-999, 1000-1999...)
+        .not('youtube_id', 'eq', '')
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
       if (dbError) throw dbError;
 
@@ -37,51 +35,79 @@ export async function updateAllViews() {
       } else {
         allSongs = allSongs.concat(songs);
         if (songs.length < PAGE_SIZE) {
-          hasMore = false; // Ako je vratilo manje od 1000, znači da nema više pesama u bazi
+          hasMore = false;
         } else {
           page++;
         }
       }
     }
 
-    console.log(`Ukupno pronađeno ${allSongs.length} pesama sa YouTube ID-jem za ažuriranje.`);
+    console.log(`Ukupno procesuiram ${allSongs.length} pesama...`);
 
-    // 2. Prolazimo kroz SVAKU pesmu sa liste (bilo ih 1000 ili 2000+)
+    // 2. Proveravamo svaku pesmu preko YouTube API-ja
     for (const song of allSongs) {
       try {
+        // Tražimo statistiku (preglede) ali i snippet (gde se nalazi datum objave)
         const ytRes = await youtube.videos.list({
-          part: ['statistics'],
+          part: ['statistics', 'snippet'],
           id: [song.youtube_id],
         });
 
-        const videoStats = ytRes.data.items?.[0]?.statistics;
-        if (!videoStats) {
-          console.log(`⚠️ Statistika nije pronađena za video (moguće da je obrisan): ${song.title}`);
+        const videoData = ytRes.data.items?.[0];
+        
+        if (!videoData) {
+          console.log(`⚠️ Video ne postoji (obrisan sa YT). Brišem iz baze: ${song.title}`);
+          await supabase.from('songs').delete().eq('id', song.id);
           continue;
         }
 
-        const currentViews = parseInt(videoStats.viewCount || '0', 10);
+        const publishedAt = videoData.snippet?.publishedAt; // Format: "2024-04-17T15:00:00Z"
+        const releaseYear = new Date(publishedAt).getFullYear();
 
-        // 3. Upisujemo broj pregleda u kolonu 'viewers'
+        // ❌ FILTER: Ako pesma NIJE iz 2026. godine, brišemo je odmah iz baze!
+        if (releaseYear !== 2026) {
+          console.log(`🗑️ Izbacujem (starija pesma - ${releaseYear}): ${song.title}`);
+          await supabase.from('songs').delete().eq('id', song.id);
+          continue;
+        }
+
+        // 🚀 AKO JE 2026: Računamo odnos premijere i pregleda
+        const currentViews = parseInt(videoData.statistics?.viewCount || '0', 10);
+        
+        const releaseDate = new Date(publishedAt);
+        const today = new Date();
+        
+        // Računamo razliku u danima (minimum 1 dan da ne delimo sa nulom)
+        const diffTime = Math.abs(today - releaseDate);
+        const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24))); 
+
+        // Poeni = ukupni pregledi podeljeni sa brojem dana od premijere
+        const viewsPerDay = Math.round(currentViews / diffDays);
+
+        // Ažuriramo kolone u bazi (upisujemo i tačan datum u tvoju praznu kolonu!)
         const { error: updateError } = await supabase
           .from('songs')
-          .update({ viewers: currentViews })
+          .update({ 
+            viewers: viewsPerDay, // 👈 Sajt sortira po ovome (sada su to poeni/dnevni prosek)
+            release_date: publishedAt.split('T')[0] // 👈 Automatski punimo praznu kolonu tačnim datumom!
+          })
           .eq('id', song.id);
 
         if (updateError) {
           console.error(`❌ Greška pri upisu za ${song.title}:`, updateError.message);
         } else {
-          console.log(`✅ ${song.title} -> ${currentViews} pregleda.`);
+          console.log(`✅ ${song.title} -> ${viewsPerDay} poena/dan (Ukupno: ${currentViews}, Dani: ${diffDays})`);
         }
+
       } catch (ytErr) {
-        console.error(`❌ YouTube greška za pesmu ${song.title} (ID: ${song.youtube_id}):`, ytErr.message || ytErr);
+        console.error(`❌ Greška za pesmu ${song.title}:`, ytErr.message || ytErr);
       }
     }
 
-    console.log("--- KRAJ OSVEŽAVANJA SVIH PESMA ---");
+    console.log("--- ČIŠĆENJE I OSVEŽAVANJE ZAVRŠENO ---");
 
   } catch (err) {
-    console.error('Kritična greška u skripti:', err.message || err);
+    console.error('Kritična greška:', err.message || err);
   }
 }
 
