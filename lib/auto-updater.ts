@@ -21,7 +21,7 @@ export async function updateMusicCharts() {
   const mojePesme = [
   
 
-"Alabama Shakes - American Dream",
+"Olivia Rodrigo - the cure"
  
 ];
 
@@ -48,7 +48,7 @@ export async function updateMusicCharts() {
           slika_url: thumb || '',
           youtube_id: videoId || '',
           region: 'US',       // <--- DODAJ REGION
-          genre_id: 1 ,        // <--- DODAJ ID ŽANRA (npr. 1 za Rock)
+          genre_id: 2 ,        // <--- DODAJ ID ŽANRA (npr. 1 za Rock)
           year: 2026,         // <--- DODAJ GODINU
           is_chart: true      // <--- DA BUDE AKTIVNA
         }, { onConflict: 'title' });

@@ -15,7 +15,7 @@ export default async function RegionalPage({ params }: { params: Promise<{ regio
     .from('songs')
     .select('*')
     .eq('region', region)
-    .order('votes', { ascending: false })
+    .order('viewers', { ascending: false }) // 🚀 PROMENJENO: Sortira automatski po broju pregleda (od najvećeg ka najmanjem)
     .limit(200);
 
   return <RegionalClientContent initialSongs={songs || []} region={region} />;

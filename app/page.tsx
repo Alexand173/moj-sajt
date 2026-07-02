@@ -99,7 +99,7 @@ export default async function HomePage() {
     .select('*')
     .eq('region', regionName.toUpperCase())
     .eq('genre_id', genreId)
-    .order('votes', { ascending: false })
+    .order('viewers', { ascending: false }) // 🚀 PROMENJENO: Sortira automatski po broju pregleda (od najvećeg ka najmanjem)
     .limit(200);
 
   if (!songs || songs.length === 0) {
