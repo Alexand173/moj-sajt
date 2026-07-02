@@ -15,7 +15,7 @@ jobs:
       - name: Instaliraj Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 22 # 🚀 PROMENJENO SA 18 NA 22 DA IMA WEBSOCKET!
 
       - name: Instaliraj biblioteke
         run: npm install @supabase/supabase-js googleapis
