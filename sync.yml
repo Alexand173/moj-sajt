@@ -1,0 +1,28 @@
+name: Automatsko Osvežavanje Pregleda
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Pokreće se automatski svake ponoći
+  workflow_dispatch: # Omogućava ti da pokreneš ručno kad god želiš
+
+jobs:
+  run-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Preuzmi kod
+        uses: actions/checkout@v4
+
+      - name: Instaliraj Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Instaliraj biblioteke
+        run: npm install @supabase/supabase-js googleapis
+
+      - name: Pokreni skriptu
+        run: node update-views.js
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
