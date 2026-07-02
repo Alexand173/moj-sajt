@@ -6,20 +6,20 @@ export const dynamic = 'force-dynamic';
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = 'https://musictop.net';
 
-  // 1. Inicijalizacija Supabase-a
+  // 1. Initialize Supabase client
   const supabase = createClient(
     process.env.SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  // 2. Povlačenje pesama iz baze
+  // 2. Fetch active songs for 2026 with valid YouTube IDs
   const { data: songs } = await supabase
     .from('songs')
     .select('region, genre_id, title, artist_name, youtube_id')
     .eq('year', 2026)
     .not('youtube_id', 'eq', '');
 
-  // Usklađeno sa tvojom slikom iz baze (image_97febd.png)
+  // Genre mapping aligned with the database structure
   const genreMapping: { [key: number]: string } = {
     1: 'rock',
     2: 'pop',
@@ -35,7 +35,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     12: 'other'
   };
 
-  // 3. Tvoja originalna struktura sajta
+  // 3. Define site structure for routing
   const siteStructure = {
     us: ['rock', 'pop', 'hip-hop', 'rb-soul', 'country', 'dance'],
     uk: ['rock', 'pop', 'hip-hop', 'rb-soul', 'country', 'dance'],
@@ -53,24 +53,29 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: '/awards', priority: 0.8 },
   ];
 
-  // Generisanje žanrovskih ruta + ubacivanje pesama kroz 'videos' array koji Next.js podržava
+  // Generate dynamic region/genre routes and attach video metadata
   const dynamicRoutes = Object.entries(siteStructure).flatMap(([region, genres]) => {
     return genres.map((genre) => {
-      
-      // Filtriramo pesme za ovaj region i žanr
       const filterovanePesme = songs?.filter(song => {
         const songRegion = song.region?.toLowerCase();
         const songGenreStr = genreMapping[song.genre_id];
         return songRegion === region && songGenreStr === genre;
       }) || [];
 
-      // Mapiramo pesme u format koji Next.js automatski pretvara u <video:video> tagove
-      const videoData = filterovanePesme.map(song => ({
-        title: `${song.artist_name} - ${song.title}`,
-        description: `Slušajte i glasajte za hit ${song.artist_name} - ${song.title} na MusicTop listi za 2026. godinu.`,
-        thumbnailUrl: `https://img.youtube.com/vi/${song.youtube_id}/hqdefault.jpg`,
-        playerUrl: `https://www.youtube.com/embed/${song.youtube_id}`,
-      }));
+      // Map song data to valid Google Video XML Schema format
+      const videoData = filterovanePesme.map(song => {
+        // Escape special XML characters to prevent parsing errors
+        const cistArtist = (song.artist_name || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const cistTitle = (song.title || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const punNaziv = `${cistArtist} - ${cistTitle}`;
+
+        return {
+          title: punNaziv,
+          description: `Listen and vote for the hit track ${punNaziv} on the MusicTop charts for 2026.`,
+          thumbnail_loc: `https://img.youtube.com/vi/${song.youtube_id}/hqdefault.jpg`,
+          player_loc: `https://www.youtube.com/embed/${song.youtube_id}`,
+        };
+      });
 
       return {
         url: `/region/${region}/${genre}`,
@@ -95,12 +100,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.9,
   }));
 
-  // Sastavljanje finalnog niza – tačno tvoja originalna logika mapiranja
+  // Combine all routes into the final dynamic sitemap array
   return [...mainRoutes, ...dynamicRoutes, ...newsByRegionRoutes, ...toursRoutes, ...festivalsRoutes].map((route) => ({
     url: `${baseUrl}${route.url}`,
     lastModified: new Date(),
     changeFrequency: 'daily' as const,
     priority: route.priority,
-    ...('videos' in route ? { videos: (route as any).videos } : {})
+    ...( 'videos' in route ? { videos: (route as any).videos } : {} )
   }));
 }
