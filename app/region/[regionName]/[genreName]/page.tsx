@@ -104,7 +104,7 @@ export default async function FilteredPage({ params }: RegionGenrePageProps) {
     .select('*')
     .eq('region', regionName.toUpperCase())
     .eq('genre_id', genreId)
-    .order('votes', { ascending: false })
+    .order('viewers', { ascending: false })
     .limit(200);
 
   if (!songs || songs.length === 0) {
