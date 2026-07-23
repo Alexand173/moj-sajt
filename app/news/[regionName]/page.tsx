@@ -139,7 +139,7 @@ export default async function BillboardNewsPage({
                 {featuredNews && (
                   <Link href={`/news/${region}/${featuredNews.id}`} className="group block mb-20 border-b-[6px] border-black pb-12">
                     <div className="aspect-video mb-8 overflow-hidden border-4 border-black shadow-[12px_12px_0px_0px_rgba(147,51,234,1)]">
-                      <img src={featuredNews.image} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" alt={featuredNews.title} />
+                      <img src={featuredNews.image} className="news-feed-image w-full h-full object-cover md:grayscale md:group-hover:grayscale-0 transition-all duration-700" alt={featuredNews.title} />
                     </div>
                     <h2 className="text-4xl md:text-5xl leading-[0.9] tracking-tighter group-hover:text-purple-600 transition-colors uppercase">{featuredNews.title}</h2>
                     <p className="mt-6 text-sm text-zinc-600 font-medium normal-case leading-relaxed">{featuredNews.excerpt}</p>
@@ -149,7 +149,7 @@ export default async function BillboardNewsPage({
                   {otherNews.map((item) => (
                     <Link key={item.id} href={`/news/${region}/${item.id}`} className="group block">
                       <div className="aspect-video overflow-hidden border-2 border-black mb-4 group-hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] transition-all">
-                        <img src={item.image} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all" alt="" />
+                        <img src={item.image} className="news-feed-image w-full h-full object-cover md:grayscale md:group-hover:grayscale-0 transition-all" alt="" />
                       </div>
                       <h3 className="text-lg leading-tight group-hover:text-purple-600 transition-colors uppercase">{item.title}</h3>
                     </Link>

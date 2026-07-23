@@ -52,7 +52,7 @@ export default async function SingleNewsPage({
         <div className="aspect-[16/9] mb-16 overflow-hidden bg-zinc-100 shadow-2xl">
           <img 
             src={article.image || `https://images.unsplash.com/photo-1470225620780-dba8ba36b745`} 
-            className="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-1000" 
+            className="w-full h-full object-cover transition-all duration-1000"
             alt={article.title} 
           />
         </div>
