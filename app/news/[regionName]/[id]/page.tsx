@@ -1,6 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
-import AlbumGallery from '@/components/AlbumGallery';
 import { generateAiNewsArticle, getNewsSourceName, resolveNewsSource } from '@/lib/ai-news';
 //export const revalidate = 3600; // Osveži stranicu na svakih sat vremena (3600 sekundi)
 // OVO JE OBAVEZNO: Da bi stranica uvek povukla najnoviju vest iz baze
@@ -105,24 +104,27 @@ export default async function SingleNewsPage({
           </div>
 
           {/* DUGME ZA ORIGINALNI IZVOR (Call to Action) */}
-          <div className="mt-20 p-12 bg-zinc-50 border-t-[12px] border-black text-center">
-            <h3 className="font-black text-sm uppercase mb-6 tracking-widest">
+          <div className="mt-20 w-full border-t-[12px] border-black bg-zinc-50 p-6 text-center sm:p-8 md:p-12">
+            <h3 className="mb-5 text-sm font-black uppercase tracking-[0.12em] sm:mb-6 sm:tracking-widest">
               Full Story & Global Impact
             </h3>
-            <p className="text-[10px] text-zinc-500 mb-8 uppercase font-bold leading-relaxed">
-              This report was written by MusicTop AI from the source named above. Read the original report for the publisher&apos;s complete context.
+            <p className="mb-7 text-[10px] font-bold uppercase leading-relaxed text-zinc-500 sm:mb-8 sm:px-4">
+              {aiArticle.isAiGenerated
+                ? 'This report was independently rewritten by MusicTop AI from the source named above. Read the original report for the publisher\'s complete context.'
+                : 'AI rewriting was unavailable, so this page is showing source-based text. Read the original report for the publisher\'s complete context.'}
             </p>
             {resolvedSource.sourceUrl ? (
               <a
                 href={resolvedSource.sourceUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block w-full bg-black text-white py-6 text-xs font-black uppercase tracking-[0.3em] hover:bg-purple-600 transition-all duration-500 shadow-xl"
+                aria-label={`Read the original source from ${sourceName}`}
+                className="flex min-h-14 w-full items-center justify-center break-words bg-black px-4 py-4 text-[10px] font-black uppercase leading-relaxed tracking-[0.12em] text-white shadow-xl transition-all duration-500 hover:bg-purple-600 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-purple-600 sm:py-5 sm:text-xs sm:tracking-[0.2em] md:py-6 md:tracking-[0.3em]"
               >
                 Read Original Source: {sourceName}
               </a>
             ) : (
-              <p className="w-full bg-zinc-200 text-zinc-500 py-6 text-xs font-black uppercase tracking-[0.2em]">
+              <p className="flex min-h-14 w-full items-center justify-center break-words bg-zinc-200 px-4 py-4 text-[10px] font-black uppercase leading-relaxed tracking-[0.12em] text-zinc-500 sm:py-5 sm:text-xs sm:tracking-[0.2em] md:py-6 md:tracking-[0.3em]">
                 Original source link unavailable · Source: {sourceName}
               </p>
             )}

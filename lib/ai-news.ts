@@ -75,12 +75,30 @@ function trimToSourceLimit(value: string): string {
   return shortened.slice(0, lastParagraphBreak > 500 ? lastParagraphBreak : MAX_SOURCE_CHARACTERS).trim();
 }
 
+const SOURCE_NOISE_PATTERNS = [
+  /^(read|continue)\s+(more|reading)/i,
+  /^(leave|post)\s+a\s+comment/i,
+  /^(comments?|replies?)\s+(are|is)\s+closed/i,
+  /^(subscribe|sign\s+up|follow\s+us|join\s+our)/i,
+  /^(share|tweet|pin|bookmark)\s+(this|it)/i,
+  /^(related|recommended|more\s+from|you\s+might\s+also)/i,
+  /^(advertisement|sponsored|promoted\s+content)/i,
+];
+
+function isSourceNoiseParagraph(paragraph: string): boolean {
+  return SOURCE_NOISE_PATTERNS.some((pattern) => pattern.test(paragraph.trim()));
+}
+
 function uniqueParagraphs(paragraphs: string[]): string[] {
   const seen = new Set<string>();
 
   return paragraphs.filter((paragraph) => {
     const normalized = paragraph.toLowerCase().replace(/\s+/g, ' ').trim();
-    if (normalized.length < 40 || seen.has(normalized)) return false;
+    if (
+      normalized.length < 40 ||
+      seen.has(normalized) ||
+      isSourceNoiseParagraph(normalized)
+    ) return false;
     seen.add(normalized);
     return true;
   });
@@ -120,7 +138,13 @@ export async function fetchNewsSourceText(sourceUrl: string | null | undefined):
 
     const html = await response.text();
     const $ = cheerio.load(html);
-    $('script, style, noscript, nav, footer, header, aside, form, iframe').remove();
+    $(
+      'script, style, noscript, nav, footer, header, aside, form, iframe, ' +
+      '[class*="comment"], [id*="comment"], [class*="newsletter"], [id*="newsletter"], ' +
+      '[class*="social"], [id*="social"], [class*="share"], [id*="share"], ' +
+      '[class*="related"], [id*="related"], [class*="recommended"], [id*="recommended"], ' +
+      '[class*="subscribe"], [id*="subscribe"]',
+    ).remove();
 
     const selectors = [
       'article',
@@ -280,10 +304,13 @@ ${sourceMaterial || 'Not available'}
 
 Editorial requirements:
 - Write 700 to 1,000 words in 8 to 12 substantial paragraphs.
-- Preserve every confirmed fact from the source and clearly attribute information to ${resolvedInput.sourceName} where appropriate.
+- Produce a genuinely original editorial rewrite, not a transcript, summary, or lightly edited copy of the source.
+- Use a different sentence structure and vocabulary from the source. Never copy any complete source sentence, quoted comment, interview answer, social-media comment, or distinctive phrase longer than five consecutive words.
+- Preserve confirmed facts, but paraphrase them and clearly attribute reported claims to ${resolvedInput.sourceName} where appropriate.
+- Exclude comments, reader reactions, comment-section discussion, promotional copy, newsletter prompts, navigation text, calls to subscribe, and “read more” or related-story snippets.
 - Use a professional, neutral music-journalism tone with clear chronology, context, and industry relevance.
 - Explain why the announcement matters to the artist, release, audience, or wider music scene only when that conclusion is supported by the source.
-- Do not invent quotes, names, dates, numbers, collaborations, history, reactions, or background facts.
+- Do not invent quotes, names, dates, numbers, collaborations, history, reactions, or background facts. Do not reproduce source quotes unless they are essential to a confirmed fact; paraphrase them instead.
 - Do not pad the article, repeat the same sentence, or mention that you are an AI.
 - If the source is incomplete, use careful language such as “the report states” or “details remain limited” instead of guessing.
 - Return only valid JSON with this exact structure and no markdown:
