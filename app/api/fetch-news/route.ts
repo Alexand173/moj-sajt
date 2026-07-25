@@ -66,6 +66,7 @@ async function fetchNews(query: string, region: string, apiKey: string) {
       excerpt: art.description || '',
       content: art.content || '',
       image: art.urlToImage || 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745',
+      url: art.url || null,
       category: 'LATEST',
       region: region,
       created_at: new Date(art.publishedAt || Date.now()).toISOString()

@@ -83,20 +83,33 @@ function generisiAffiliateLink(izvorniLink: string): string {
 export default function ConcertsList({ dataZaPrikaz, mid1, mid2, mid3, mid4, bottom }: ConcertsListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
+  const [pendingArtist, setPendingArtist] = useState<string | null>(null);
   const concertRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!searchQuery.trim()) return;
-    const foundKey = Object.keys(concertRefs.current).find((key) => key.toLowerCase().includes(searchQuery.toLowerCase()));
-    if (foundKey && concertRefs.current[foundKey]) {
-      concertRefs.current[foundKey]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      const element = concertRefs.current[foundKey];
-      element?.classList.add('ring-4', 'ring-amber-500', 'transition-all');
-      setTimeout(() => { element?.classList.remove('ring-4', 'ring-amber-500'); }, 2000);
-    } else {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return;
+
+    // Search the complete regional dataset, not only cards currently visible
+    // under the selected city filter.
+    const foundGroup = (dataZaPrikaz || []).find((group) =>
+      group.artist_name.toLowerCase().includes(query)
+    );
+
+    if (!foundGroup) {
       alert(`Izvođač "${searchQuery}" nije pronađen.`);
+      return;
     }
+
+    const artistIsInSelectedCity = selectedCity === null || foundGroup.events.some(
+      (event) => resolveConcertCity(event.city, event.location)?.toLowerCase() === selectedCity.toLowerCase()
+    );
+
+    // If the match exists elsewhere in the region, reveal it by returning to
+    // the complete regional list before scrolling to its card.
+    if (!artistIsInSelectedCity) setSelectedCity(null);
+    setPendingArtist(foundGroup.artist_name);
   };
 
   // Lista jedinstvenih gradova izvučenih iz "location" polja svih koncerata.
@@ -120,6 +133,32 @@ export default function ConcertsList({ dataZaPrikaz, mid1, mid2, mid3, mid4, bot
       setSelectedCity(null);
     }
   }, [cities, selectedCity]);
+
+  // Wait for a cleared city filter to render the matching card before scrolling.
+  useEffect(() => {
+    if (!pendingArtist) return;
+
+    let timeoutId: number | undefined;
+    const frameId = window.requestAnimationFrame(() => {
+      const element = concertRefs.current[pendingArtist];
+      if (!element) {
+        setPendingArtist(null);
+        return;
+      }
+
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      element.classList.add('ring-4', 'ring-amber-500', 'transition-all');
+      timeoutId = window.setTimeout(() => {
+        element.classList.remove('ring-4', 'ring-amber-500');
+        setPendingArtist(null);
+      }, 2000);
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+    };
+  }, [pendingArtist]);
 
   // Kada je grad selektovan, prikazujemo samo izvođače koji imaju bar jedan datum u tom gradu,
   // i to samo sa datumima koji odgovaraju tom gradu.
