@@ -1,5 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
+import { cache } from 'react';
+import type { Metadata } from 'next';
 import Link from 'next/link';
+import StructuredData from '@/components/StructuredData';
 import { generateAiNewsArticle, getNewsSourceName, resolveNewsSource } from '@/lib/ai-news';
 //export const revalidate = 3600; // Osveži stranicu na svakih sat vremena (3600 sekundi)
 // OVO JE OBAVEZNO: Da bi stranica uvek povukla najnoviju vest iz baze
@@ -11,32 +14,120 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export default async function SingleNewsPage({ 
-  params 
-}: { 
-  params: Promise<{ regionName: string, id: string }> 
-}) {
-  const { id, regionName } = await params;
+interface NewsArticleRecord {
+  id: string | number;
+  title: string;
+  excerpt: string | null;
+  content: string | null;
+  image: string | null;
+  url: string | null;
+  source_name: string | null;
+  category: string | null;
+  created_at: string | null;
+}
 
-  // 1. Vučemo vest iz tabele 'news' po ID-u
-  const { data: article, error } = await supabase
+function getSafeSourceUrl(value: string | null | undefined): string | null {
+  if (!value?.trim()) return null;
+
+  try {
+    const parsed = new URL(value);
+    return ['http:', 'https:'].includes(parsed.protocol) ? parsed.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+function getArticlePageUrl(regionName: string, id: string): string {
+  return `https://www.musictop.net/news/${encodeURIComponent(regionName)}/${encodeURIComponent(id)}`;
+}
+
+const getNewsArticle = cache(async (id: string): Promise<NewsArticleRecord | null> => {
+  const { data, error } = await supabase
     .from('news')
     .select('*')
     .eq('id', id)
     .single();
 
-  if (error || !article) {
-    return <div className="pt-60 text-center uppercase font-black">Article not found.</div>;
-  }
+  if (error || !data) return null;
+  return data as NewsArticleRecord;
+});
 
-  const initialSourceName = getNewsSourceName(article.url, article.source_name);
-  const resolvedSource = await resolveNewsSource({
+const getResolvedSource = cache(async (article: NewsArticleRecord) => {
+  const sourceUrl = getSafeSourceUrl(article.url);
+
+  return resolveNewsSource({
     title: article.title,
     excerpt: article.excerpt,
     existingContent: article.content,
-    sourceUrl: article.url,
-    sourceName: initialSourceName,
+    sourceUrl,
+    sourceName: getNewsSourceName(sourceUrl, article.source_name),
   });
+});
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ regionName: string; id: string }>;
+}): Promise<Metadata> {
+  const { id, regionName } = await params;
+  const article = await getNewsArticle(id);
+
+  if (!article) {
+    return { title: 'Article not found | MusicTop' };
+  }
+
+  const resolvedSource = await getResolvedSource(article);
+  const sourceName = resolvedSource.sourceName;
+  const pageUrl = getArticlePageUrl(regionName, id);
+  const description = `Source-attributed MusicTop reporting based on reporting by ${sourceName}. ${article.excerpt || 'Read the source-attributed music news report.'}`.slice(0, 180);
+  const imageUrl = getSafeSourceUrl(article.image);
+  const sourceUrl = getSafeSourceUrl(resolvedSource.sourceUrl);
+
+  return {
+    title: `${article.title} | ${sourceName}`,
+    description,
+    authors: [{ name: 'MusicTop Editorial' }],
+    creator: 'MusicTop Editorial',
+    publisher: 'MusicTop',
+    alternates: { canonical: pageUrl },
+    openGraph: {
+      title: article.title,
+      description,
+      url: pageUrl,
+      siteName: 'MusicTop',
+      type: 'article',
+      publishedTime: article.created_at || undefined,
+      authors: ['MusicTop Editorial'],
+      images: imageUrl ? [{ url: imageUrl, alt: article.title }] : undefined,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: article.title,
+      description,
+      images: imageUrl ? [imageUrl] : undefined,
+    },
+    other: {
+      'article:source': sourceName,
+      ...(sourceUrl ? { 'article:source_url': sourceUrl } : {}),
+      'article:content_origin': 'AI-synthesized report based on source reporting',
+    },
+  };
+}
+
+export default async function SingleNewsPage({
+  params
+}: {
+  params: Promise<{ regionName: string, id: string }>
+}) {
+  const { id, regionName } = await params;
+
+  const article = await getNewsArticle(id);
+
+  if (!article) {
+    return <div className="pt-60 text-center uppercase font-black">Article not found.</div>;
+  }
+
+  const resolvedSource = await getResolvedSource(article);
 
   // Repair older rows that were imported before the source URL was persisted.
   // This keeps future visits independent of a live NewsAPI lookup.
@@ -67,9 +158,43 @@ export default async function SingleNewsPage({
     .split(/\n\s*\n/)
     .map((paragraph: string) => paragraph.trim())
     .filter(Boolean);
+  const sourceUrl = getSafeSourceUrl(resolvedSource.sourceUrl);
+  const pageUrl = getArticlePageUrl(regionName, id);
+  const articleStructuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'NewsArticle',
+    headline: aiArticle.seoTitle,
+    description: aiArticle.seoDescription,
+    image: getSafeSourceUrl(article.image) || 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745',
+    datePublished: article.created_at || undefined,
+    dateModified: article.created_at || undefined,
+    articleSection: article.category || 'Music News',
+    author: {
+      '@type': 'Organization',
+      name: 'MusicTop Editorial',
+      url: 'https://www.musictop.net',
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: 'MusicTop',
+      url: 'https://www.musictop.net',
+    },
+    mainEntityOfPage: {
+      '@type': 'WebPage',
+      '@id': pageUrl,
+    },
+    citation: sourceUrl || undefined,
+    isBasedOn: sourceUrl || undefined,
+    sourceOrganization: {
+      '@type': 'Organization',
+      name: sourceName,
+      ...(sourceUrl ? { url: sourceUrl } : {}),
+    },
+  };
 
   return (
     <div className="min-h-screen bg-white text-black pt-40 pb-20 font-sans">
+      <StructuredData data={articleStructuredData} />
       <div className="max-w-[900px] mx-auto px-6">
         
         {/* NAVIGACIJA NAZAD */}
@@ -112,7 +237,7 @@ export default async function SingleNewsPage({
           {/* MAIN TEXT */}
           <div className="text-lg md:text-xl text-zinc-800 leading-relaxed uppercase font-medium space-y-8 whitespace-pre-line">
             <p className="text-[10px] not-italic tracking-[0.2em] text-purple-600 font-black uppercase">
-              {aiArticle.isAiGenerated ? 'AI-GENERATED EDITORIAL REPORT' : 'SOURCE-BASED EDITORIAL REPORT'} · SOURCE: {sourceName} VIA NEWSAPI
+              {aiArticle.isAiGenerated ? 'AI-SYNTHESIZED EDITORIAL REPORT' : 'EDITORIAL REWRITE UNAVAILABLE'} · SOURCE: {sourceName}
             </p>
             <div className="space-y-6 normal-case font-normal leading-relaxed">
               {articleParagraphs.map((paragraph: string, index: number) => (
@@ -128,12 +253,12 @@ export default async function SingleNewsPage({
             </h3>
             <p className="mb-7 text-[10px] font-bold uppercase leading-relaxed text-zinc-500 sm:mb-8 sm:px-4">
               {aiArticle.isAiGenerated
-                ? 'This report was independently rewritten by MusicTop AI from the source named above. Read the original report for the publisher\'s complete context.'
-                : 'AI rewriting was unavailable, so this page is showing source-based text. Read the original report for the publisher\'s complete context.'}
+                ? `This article was synthesized and rewritten by MusicTop Editorial from reporting published by ${sourceName}. Read the publisher\'s report for the complete source context.`
+                : `The independent rewrite is temporarily unavailable. The publisher\'s article is linked below and is not reproduced on this page.`}
             </p>
-            {resolvedSource.sourceUrl ? (
+            {sourceUrl ? (
               <a
-                href={resolvedSource.sourceUrl}
+                href={sourceUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={`Read the original source from ${sourceName}`}

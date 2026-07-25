@@ -32,14 +32,21 @@ export async function GET(request: Request) {
         sourceName,
       });
 
+      if (!aiResult.similarityCheckPassed) {
+        console.warn(
+          `News rewrite for "${article.title}" was not saved as AI-validated content. ` +
+          `similarity=${aiResult.similarityScore.toFixed(3)}, retries=${aiResult.retryCount}`,
+        );
+      }
+
       enrichedNews.push({
         title: aiResult.seoTitle || article.title,
         excerpt: aiResult.seoDescription || article.description?.slice(0, 200) || "",
         content: aiResult.articleContent || "Full article coming soon...",
         image: article.urlToImage || 'https://images.unsplash.com/photo-1514525253361-bee8a48790c3',
         url: article.url || null,
-        source_name: article.source?.name || null,
-        category: 'AI EXCLUSIVE',
+        source_name: sourceName,
+        category: 'LATEST',
         region: selectedRegion,
         created_at: new Date(article.publishedAt).toISOString()
       });
