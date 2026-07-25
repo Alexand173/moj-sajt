@@ -38,6 +38,7 @@ export async function GET(request: Request) {
         content: aiResult.articleContent || "Full article coming soon...",
         image: article.urlToImage || 'https://images.unsplash.com/photo-1514525253361-bee8a48790c3',
         url: article.url || null,
+        source_name: article.source?.name || null,
         category: 'AI EXCLUSIVE',
         region: selectedRegion,
         created_at: new Date(article.publishedAt).toISOString()

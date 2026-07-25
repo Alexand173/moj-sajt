@@ -5,6 +5,7 @@ const MAX_SOURCE_CHARACTERS = 14_000;
 const MIN_PROFESSIONAL_WORDS = 450;
 const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
 const FALLBACK_GEMINI_MODEL = 'gemini-2.5-flash-lite';
+const AI_REQUEST_TIMEOUT_MS = 20_000;
 
 export interface AiNewsArticle {
   seoTitle: string;
@@ -46,6 +47,25 @@ function cleanSourceText(value: string | null | undefined): string {
 
 function wordCount(value: string): number {
   return value.trim() ? value.trim().split(/\s+/).length : 0;
+}
+
+function isLikelyTruncated(value: string): boolean {
+  return /(?:\[\+\d+ chars?\]|\.\.\.|…)$/.test(value.trim());
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
 }
 
 function formatArticleContent(value: string): string {
@@ -215,19 +235,23 @@ export async function resolveNewsSource(input: {
 function combineSourceMaterial(input: GenerateAiNewsArticleInput): string {
   const sourceArticleText = trimToSourceLimit(cleanSourceText(input.sourceArticleText));
   const existingContent = cleanSourceText(input.existingContent);
+  const usableExistingContent = isLikelyTruncated(existingContent) ? '' : existingContent;
   const excerpt = cleanSourceText(input.excerpt);
 
   // Once the full publisher article is available, do not append NewsAPI's
-  // shorter duplicate snippets to the model context.
+  // shorter duplicate snippets to the model context. Never send a truncated
+  // NewsAPI content field as if it were a complete article.
   const sections = wordCount(sourceArticleText) >= 200
     ? [sourceArticleText]
-    : [sourceArticleText, existingContent, excerpt].filter(Boolean);
+    : [sourceArticleText, usableExistingContent, excerpt].filter(Boolean);
 
   return sections.filter((section, index) => sections.indexOf(section) === index).join('\n\n');
 }
 
 function fallbackArticle(input: GenerateAiNewsArticleInput, sourceMaterial: string): AiNewsArticle {
-  const fallbackText = sourceMaterial || cleanSourceText(input.excerpt) || cleanSourceText(input.existingContent);
+  const existingContent = cleanSourceText(input.existingContent);
+  const usableExistingContent = isLikelyTruncated(existingContent) ? '' : existingContent;
+  const fallbackText = sourceMaterial || cleanSourceText(input.excerpt) || usableExistingContent;
 
   return {
     seoTitle: input.title,
@@ -327,7 +351,11 @@ Editorial requirements:
     for (const modelName of modelNames) {
       try {
         const model = genAI.getGenerativeModel({ model: modelName });
-        const result = await model.generateContent(prompt);
+        const result = await withTimeout(
+          model.generateContent(prompt),
+          AI_REQUEST_TIMEOUT_MS,
+          `Gemini request timed out after ${AI_REQUEST_TIMEOUT_MS}ms.`,
+        );
         responseText = result.response.text();
         break;
       } catch (error) {

@@ -4,6 +4,7 @@ import { generateAiNewsArticle, getNewsSourceName, resolveNewsSource } from '@/l
 //export const revalidate = 3600; // Osveži stranicu na svakih sat vremena (3600 sekundi)
 // OVO JE OBAVEZNO: Da bi stranica uvek povukla najnoviju vest iz baze
 export const revalidate = 0;
+export const maxDuration = 60;
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -36,6 +37,23 @@ export default async function SingleNewsPage({
     sourceUrl: article.url,
     sourceName: initialSourceName,
   });
+
+  // Repair older rows that were imported before the source URL was persisted.
+  // This keeps future visits independent of a live NewsAPI lookup.
+  if (!article.url && resolvedSource.sourceUrl) {
+    const { error: sourceRepairError } = await supabase
+      .from('news')
+      .update({
+        url: resolvedSource.sourceUrl,
+        source_name: resolvedSource.sourceName,
+      })
+      .eq('id', id);
+
+    if (sourceRepairError) {
+      console.warn('Could not persist the recovered news source URL:', sourceRepairError.message);
+    }
+  }
+
   const sourceName = resolvedSource.sourceName;
   const aiArticle = await generateAiNewsArticle({
     title: article.title,

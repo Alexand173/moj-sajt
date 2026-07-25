@@ -1,6 +1,4 @@
 import { createClient } from '@supabase/supabase-js';
-import RSSParser from 'rss-parser';
-const parser = new RSSParser();
 
 // Inicijalizacija Supabase klijenta
 const supabaseUrl = process.env.SUPABASE_URL || '';
@@ -15,13 +13,30 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
     persistSession: false
-  },
-  realtime: {
-    // Koristimo "as any" da TypeScript ne pravi problem, 
-    // a Supabase Realtime se uspešno isključuje bez podizanja WebSocket konekcije
-    transport: null as any 
   }
 });
+
+interface NewsApiArticle {
+  title?: string | null;
+  description?: string | null;
+  content?: string | null;
+  urlToImage?: string | null;
+  url?: string | null;
+  publishedAt?: string | null;
+  source?: { name?: string | null } | null;
+}
+
+interface NewsRecord {
+  title: string;
+  excerpt: string;
+  content: string;
+  image: string;
+  url: string | null;
+  source_name: string | null;
+  category: string;
+  region: string;
+  created_at: string;
+}
 
 const MUSIC_KEYWORDS = [
   'music', 'concert', 'album', 'band', 'song', 'artist', 
@@ -33,12 +48,16 @@ function isMusicRelated(title: string, description: string): boolean {
   return MUSIC_KEYWORDS.some(keyword => text.includes(keyword));
 }
 
-async function fetchNews(query: string, region: string, apiKey: string) {
+async function fetchNews(query: string, region: string, apiKey: string): Promise<NewsRecord[]> {
   const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&language=en&pageSize=50&sortBy=publishedAt&apiKey=${apiKey}`;
   
   try {
     const res = await fetch(url);
-    const data = await res.json();
+    const data = (await res.json()) as {
+      status?: string;
+      message?: string;
+      articles?: NewsApiArticle[];
+    };
     
     // Ako API vrati status "error" ili neku poruku, ispiši je odmah u konzoli
     if (data.status === 'error') {
@@ -52,7 +71,7 @@ async function fetchNews(query: string, region: string, apiKey: string) {
     }
     
     // 1. Filtriraj podatke (Ako je latino, propuštamo sve vesti bez filtriranja)
-    const filteredArticles = data.articles.filter((art: any) => {
+    const filteredArticles = data.articles.filter((art) => {
       if (region === 'latino') return true;
       return isMusicRelated(art.title || '', art.description || '');
     });
@@ -61,12 +80,13 @@ async function fetchNews(query: string, region: string, apiKey: string) {
     console.log(`📡 Preuzeto ${data.articles.length}, filtrirano (muzičke) ${filteredArticles.length} vesti za region: ${region}`);
     
     // 3. Mapiranje za bazu podataka
-    return filteredArticles.map((art: any) => ({
+    return filteredArticles.map((art) => ({
       title: art.title || 'No Title',
       excerpt: art.description || '',
       content: art.content || '',
       image: art.urlToImage || 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745',
       url: art.url || null,
+      source_name: art.source?.name || null,
       category: 'LATEST',
       region: region,
       created_at: new Date(art.publishedAt || Date.now()).toISOString()
@@ -114,6 +134,25 @@ export async function GET() {
       return new Response(JSON.stringify({ message: "Nema novih vesti za unos." }), { status: 200 });
     }
 
+    // Repair legacy rows that were created without a publisher URL.
+    // The detail page can also repair a single row on demand, but this keeps
+    // the regular six-hour sync from reintroducing incomplete source metadata.
+    await Promise.all(
+      allNews
+        .filter((news) => news.url)
+        .map(async (news) => {
+          const { error: repairError } = await supabase
+            .from('news')
+            .update({ url: news.url, source_name: news.source_name })
+            .eq('title', news.title)
+            .is('url', null);
+
+          if (repairError) {
+            console.warn(`⚠️ Source URL repair failed for "${news.title}":`, repairError.message);
+          }
+        }),
+    );
+
     // Unos u Supabase sa 'upsert' logikom na osnovu naslova
     const { error } = await supabase
       .from('news')
@@ -134,9 +173,10 @@ export async function GET() {
       message: "Baza osvežena." 
     }), { status: 200 });
 
-  } catch (err: any) {
-    console.error("❌ Kritična greška:", err.message);
-    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Nepoznata greška';
+    console.error("❌ Kritična greška:", message);
+    return new Response(JSON.stringify({ error: message }), { status: 500 });
   }
 }
 
