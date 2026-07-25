@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import AdSenseBanner from '@/components/AdSenseBanner';
+import { resolveConcertCity } from '@/lib/concert-city';
 
 interface Event {
   id: string;
   date: string;
   location: string;
+  city?: string | null;
   ticket_link: string;
 }
 
@@ -24,6 +26,7 @@ interface ConcertsListProps {
   mid4: string;
   bottom: string;
 }
+
 
 function generisiAffiliateLink(izvorniLink: string): string {
   if (!izvorniLink) return '#';
@@ -79,6 +82,7 @@ function generisiAffiliateLink(izvorniLink: string): string {
 
 export default function ConcertsList({ dataZaPrikaz, mid1, mid2, mid3, mid4, bottom }: ConcertsListProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const concertRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -95,7 +99,43 @@ export default function ConcertsList({ dataZaPrikaz, mid1, mid2, mid3, mid4, bot
     }
   };
 
-  const ukupno = dataZaPrikaz ? dataZaPrikaz.length : 0;
+  // Lista jedinstvenih gradova izvučenih iz "location" polja svih koncerata.
+  const cities = useMemo(() => {
+    const cityMap = new Map<string, string>();
+    (dataZaPrikaz || []).forEach((grupa) => {
+      grupa.events.forEach((event) => {
+        const city = resolveConcertCity(event.city, event.location);
+        if (city && !cityMap.has(city.toLowerCase())) {
+          cityMap.set(city.toLowerCase(), city);
+        }
+      });
+    });
+    return Array.from(cityMap.values()).sort((a, b) => a.localeCompare(b));
+  }, [dataZaPrikaz]);
+
+  // A refresh can remove a city that was previously selected. Do not leave
+  // the client in a stale empty state after the server sends new data.
+  useEffect(() => {
+    if (selectedCity && !cities.some((city) => city.toLowerCase() === selectedCity.toLowerCase())) {
+      setSelectedCity(null);
+    }
+  }, [cities, selectedCity]);
+
+  // Kada je grad selektovan, prikazujemo samo izvođače koji imaju bar jedan datum u tom gradu,
+  // i to samo sa datumima koji odgovaraju tom gradu.
+  const filteredData = useMemo(() => {
+    if (!selectedCity) return dataZaPrikaz || [];
+    return (dataZaPrikaz || [])
+      .map((grupa) => ({
+        ...grupa,
+        events: grupa.events.filter(
+          (event) => resolveConcertCity(event.city, event.location)?.toLowerCase() === selectedCity.toLowerCase()
+        ),
+      }))
+      .filter((grupa) => grupa.events.length > 0);
+  }, [dataZaPrikaz, selectedCity]);
+
+  const ukupno = filteredData ? filteredData.length : 0;
   let prikaziCetiriSrednje = ukupno > 100;
   let indexMid1 = -1, indexMid2 = -1, indexMid3 = -1, indexMid4 = -1;
 
@@ -125,10 +165,47 @@ export default function ConcertsList({ dataZaPrikaz, mid1, mid2, mid3, mid4, bot
         </form>
       </div>
 
+      {cities.length > 0 && (
+        <div className="max-w-4xl mx-auto mb-10 px-4">
+          <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3 text-center">
+            Filter by City
+          </h3>
+          <div className="flex flex-wrap justify-center gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedCity(null)}
+              aria-pressed={selectedCity === null}
+              className={`px-4 py-2 rounded-full text-sm font-medium border transition-colors ${
+                selectedCity === null
+                  ? 'bg-amber-500 border-amber-500 text-white shadow-sm'
+                  : 'bg-white border-gray-200 text-gray-700 hover:border-amber-400 hover:text-amber-600'
+              }`}
+            >
+              All Cities
+            </button>
+            {cities.map((city) => (
+              <button
+                key={city}
+                type="button"
+                onClick={() => setSelectedCity(city)}
+                aria-pressed={selectedCity === city}
+                className={`px-4 py-2 rounded-full text-sm font-medium border transition-colors ${
+                  selectedCity === city
+                    ? 'bg-amber-500 border-amber-500 text-white shadow-sm'
+                    : 'bg-white border-gray-200 text-gray-700 hover:border-amber-400 hover:text-amber-600'
+                }`}
+              >
+                {city}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {ukupno > 0 ? (
         <div className="space-y-12">
           <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 px-4">
-            {dataZaPrikaz.map((grupa: GroupedConcert, index: number) => (
+            {filteredData.map((grupa: GroupedConcert, index: number) => (
               <div key={grupa.artist_name} className="contents">
                 {/* 🎨 NAŠMINKANA KARTICA */}
                 <div
@@ -174,7 +251,20 @@ export default function ConcertsList({ dataZaPrikaz, mid1, mid2, mid3, mid4, bot
           <div className="pt-8 px-4"><AdSenseBanner adSlot={bottom} /></div>
         </div>
       ) : (
-        <div className="text-center text-gray-500 py-20"><p className="text-lg">No concerts found for this region.</p></div>
+        <div className="text-center text-gray-500 py-20">
+          <p className="text-lg">
+            {selectedCity ? `No concerts found in ${selectedCity}.` : 'No concerts found for this region.'}
+          </p>
+          {selectedCity && (
+            <button
+              type="button"
+              onClick={() => setSelectedCity(null)}
+              className="mt-4 text-amber-600 hover:text-amber-700 font-medium underline"
+            >
+              Clear city filter
+            </button>
+          )}
+        </div>
       )}
     </>
   );

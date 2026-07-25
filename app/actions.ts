@@ -4,7 +4,8 @@ import { createClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
 import sharp from 'sharp'; 
 import * as cheerio from 'cheerio';
-import { getArtistData } from './spotify'; 
+import { getArtistData } from './spotify';
+import { normalizeCityName } from '@/lib/concert-city';
 
 // DEFINIŠI SUPABASE NA VRHU (Globalni scope)
 const supabase = createClient(
@@ -40,19 +41,19 @@ export async function syncConcerts(): Promise<SyncResult> {
     console.log(`Dobijeno ${data._embedded.events.length} događaja. Upisujem u bazu...`);
 
     const events = data._embedded.events.map((e: any) => ({
-  artist_name: e.name,
-  event_date: e.dates.start.localDate,
-  // Pronađi grad i venue (mesto)
-  city: e._embedded?.venues?.[0]?.city?.name || "Nepoznato",
-  venue: e._embedded?.venues?.[0]?.name || "Nepoznato",
-  // Pronađi link - Ticketmaster obično šalje URL ovde
-  ticket_url: e.url || null, 
+  artist_name: e.name || "Unknown",
+  // Isto imenovanje kolona kao u app/api/sync-concerts/route.ts:
+  date: e.dates?.start?.localDate || new Date().toISOString().split('T')[0],
+  location: e._embedded?.venues?.[0]?.name || 'TBA',
+  city: normalizeCityName(e._embedded?.venues?.[0]?.city?.name),
+  // Ticket link - Ticketmaster obično šalje URL ovde
+  ticket_link: e.url || null,
   // Pronađi sliku
   image_url: e.images?.[0]?.url || null,
-  region: 'US' 
+  region: 'us'
 }));
 
-    const { error } = await supabase.from('koncerti').upsert(events); // Koristi 'events'
+    const { error } = await supabase.from('koncerti').upsert(events, { onConflict: 'artist_name,date' });
 
 if (error) {
   console.error("Supabase greška pri upisu:", error);
@@ -60,6 +61,7 @@ if (error) {
 }
 
 console.log("USPEŠNO UPISANO!");
+revalidatePath('/tours/[regionName]', 'page');
 return { success: true, count: events.length }; // Koristi 'events.length'
 
   } catch (error) {

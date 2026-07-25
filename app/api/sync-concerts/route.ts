@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { createClient } from '@supabase/supabase-js';
+import { normalizeCityName } from '@/lib/concert-city';
 
 export const dynamic = 'force-dynamic';
 
@@ -84,6 +86,7 @@ export async function GET(request: Request) {
                 artist_name: e.name || "Unknown",
                 date: e.dates?.start?.localDate || new Date().toISOString().split('T')[0],
                 location: e._embedded?.venues?.[0]?.name || 'TBA',
+                city: normalizeCityName(e._embedded?.venues?.[0]?.city?.name),
                 region: 'classical',
                 ticket_link: e.url || null,
                 image_url: e.images?.[0]?.url || null,
@@ -151,6 +154,7 @@ export async function GET(request: Request) {
             artist_name: e.name || "Unknown",
             date: e.dates?.start?.localDate || new Date().toISOString().split('T')[0],
             location: e._embedded?.venues?.[0]?.name || 'TBA',
+            city: normalizeCityName(e._embedded?.venues?.[0]?.city?.name),
             region: finalRegion,
             ticket_link: e.url || null,
             image_url: e.images?.[0]?.url || null,
@@ -205,6 +209,9 @@ export async function GET(request: Request) {
         poruka: dbError.message,
       }, { status: 500 });
     }
+
+    // Invalidate every /tours/<region> page after a successful sync.
+    revalidatePath('/tours/[regionName]', 'page');
 
     return NextResponse.json({
       status: "Success",

@@ -3,6 +3,9 @@ import ConcertsList from '@/components/ConcertsList';
 import AdSenseBanner from '@/components/AdSenseBanner';
 import { Metadata } from 'next';
 
+// Read Supabase at request time so every sync is visible on all tour pages.
+export const dynamic = 'force-dynamic';
+
 type Params = Promise<{ regionName: string }>;
 
 // --- KORAK 1: DINAMIČKI METADATA ZA GOOGLE ---
@@ -53,6 +56,7 @@ export default async function Page({ params }: { params: Params }) {
       id: item.id,
       date: item.date,
       location: item.location,
+      city: item.city,
       ticket_link: item.ticket_link
     });
     return acc;
