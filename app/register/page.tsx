@@ -53,8 +53,26 @@ export default function RegisterPage() {
       },
     });
 
-    if (error) {
+  if (error) {
       console.error(`REGISTER FACEBOOK ERROR: ${error.message.toUpperCase()}`);
+    }
+  };
+
+  const handleCustomSocialRegister = async (
+    providerName: 'custom:instagram' | 'custom:tiktok',
+    providerLabel: 'INSTAGRAM' | 'TIKTOK',
+  ) => {
+    if (typeof window === 'undefined') return;
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: providerName,
+      options: {
+        redirectTo: getOAuthRedirect(),
+      },
+    });
+
+    if (error) {
+      console.error(`REGISTER ${providerLabel} ERROR: ${error.message.toUpperCase()}`);
     }
   };
 
@@ -122,6 +140,22 @@ export default function RegisterPage() {
             className="py-2.5 border-2 border-zinc-800 bg-zinc-900 hover:border-white hover:bg-zinc-800 transition text-xs font-bold tracking-tight text-center text-white disabled:opacity-50 disabled:cursor-not-allowed"
           >
             FACEBOOK
+          </button>
+          <button
+            onClick={() => handleCustomSocialRegister('custom:instagram', 'INSTAGRAM')}
+            disabled={loading}
+            type="button"
+            className="py-2.5 border-2 border-zinc-800 bg-zinc-900 hover:border-white hover:bg-zinc-800 transition text-xs font-bold tracking-tight text-center text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            INSTAGRAM
+          </button>
+          <button
+            onClick={() => handleCustomSocialRegister('custom:tiktok', 'TIKTOK')}
+            disabled={loading}
+            type="button"
+            className="py-2.5 border-2 border-zinc-800 bg-zinc-900 hover:border-white hover:bg-zinc-800 transition text-xs font-bold tracking-tight text-center text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            TIKTOK
           </button>
         </div>
 

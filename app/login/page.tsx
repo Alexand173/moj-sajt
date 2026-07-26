@@ -17,7 +17,7 @@ export default function LoginPage() {
 
   // Funkcija za brzu prijavu preko Google-a i Facebook-a
  // Funkcija za brzu prijavu preko Google-a i Facebook-a
-  const handleSocialLogin = async (providerName: 'google' | 'facebook') => {
+  const handleSocialLogin = async (providerName: 'google' | 'facebook' | 'custom:instagram' | 'custom:tiktok') => {
     setErrorMsg('');
     
     // 🔥 SIGURNA PROVERA OKRUŽENJA: Next.js prepoznaje produkciju čak i unutar modala
@@ -92,6 +92,20 @@ export default function LoginPage() {
             className="py-2.5 border-2 border-zinc-800 bg-zinc-900 hover:border-white hover:bg-zinc-800 transition text-xs font-bold tracking-tight text-center text-white cursor-pointer"
           >
             FACEBOOK
+          </button>
+          <button
+            onClick={() => handleSocialLogin('custom:instagram')}
+            type="button"
+            className="py-2.5 border-2 border-zinc-800 bg-zinc-900 hover:border-white hover:bg-zinc-800 transition text-xs font-bold tracking-tight text-center text-white cursor-pointer"
+          >
+            INSTAGRAM
+          </button>
+          <button
+            onClick={() => handleSocialLogin('custom:tiktok')}
+            type="button"
+            className="py-2.5 border-2 border-zinc-800 bg-zinc-900 hover:border-white hover:bg-zinc-800 transition text-xs font-bold tracking-tight text-center text-white cursor-pointer"
+          >
+            TIKTOK
           </button>
         </div>
 
