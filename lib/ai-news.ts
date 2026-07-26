@@ -1,13 +1,25 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { lookup as lookupHostname } from 'node:dns/promises';
+import { isIP } from 'node:net';
+import OpenAI from 'openai';
 import * as cheerio from 'cheerio';
 
 const MAX_SOURCE_CHARACTERS = 14_000;
+const MAX_SOURCE_RESPONSE_BYTES = 2_000_000;
+const MIN_SOURCE_WORDS_FOR_AI = 20;
 const MIN_PROFESSIONAL_WORDS = 450;
+const MAX_GENERATED_ARTICLE_CHARACTERS = 24_000;
+const MAX_MODEL_RESPONSE_CHARACTERS = 30_000;
 const MAX_WORD_JACCARD_SIMILARITY = 0.35;
 const MAX_CONSECUTIVE_SENTENCE_MATCHES = 3;
-const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
-const FALLBACK_GEMINI_MODEL = 'gemini-2.5-flash-lite';
+const MAX_SHARED_PHRASE_RATIO = 0.08;
 const AI_REQUEST_TIMEOUT_MS = 20_000;
+const AI_TOTAL_TIMEOUT_MS = 35_000;
+const SOURCE_FETCH_TIMEOUT_MS = 10_000;
+const SOURCE_TOTAL_TIMEOUT_MS = 10_000;
+const DNS_LOOKUP_TIMEOUT_MS = 2_000;
+const NEWS_API_TIMEOUT_MS = 8_000;
+const MAX_SOURCE_REDIRECTS = 3;
+const DEFAULT_OPENAI_MODEL = 'gpt-4.1-mini';
 
 export interface AiNewsArticle {
   seoTitle: string;
@@ -71,6 +83,137 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: s
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
   }
+}
+
+function getSafeHttpUrl(value: string | null | undefined): URL | null {
+  if (!value?.trim()) return null;
+
+  try {
+    const parsed = new URL(value.trim());
+    if (!['http:', 'https:'].includes(parsed.protocol)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function isPrivateIpv4Address(value: string): boolean {
+  const octets = value.split('.').map(Number);
+  if (octets.length !== 4 || octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) return false;
+
+  const [first, second] = octets;
+  return first === 10 ||
+    (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && second === 168) ||
+    first === 127 ||
+    (first === 169 && second === 254);
+}
+
+function isPrivateIpv6Address(value: string): boolean {
+  const normalized = value.toLowerCase();
+  if (normalized === '::' || normalized === '::1' || normalized.startsWith('fc') || normalized.startsWith('fd') || normalized.startsWith('fe8') || normalized.startsWith('fe9') || normalized.startsWith('fea') || normalized.startsWith('feb') || normalized.startsWith('ff')) return true;
+
+  const mappedIpv4 = normalized.startsWith('::ffff:') ? normalized.slice('::ffff:'.length) : '';
+  return mappedIpv4 ? isPrivateIpv4Address(mappedIpv4) : false;
+}
+
+function isPrivateOrLocalHostname(hostname: string): boolean {
+  const normalized = hostname.replaceAll('[', '').replaceAll(']', '').toLowerCase();
+  const ipVersion = isIP(normalized);
+
+  if (ipVersion === 6) return isPrivateIpv6Address(normalized);
+  if (ipVersion === 4) return isPrivateIpv4Address(normalized);
+
+  return normalized === 'localhost' ||
+    normalized.endsWith('.localhost') ||
+    normalized.endsWith('.local') ||
+    normalized === 'metadata.google.internal';
+}
+
+function getPublicSourceUrl(value: string | null | undefined): string | null {
+  const parsed = getSafeHttpUrl(value);
+  return parsed && !isPrivateOrLocalHostname(parsed.hostname) ? parsed.toString() : null;
+}
+
+async function isPublicResolvableUrl(url: URL): Promise<boolean> {
+  if (isPrivateOrLocalHostname(url.hostname)) return false;
+  if (isIP(url.hostname)) return true;
+
+  try {
+    const addresses = await withTimeout(
+      lookupHostname(url.hostname, { all: true, verbatim: true }),
+      DNS_LOOKUP_TIMEOUT_MS,
+      `DNS lookup timed out after ${DNS_LOOKUP_TIMEOUT_MS}ms.`,
+    );
+    return addresses.length > 0 && addresses.every(({ address }) => !isPrivateOrLocalHostname(address));
+  } catch {
+    return false;
+  }
+}
+
+async function readResponseTextWithLimit(response: Response, maxBytes: number): Promise<string> {
+  if (!response.body) return '';
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  const chunks: string[] = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      totalBytes += value.byteLength;
+      if (totalBytes > maxBytes) throw new Error(`Source response exceeded the ${maxBytes}-byte limit.`);
+      chunks.push(decoder.decode(value, { stream: true }));
+    }
+
+    chunks.push(decoder.decode());
+    return chunks.join('');
+  } catch (error) {
+    await reader.cancel().catch(() => undefined);
+    throw error;
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+async function fetchPublicSourceResponse(url: URL): Promise<Response> {
+  const startedAt = Date.now();
+  let currentUrl = url;
+
+  for (let redirectCount = 0; redirectCount <= MAX_SOURCE_REDIRECTS; redirectCount += 1) {
+    if (Date.now() - startedAt >= SOURCE_TOTAL_TIMEOUT_MS) {
+      throw new Error(`Source retrieval exceeded the ${SOURCE_TOTAL_TIMEOUT_MS}ms total budget.`);
+    }
+    if (!(await isPublicResolvableUrl(currentUrl))) {
+      throw new Error('Source URL resolved to a private host or could not be resolved safely.');
+    }
+
+    const remainingBudget = Math.min(SOURCE_FETCH_TIMEOUT_MS, SOURCE_TOTAL_TIMEOUT_MS - (Date.now() - startedAt));
+    const response = await fetch(currentUrl, {
+      cache: 'no-store',
+      redirect: 'manual',
+      signal: AbortSignal.timeout(remainingBudget),
+      headers: {
+        Accept: 'text/html,application/xhtml+xml',
+        'User-Agent': 'Mozilla/5.0 (compatible; MusicTopNewsBot/1.0)',
+      },
+    });
+
+    if (![301, 302, 303, 307, 308].includes(response.status)) return response;
+
+    const location = response.headers.get('location');
+    const nextUrl = location ? new URL(location, currentUrl) : null;
+    if (!nextUrl || !['http:', 'https:'].includes(nextUrl.protocol) || isPrivateOrLocalHostname(nextUrl.hostname)) {
+      throw new Error('Source redirect was invalid or targeted a private host.');
+    }
+
+    currentUrl = nextUrl;
+  }
+
+  throw new Error(`Source exceeded the ${MAX_SOURCE_REDIRECTS}-redirect limit.`);
 }
 
 function formatArticleContent(value: string): string {
@@ -191,7 +334,7 @@ function checkSourceSimilarity(source: string, candidate: string): SimilarityChe
     sharedPhraseRatio,
     passed: jaccardSimilarity <= MAX_WORD_JACCARD_SIMILARITY &&
       sentenceMatch < MAX_CONSECUTIVE_SENTENCE_MATCHES &&
-      sharedPhraseRatio <= 0.08,
+      sharedPhraseRatio <= MAX_SHARED_PHRASE_RATIO,
   };
 }
 
@@ -236,27 +379,21 @@ function extractParagraphs($: cheerio.CheerioAPI, selector: string): string[] {
 /**
  * NewsAPI frequently exposes only a truncated `content` field. When an
  * original URL is available, retrieve the readable article body before asking
- * Gemini to write the editorial version.
+ * OpenAI to write the editorial version.
  */
 export async function fetchNewsSourceText(sourceUrl: string | null | undefined): Promise<string> {
-  if (!sourceUrl) return '';
+  const parsedUrl = getSafeHttpUrl(sourceUrl);
+  if (!parsedUrl || isPrivateOrLocalHostname(parsedUrl.hostname)) return '';
 
   try {
-    const parsedUrl = new URL(sourceUrl);
-    if (!['http:', 'https:'].includes(parsedUrl.protocol)) return '';
-
-    const response = await fetch(sourceUrl, {
-      cache: 'no-store',
-      signal: AbortSignal.timeout(10_000),
-      headers: {
-        Accept: 'text/html,application/xhtml+xml',
-        'User-Agent': 'Mozilla/5.0 (compatible; MusicTopNewsBot/1.0)',
-      },
-    });
+    const response = await fetchPublicSourceResponse(parsedUrl);
 
     if (!response.ok) return '';
 
-    const html = await response.text();
+    const contentType = response.headers.get('content-type')?.toLowerCase() || '';
+    if (contentType && !contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) return '';
+
+    const html = await readResponseTextWithLimit(response, MAX_SOURCE_RESPONSE_BYTES);
     const $ = cheerio.load(html);
     $(
       'script, style, noscript, nav, footer, header, aside, form, iframe, ' +
@@ -296,22 +433,31 @@ export async function resolveNewsSource(input: {
   sourceUrl?: string | null;
   sourceName?: string | null;
 }): Promise<ResolvedNewsSource> {
-  let sourceUrl = input.sourceUrl || null;
+  let sourceUrl = getPublicSourceUrl(input.sourceUrl);
   let sourceName = getNewsSourceName(sourceUrl, input.sourceName);
   let sourceArticleText = await fetchNewsSourceText(sourceUrl);
+  const newsApiKey = process.env.NEWS_API_KEY?.trim();
 
-  if (!sourceUrl && process.env.NEWS_API_KEY) {
+  if (!sourceUrl && newsApiKey) {
     try {
       const query = encodeURIComponent(`"${input.title}"`);
       const response = await fetch(
-        `https://newsapi.org/v2/everything?q=${query}&language=en&pageSize=5&sortBy=relevancy&apiKey=${process.env.NEWS_API_KEY}`,
-        { cache: 'no-store', signal: AbortSignal.timeout(8_000) },
+        `https://newsapi.org/v2/everything?q=${query}&language=en&pageSize=5&sortBy=relevancy`,
+        {
+          cache: 'no-store',
+          signal: AbortSignal.timeout(NEWS_API_TIMEOUT_MS),
+          headers: { 'X-Api-Key': newsApiKey },
+        },
       );
-      const data = (await response.json()) as { articles?: NewsApiArticle[] };
+      if (!response.ok) throw new Error(`NewsAPI source lookup failed with HTTP ${response.status}.`);
+
+      const data = (await response.json()) as { articles?: NewsApiArticle[]; status?: string; message?: string };
+      if (data.status === 'error') throw new Error(data.message || 'NewsAPI returned an error.');
+
       const match = data.articles?.find((article) => article.title?.trim().toLowerCase() === input.title.trim().toLowerCase());
 
       if (match) {
-        sourceUrl = match.url || null;
+        sourceUrl = getPublicSourceUrl(match.url);
         sourceName = getNewsSourceName(sourceUrl, match.source?.name || input.sourceName);
         sourceArticleText = await fetchNewsSourceText(sourceUrl);
 
@@ -334,9 +480,9 @@ export async function resolveNewsSource(input: {
 
 function combineSourceMaterial(input: GenerateAiNewsArticleInput): string {
   const sourceArticleText = trimToSourceLimit(cleanSourceText(input.sourceArticleText));
-  const existingContent = cleanSourceText(input.existingContent);
+  const existingContent = trimToSourceLimit(cleanSourceText(input.existingContent));
   const usableExistingContent = isLikelyTruncated(existingContent) ? '' : existingContent;
-  const excerpt = cleanSourceText(input.excerpt);
+  const excerpt = trimToSourceLimit(cleanSourceText(input.excerpt));
 
   // Once the full publisher article is available, do not append NewsAPI's
   // shorter duplicate snippets to the model context. Never send a truncated
@@ -386,11 +532,62 @@ export function getNewsSourceName(
 }
 
 function parseJsonResponse(responseText: string): Partial<AiNewsArticle> {
+  if (responseText.length > MAX_MODEL_RESPONSE_CHARACTERS) {
+    throw new Error(`AI response exceeded the ${MAX_MODEL_RESPONSE_CHARACTERS}-character limit.`);
+  }
+
   const cleaned = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
   const objectStart = cleaned.indexOf('{');
   const objectEnd = cleaned.lastIndexOf('}');
   if (objectStart === -1 || objectEnd <= objectStart) throw new Error('AI response did not contain JSON.');
-  return JSON.parse(cleaned.slice(objectStart, objectEnd + 1)) as Partial<AiNewsArticle>;
+
+  const parsed = JSON.parse(cleaned.slice(objectStart, objectEnd + 1)) as unknown;
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('AI response JSON did not contain an object.');
+  }
+  return parsed as Partial<AiNewsArticle>;
+}
+
+function getTextField(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function isProviderQuotaError(error: unknown): boolean {
+  return /(?:\b429\b|quota\s+exceeded|rate\s*limit|too many requests|resource exhausted)/i.test(getErrorMessage(error));
+}
+
+async function generateWithOpenAi(
+  prompt: string,
+  apiKey: string,
+  modelName: string,
+  timeoutMs: number,
+): Promise<string> {
+  const client = new OpenAI({
+    apiKey,
+    timeout: timeoutMs,
+    maxRetries: 0,
+  });
+  const response = await client.responses.create({
+    model: modelName,
+    instructions: 'You are a professional music news editor. Return only the JSON object requested by the user.',
+    input: prompt,
+    temperature: 0.75,
+    max_output_tokens: 1_800,
+    text: {
+      format: { type: 'json_object' },
+    },
+  });
+
+  const content = getTextField(response.output_text);
+  if (!content) throw new Error('OpenAI response did not include output text.');
+  if (content.length > MAX_MODEL_RESPONSE_CHARACTERS) {
+    throw new Error(`OpenAI response exceeded the ${MAX_MODEL_RESPONSE_CHARACTERS}-character limit.`);
+  }
+  return content;
 }
 
 export async function generateAiNewsArticle(
@@ -399,8 +596,8 @@ export async function generateAiNewsArticle(
   const resolvedSource = input.sourceArticleText === undefined
     ? await resolveNewsSource(input)
     : {
-        sourceUrl: input.sourceUrl || null,
-        sourceName: input.sourceName,
+        sourceUrl: getPublicSourceUrl(input.sourceUrl),
+        sourceName: getNewsSourceName(getPublicSourceUrl(input.sourceUrl), input.sourceName),
         sourceArticleText: input.sourceArticleText || '',
         excerpt: cleanSourceText(input.excerpt),
       };
@@ -412,18 +609,13 @@ export async function generateAiNewsArticle(
     excerpt: resolvedSource.excerpt,
   };
   const sourceMaterial = combineSourceMaterial(resolvedInput);
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY?.trim();
 
+  if (wordCount(sourceMaterial) < MIN_SOURCE_WORDS_FOR_AI) return fallbackArticle(resolvedInput);
   if (!apiKey) return fallbackArticle(resolvedInput);
 
   try {
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const configuredModel = (process.env.GEMINI_MODEL?.trim() || DEFAULT_GEMINI_MODEL).replace(/^models\//, '');
-    const modelNames = Array.from(new Set([
-      configuredModel,
-      DEFAULT_GEMINI_MODEL,
-      FALLBACK_GEMINI_MODEL,
-    ]));
+    const configuredModel = process.env.OPENAI_MODEL?.trim() || DEFAULT_OPENAI_MODEL;
     const buildPrompt = (isRetry: boolean) => `
 You are an investigative journalist and senior editor at MusicTop. Summarize the key facts from the provided research, but completely rewrite the narrative from a fresh perspective. Synthesize the context, change the structural flow, and provide unique editorial framing without inventing facts.
 
@@ -464,81 +656,82 @@ Editorial requirements:
 }
 `;
 
-    const generateWithAvailableModel = async (prompt: string): Promise<string> => {
-      let lastModelError: unknown;
-
-      for (const modelName of modelNames) {
-        try {
-          const model = genAI.getGenerativeModel({
-            model: modelName,
-            generationConfig: {
-              temperature: 0.75,
-              responseMimeType: 'application/json',
-            },
-          });
-          const result = await withTimeout(
-            model.generateContent(prompt),
-            AI_REQUEST_TIMEOUT_MS,
-            `Gemini request timed out after ${AI_REQUEST_TIMEOUT_MS}ms.`,
-          );
-          return result.response.text();
-        } catch (error) {
-          lastModelError = error;
-          const message = error instanceof Error ? error.message : String(error);
-          const isModelAvailabilityError = /404|not found|not supported/i.test(message);
-
-          if (!isModelAvailabilityError) throw error;
-          console.warn(`Gemini model "${modelName}" is unavailable; trying the next configured model.`);
-        }
+    const generationStartedAt = Date.now();
+    const generateWithConfiguredProvider = async (prompt: string): Promise<string> => {
+      const remainingBudget = AI_TOTAL_TIMEOUT_MS - (Date.now() - generationStartedAt);
+      if (remainingBudget <= 0) {
+        throw new Error(`OpenAI generation exceeded the ${AI_TOTAL_TIMEOUT_MS}ms total budget.`);
       }
 
-      throw lastModelError || new Error('No configured Gemini model returned a response.');
+      const requestTimeout = Math.min(AI_REQUEST_TIMEOUT_MS, remainingBudget);
+      return generateWithOpenAi(prompt, apiKey, configuredModel, requestTimeout);
     };
 
     let lastSimilarityScore = 0;
+    let lastAttemptError: unknown;
 
     for (let attempt = 0; attempt < 2; attempt += 1) {
-      const responseText = await generateWithAvailableModel(buildPrompt(attempt === 1));
-      const parsed = parseJsonResponse(responseText);
-      const articleContent = formatArticleContent(parsed.articleContent?.trim() || '');
+      try {
+        const responseText = await generateWithConfiguredProvider(buildPrompt(attempt === 1));
+        const parsed = parseJsonResponse(responseText);
+        const articleContent = formatArticleContent(getTextField(parsed.articleContent));
 
-      if (!articleContent) throw new Error('AI response did not include article content.');
+        if (!articleContent) throw new Error('AI response did not include article content.');
+        if (articleContent.length > MAX_GENERATED_ARTICLE_CHARACTERS) {
+          throw new Error(`AI article exceeded the ${MAX_GENERATED_ARTICLE_CHARACTERS}-character limit.`);
+        }
 
-      const similarity = checkSourceSimilarity(sourceMaterial, articleContent);
-      lastSimilarityScore = similarity.jaccardSimilarity;
+        const similarity = checkSourceSimilarity(sourceMaterial, articleContent);
+        lastSimilarityScore = similarity.jaccardSimilarity;
 
-      console.info(JSON.stringify({
-        event: 'news_rewrite_similarity_check',
-        attempt: attempt + 1,
-        jaccardSimilarity: Number(similarity.jaccardSimilarity.toFixed(4)),
-        longestConsecutiveSentenceMatch: similarity.longestConsecutiveSentenceMatch,
-        sharedPhraseRatio: Number(similarity.sharedPhraseRatio.toFixed(4)),
-        passed: similarity.passed,
-      }));
+        console.info(JSON.stringify({
+          event: 'news_rewrite_similarity_check',
+          attempt: attempt + 1,
+          jaccardSimilarity: Number(similarity.jaccardSimilarity.toFixed(4)),
+          longestConsecutiveSentenceMatch: similarity.longestConsecutiveSentenceMatch,
+          sharedPhraseRatio: Number(similarity.sharedPhraseRatio.toFixed(4)),
+          passed: similarity.passed,
+        }));
 
-      const sourceWords = wordCount(sourceMaterial);
-      const meetsLengthRequirement = sourceWords < MIN_PROFESSIONAL_WORDS || wordCount(articleContent) >= MIN_PROFESSIONAL_WORDS;
+        const sourceWords = wordCount(sourceMaterial);
+        const meetsLengthRequirement = sourceWords < MIN_PROFESSIONAL_WORDS || wordCount(articleContent) >= MIN_PROFESSIONAL_WORDS;
 
-      if (similarity.passed && meetsLengthRequirement) {
-        return {
-          seoTitle: parsed.seoTitle?.trim() || resolvedInput.title,
-          seoDescription: parsed.seoDescription?.trim() || cleanSourceText(resolvedInput.excerpt).slice(0, 180),
-          articleContent,
-          isAiGenerated: true,
-          similarityScore: similarity.jaccardSimilarity,
-          similarityCheckPassed: true,
-          retryCount: attempt,
-        };
+        if (similarity.passed && meetsLengthRequirement) {
+          return {
+            seoTitle: getTextField(parsed.seoTitle) || resolvedInput.title,
+            seoDescription: getTextField(parsed.seoDescription) || cleanSourceText(resolvedInput.excerpt).slice(0, 180),
+            articleContent,
+            isAiGenerated: true,
+            similarityScore: similarity.jaccardSimilarity,
+            similarityCheckPassed: true,
+            retryCount: attempt,
+          };
+        }
+
+        console.warn(
+          `AI rewrite failed validation on attempt ${attempt + 1}: ` +
+          `Jaccard=${similarity.jaccardSimilarity.toFixed(3)}, ` +
+          `consecutiveSentences=${similarity.longestConsecutiveSentenceMatch}, ` +
+          `sharedPhrases=${similarity.sharedPhraseRatio.toFixed(3)}.`,
+        );
+      } catch (error) {
+        lastAttemptError = error;
+        if (isProviderQuotaError(error)) {
+          console.warn(JSON.stringify({
+            event: 'news_rewrite_fallback',
+            provider: 'openai',
+            reason: 'provider_quota_exhausted',
+            retryCount: attempt,
+          }));
+          return fallbackArticle(resolvedInput, attempt, lastSimilarityScore);
+        }
+        console.warn(`AI rewrite attempt ${attempt + 1} failed validation:`, error);
       }
-
-      console.warn(
-        `AI rewrite failed validation on attempt ${attempt + 1}: ` +
-        `Jaccard=${similarity.jaccardSimilarity.toFixed(3)}, ` +
-        `consecutiveSentences=${similarity.longestConsecutiveSentenceMatch}, ` +
-        `sharedPhrases=${similarity.sharedPhraseRatio.toFixed(3)}.`,
-      );
     }
 
+    if (lastAttemptError) {
+      console.warn('AI rewrite attempts exhausted; using the safe attribution fallback.');
+    }
     return fallbackArticle(resolvedInput, 2, lastSimilarityScore);
   } catch (error) {
     console.warn('AI news article generation failed; source text will not be shown as article content:', error);

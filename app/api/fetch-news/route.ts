@@ -1,20 +1,17 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Inicijalizacija Supabase klijenta
-const supabaseUrl = process.env.SUPABASE_URL || '';
-// Koristimo SERVICE_ROLE_KEY za pisanje, a ANON_KEY kao rezervu
+const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+// Koristimo SERVICE_ROLE_KEY za pisanje; ne izlažemo ga klijentu.
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
-if (!supabaseUrl || !supabaseKey) {
-  console.error("❌ Greška: Nedostaju ključevi (URL ili SERVICE_ROLE_KEY)!");
-  process.exit(1); // Prekidamo izvršavanje odmah ako ključevi nisu tu
-}
-
-const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: {
-    persistSession: false
-  }
-});
+const supabase = supabaseUrl && supabaseKey
+  ? createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        persistSession: false,
+      },
+    })
+  : null;
 
 interface NewsApiArticle {
   title?: string | null;
@@ -101,6 +98,10 @@ export async function GET() {
   console.log("🚀 Startujem punjenje baze...");
 
   try {
+    if (!supabase) {
+      return new Response(JSON.stringify({ error: 'Missing Supabase server configuration.' }), { status: 500 });
+    }
+
     const apiKey = process.env.NEWS_API_KEY;
     if (!apiKey) {
       throw new Error("Nedostaje NEWS_API_KEY u environment varijablama!");
