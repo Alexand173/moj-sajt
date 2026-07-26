@@ -23,11 +23,12 @@ function createNewsSupabaseMock() {
     excerpt: 'The group is preparing a new studio release after a summer recording session.',
     content: 'A publisher reported that Harbor Lights Ensemble plans a studio album in October after summer sessions. The band has not announced a tour or guest performers.',
     url: null,
-    source_name: 'Synthetic Publisher',
+    category: 'LATEST',
   }];
 
   const query = {
     select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
     or: vi.fn().mockReturnThis(),
     order: vi.fn().mockReturnThis(),
     limit: vi.fn().mockResolvedValue({ data: pendingRows, error: null }),
@@ -49,7 +50,7 @@ function createNewsSupabaseMock() {
     }),
   } as unknown as SupabaseClient;
 
-  return { supabase, updates };
+  return { supabase, updates, categoryFilter: query.eq };
 }
 
 describe('news AI persistence', () => {
@@ -62,6 +63,15 @@ describe('news AI persistence', () => {
   it('maps a validated rewrite to the generated status', () => {
     expect(getAiNewsStatus({ isAiGenerated: true, similarityCheckPassed: true })).toBe('generated');
     expect(getAiNewsStatus({ isAiGenerated: false, similarityCheckPassed: false })).toBe('fallback');
+  });
+
+  it('limits enrichment queries to LATEST NewsAPI rows', async () => {
+    delete process.env.OPENAI_API_KEY;
+    const { supabase, categoryFilter } = createNewsSupabaseMock();
+
+    await enrichPendingNews(supabase);
+
+    expect(categoryFilter).toHaveBeenCalledWith('category', 'LATEST');
   });
 
   it('persists generated content, similarity, boolean, and status fields', async () => {

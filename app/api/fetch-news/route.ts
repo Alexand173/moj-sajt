@@ -30,7 +30,6 @@ interface NewsRecord {
   content: string;
   image: string;
   url: string | null;
-  source_name: string | null;
   category: string;
   region: string;
   created_at: string;
@@ -85,7 +84,6 @@ async function fetchNews(query: string, region: string, apiKey: string): Promise
       content: art.content || '',
       image: art.urlToImage || 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745',
       url: art.url || null,
-      source_name: art.source?.name || null,
       category: 'LATEST',
       region: region,
       created_at: new Date(art.publishedAt || Date.now()).toISOString(),
@@ -151,7 +149,7 @@ export async function GET() {
         .map(async (news) => {
           const { error: repairError } = await supabase
             .from('news')
-            .update({ url: news.url, source_name: news.source_name })
+            .update({ url: news.url })
             .eq('title', news.title)
             .is('url', null);
 

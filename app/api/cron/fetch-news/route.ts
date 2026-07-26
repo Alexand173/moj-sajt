@@ -46,7 +46,6 @@ export async function GET(request: Request) {
         content: aiResult.articleContent || "Full article coming soon...",
         image: article.urlToImage || 'https://images.unsplash.com/photo-1514525253361-bee8a48790c3',
         url: article.url || null,
-        source_name: sourceName,
         ai_content: aiResult.articleContent || null,
         ai_similarity_score: aiResult.similarityScore,
         ai_generated: aiResult.isAiGenerated,

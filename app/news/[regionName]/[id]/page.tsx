@@ -22,7 +22,6 @@ interface NewsArticleRecord {
   content: string | null;
   image: string | null;
   url: string | null;
-  source_name: string | null;
   category: string | null;
   created_at: string | null;
   ai_content: string | null;
@@ -65,7 +64,7 @@ const getResolvedSource = cache(async (article: NewsArticleRecord) => {
     excerpt: article.excerpt,
     existingContent: article.content,
     sourceUrl,
-    sourceName: getNewsSourceName(sourceUrl, article.source_name),
+    sourceName: getNewsSourceName(sourceUrl),
   });
 });
 
@@ -114,7 +113,9 @@ export async function generateMetadata({
     other: {
       'article:source': sourceName,
       ...(sourceUrl ? { 'article:source_url': sourceUrl } : {}),
-      'article:content_origin': 'AI-synthesized report based on source reporting',
+      'article:content_origin': article.category === 'LATEST'
+        ? 'AI-synthesized report based on source reporting'
+        : 'Official publisher link',
     },
   };
 }
@@ -141,7 +142,6 @@ export default async function SingleNewsPage({
       .from('news')
       .update({
         url: resolvedSource.sourceUrl,
-        source_name: resolvedSource.sourceName,
       })
       .eq('id', id);
 
@@ -151,7 +151,8 @@ export default async function SingleNewsPage({
   }
 
   const sourceName = resolvedSource.sourceName;
-  const storedAiArticle = article.ai_content?.trim()
+  const isLatestNews = article.category === 'LATEST';
+  const storedAiArticle = isLatestNews && article.ai_content?.trim()
     ? {
         seoTitle: article.title,
         seoDescription: article.excerpt || 'Read the source-attributed music news report.',
@@ -162,16 +163,26 @@ export default async function SingleNewsPage({
         retryCount: 0,
       }
     : null;
-  const aiArticle = storedAiArticle || await generateAiNewsArticle({
-    title: article.title,
-    excerpt: resolvedSource.excerpt,
-    existingContent: article.content,
-    sourceUrl: resolvedSource.sourceUrl,
-    sourceArticleText: resolvedSource.sourceArticleText,
-    sourceName,
-  });
+  const aiArticle = storedAiArticle || (isLatestNews
+    ? await generateAiNewsArticle({
+        title: article.title,
+        excerpt: resolvedSource.excerpt,
+        existingContent: article.content,
+        sourceUrl: resolvedSource.sourceUrl,
+        sourceArticleText: resolvedSource.sourceArticleText,
+        sourceName,
+      })
+    : {
+        seoTitle: article.title,
+        seoDescription: `Official source link from ${sourceName}.`,
+        articleContent: article.content || `Open the original report from ${sourceName}.`,
+        isAiGenerated: false,
+        similarityScore: 0,
+        similarityCheckPassed: false,
+        retryCount: 0,
+      });
 
-  if (!storedAiArticle) {
+  if (isLatestNews && !storedAiArticle) {
     const { error: aiPersistError } = await supabase
       .from('news')
       .update({

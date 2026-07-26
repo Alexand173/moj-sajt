@@ -12,7 +12,7 @@ interface PendingNewsArticle {
   excerpt: string | null;
   content: string | null;
   url: string | null;
-  source_name: string | null;
+  category: string | null;
 }
 
 export interface AiNewsEnrichmentSummary {
@@ -36,9 +36,10 @@ export function getAiNewsBatchSize(): number {
 }
 
 /**
- * Processes a small, budget-safe batch of rows waiting for an AI rewrite.
- * Rows remain pending when the server has no OpenAI key, so they can be
- * processed automatically after the deployment is configured correctly.
+ * Processes a small, budget-safe batch of LATEST NewsAPI rows waiting for an AI rewrite.
+ * OFFICIAL rows are source links only and are intentionally excluded from this pipeline.
+ * Rows remain pending when the server has no OpenAI key, so they can be processed
+ * automatically after the deployment is configured correctly.
  */
 export async function enrichPendingNews(
   supabase: SupabaseClient,
@@ -46,7 +47,8 @@ export async function enrichPendingNews(
 ): Promise<AiNewsEnrichmentSummary> {
   const { data, error } = await supabase
     .from('news')
-    .select('id, title, excerpt, content, url, source_name')
+    .select('id, title, excerpt, content, url, category')
+    .eq('category', 'LATEST')
     .or('ai_status.is.null,ai_status.eq.pending')
     .order('created_at', { ascending: true })
     .limit(Math.min(Math.max(Math.floor(requestedLimit), 1), MAX_AI_NEWS_BATCH_SIZE));
@@ -69,7 +71,7 @@ export async function enrichPendingNews(
 
   for (const article of pendingArticles) {
     try {
-      const sourceName = getNewsSourceName(article.url, article.source_name);
+      const sourceName = getNewsSourceName(article.url);
       const aiResult = await generateAiNewsArticle({
         title: article.title,
         excerpt: article.excerpt,

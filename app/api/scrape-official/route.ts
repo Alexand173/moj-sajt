@@ -1,7 +1,12 @@
+import { loadEnvConfig } from '@next/env';
 import * as cheerio from 'cheerio';
 import axios from 'axios';
 import { createClient } from '@supabase/supabase-js';
-import { enrichPendingNews } from '../../../lib/news-ai-enrichment';
+
+const isDirectScript = typeof require !== 'undefined' && require.main === module;
+if (isDirectScript) {
+  loadEnvConfig(process.cwd());
+}
 
 // 1. INICIJALIZACIJA (Podržava i lokalni razvoj i GitHub Actions)
 const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -190,7 +195,6 @@ export async function GET() {
               url: fullLink,
               content: `Music update from ${domainName}`,
               created_at: new Date().toISOString(),
-              ai_status: 'pending',
             });
 
             countPerSite++;
@@ -219,11 +223,12 @@ export async function GET() {
       console.log(`🚀 Uspešno uneto ${mixedData.length} vesti.`);
     }
 
-    const aiSummary = await enrichPendingNews(supabase);
+    console.log('ℹ️ Official news remains source-link-only; LATEST NewsAPI rows are the only AI-enriched records.');
+
     return new Response(JSON.stringify({
       success: true,
       count: insertedCount,
-      ai: aiSummary,
+      message: 'Official source links synchronized. AI enrichment applies only to LATEST NewsAPI rows.',
     }), { status: 200 });
 
   } catch (error: any) {
@@ -233,21 +238,21 @@ export async function GET() {
 }
 
 // OKIDAČ ZA GITHUB ACTIONS (Van GET funkcije)
-if (typeof require !== 'undefined' && require.main === module) {
+if (isDirectScript) {
   console.log("🔔 GitHub Actions detektovan. Ručno pokrećem Official Scraper...");
   GET()
     .then(async (res) => {
       const data = await res.json();
       if (res.status === 200) {
         console.log("🏁 Završeno uspešno!", data);
-        process.exit(0); // Sve je OK
+        process.exitCode = 0;
       } else {
         console.error("❌ Završeno sa greškom!", data);
-        process.exit(1); // Ovo će označiti GitHub Action kao neuspešan (crveni X)
+        process.exitCode = 1;
       }
     })
     .catch((err) => {
       console.error("💀 Kritična greška:", err);
-      process.exit(1); // Obavezno 1 za grešku
+      process.exitCode = 1;
     });
 }
