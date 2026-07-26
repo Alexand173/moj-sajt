@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
 import axios from 'axios';
 import { createClient } from '@supabase/supabase-js';
+import { enrichPendingNews } from '../../../lib/news-ai-enrichment';
 
 // 1. INICIJALIZACIJA (Podržava i lokalni razvoj i GitHub Actions)
 const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -189,7 +189,8 @@ export async function GET() {
               region: source.region,
               url: fullLink,
               content: `Music update from ${domainName}`,
-              created_at: new Date().toISOString()
+              created_at: new Date().toISOString(),
+              ai_status: 'pending',
             });
 
             countPerSite++;
@@ -202,22 +203,28 @@ export async function GET() {
       }
     }
 
+    let insertedCount = 0;
+
     if (scrapedData.length > 0) {
       const uniqueData = Array.from(new Map(scrapedData.map(item => [item.title, item])).values());
       const mixedData = uniqueData.sort(() => Math.random() - 0.5);
 
-      const { error } = await supabase.from('news').upsert(mixedData, { 
-      onConflict: 'url', // Promeni iz 'title' u 'url'
-      ignoreDuplicates: false 
+      const { error } = await supabase.from('news').upsert(mixedData, {
+        onConflict: 'url', // Promeni iz 'title' u 'url'
+        ignoreDuplicates: true,
       });
 
       if (error) throw error;
-      
+      insertedCount = mixedData.length;
       console.log(`🚀 Uspešno uneto ${mixedData.length} vesti.`);
-      return new Response(JSON.stringify({ success: true, count: mixedData.length }), { status: 200 });
     }
 
-    return new Response(JSON.stringify({ success: true, count: 0 }), { status: 200 });
+    const aiSummary = await enrichPendingNews(supabase);
+    return new Response(JSON.stringify({
+      success: true,
+      count: insertedCount,
+      ai: aiSummary,
+    }), { status: 200 });
 
   } catch (error: any) {
     console.error("Scraper Error:", error.message);

@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { generateAiNewsArticle, getNewsSourceName } from '@/lib/ai-news';
+import { enrichPendingNews, getAiNewsStatus } from '../../../../lib/news-ai-enrichment';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -46,6 +47,10 @@ export async function GET(request: Request) {
         image: article.urlToImage || 'https://images.unsplash.com/photo-1514525253361-bee8a48790c3',
         url: article.url || null,
         source_name: sourceName,
+        ai_content: aiResult.articleContent || null,
+        ai_similarity_score: aiResult.similarityScore,
+        ai_generated: aiResult.isAiGenerated,
+        ai_status: getAiNewsStatus(aiResult),
         category: 'LATEST',
         region: selectedRegion,
         created_at: new Date(article.publishedAt).toISOString()
@@ -57,7 +62,13 @@ export async function GET(request: Request) {
     
     if (error) throw error;
 
-    return NextResponse.json({ success: true, count: enrichedNews.length, regionUsed: selectedRegion });
+    const aiSummary = await enrichPendingNews(supabase);
+    return NextResponse.json({
+      success: true,
+      count: enrichedNews.length,
+      ai: aiSummary,
+      regionUsed: selectedRegion,
+    });
 
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown news sync error.';

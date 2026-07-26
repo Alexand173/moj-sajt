@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { enrichPendingNews } from '../../../lib/news-ai-enrichment';
 
 // Inicijalizacija Supabase klijenta
 const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -33,6 +34,7 @@ interface NewsRecord {
   category: string;
   region: string;
   created_at: string;
+  ai_status: 'pending';
 }
 
 const MUSIC_KEYWORDS = [
@@ -86,7 +88,8 @@ async function fetchNews(query: string, region: string, apiKey: string): Promise
       source_name: art.source?.name || null,
       category: 'LATEST',
       region: region,
-      created_at: new Date(art.publishedAt || Date.now()).toISOString()
+      created_at: new Date(art.publishedAt || Date.now()).toISOString(),
+      ai_status: 'pending',
     }));
   } catch (error) {
     console.error(`❌ Greška pri fetch-ovanju za ${region}:`, error);
@@ -132,7 +135,11 @@ export async function GET() {
     console.log(`📊 Ukupno sakupljeno vesti nakon filtriranja: ${allNews.length}`);
 
     if (allNews.length === 0) {
-      return new Response(JSON.stringify({ message: "Nema novih vesti za unos." }), { status: 200 });
+      const aiSummary = await enrichPendingNews(supabase);
+      return new Response(JSON.stringify({
+        message: "Nema novih vesti za unos.",
+        ai: aiSummary,
+      }), { status: 200 });
     }
 
     // Repair legacy rows that were created without a publisher URL.
@@ -167,11 +174,14 @@ export async function GET() {
       return new Response(JSON.stringify({ error: error.message }), { status: 500 });
     }
 
+    const aiSummary = await enrichPendingNews(supabase);
+    console.log("🤖 AI news enrichment:", aiSummary);
     console.log("✅ Baza je uspešno osvežena!");
-    return new Response(JSON.stringify({ 
-      success: true, 
+    return new Response(JSON.stringify({
+      success: true,
       count: allNews.length,
-      message: "Baza osvežena." 
+      ai: aiSummary,
+      message: "Baza osvežena."
     }), { status: 200 });
 
   } catch (err: unknown) {

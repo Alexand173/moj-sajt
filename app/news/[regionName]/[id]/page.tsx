@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import StructuredData from '@/components/StructuredData';
 import { generateAiNewsArticle, getNewsSourceName, resolveNewsSource } from '@/lib/ai-news';
+import { getAiNewsStatus } from '@/lib/news-ai-enrichment';
 //export const revalidate = 3600; // Osveži stranicu na svakih sat vremena (3600 sekundi)
 // OVO JE OBAVEZNO: Da bi stranica uvek povukla najnoviju vest iz baze
 export const revalidate = 0;
@@ -24,6 +25,10 @@ interface NewsArticleRecord {
   source_name: string | null;
   category: string | null;
   created_at: string | null;
+  ai_content: string | null;
+  ai_similarity_score: number | null;
+  ai_generated: boolean | null;
+  ai_status: string | null;
 }
 
 function getSafeSourceUrl(value: string | null | undefined): string | null {
@@ -146,7 +151,18 @@ export default async function SingleNewsPage({
   }
 
   const sourceName = resolvedSource.sourceName;
-  const aiArticle = await generateAiNewsArticle({
+  const storedAiArticle = article.ai_content?.trim()
+    ? {
+        seoTitle: article.title,
+        seoDescription: article.excerpt || 'Read the source-attributed music news report.',
+        articleContent: article.ai_content,
+        isAiGenerated: article.ai_generated === true,
+        similarityScore: article.ai_similarity_score || 0,
+        similarityCheckPassed: article.ai_status === 'generated',
+        retryCount: 0,
+      }
+    : null;
+  const aiArticle = storedAiArticle || await generateAiNewsArticle({
     title: article.title,
     excerpt: resolvedSource.excerpt,
     existingContent: article.content,
@@ -154,6 +170,23 @@ export default async function SingleNewsPage({
     sourceArticleText: resolvedSource.sourceArticleText,
     sourceName,
   });
+
+  if (!storedAiArticle) {
+    const { error: aiPersistError } = await supabase
+      .from('news')
+      .update({
+        ai_content: aiArticle.articleContent,
+        ai_similarity_score: aiArticle.similarityScore,
+        ai_generated: aiArticle.isAiGenerated,
+        ai_status: getAiNewsStatus(aiArticle),
+      })
+      .eq('id', id);
+
+    if (aiPersistError) {
+      console.warn('Could not persist generated AI news fields:', aiPersistError.message);
+    }
+  }
+
   const articleParagraphs = aiArticle.articleContent
     .split(/\n\s*\n/)
     .map((paragraph: string) => paragraph.trim())
