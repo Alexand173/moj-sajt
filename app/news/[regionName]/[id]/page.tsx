@@ -42,7 +42,7 @@ function getSafeSourceUrl(value: string | null | undefined): string | null {
 }
 
 function getArticlePageUrl(regionName: string, id: string): string {
-  return `https://www.musictop.net/news/${encodeURIComponent(regionName)}/${encodeURIComponent(id)}`;
+  return `https://musictop.net/news/${encodeURIComponent(regionName)}/${encodeURIComponent(id)}`;
 }
 
 const getNewsArticle = cache(async (id: string): Promise<NewsArticleRecord | null> => {
@@ -216,12 +216,12 @@ export default async function SingleNewsPage({
     author: {
       '@type': 'Organization',
       name: 'MusicTop Editorial',
-      url: 'https://www.musictop.net',
+      url: 'https://musictop.net',
     },
     publisher: {
       '@type': 'Organization',
       name: 'MusicTop',
-      url: 'https://www.musictop.net',
+      url: 'https://musictop.net',
     },
     mainEntityOfPage: {
       '@type': 'WebPage',

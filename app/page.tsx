@@ -1,5 +1,4 @@
-import { permanentRedirect } from 'next/navigation';
+import ChartHomePage, { generateMetadata } from './region/page';
 
-export default function HomePage() {
-  permanentRedirect('/region/us/rock');
-}
+export { generateMetadata };
+export default ChartHomePage;

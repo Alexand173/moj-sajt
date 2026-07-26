@@ -22,8 +22,7 @@ export default function Footer() {
         <div className="mb-16 max-w-4xl">
           <h3 className="text-[11px] font-black tracking-[0.2em] uppercase text-zinc-400 mb-3">About Music Top</h3>
           <p className="text-[13px] md:text-sm leading-relaxed font-medium text-zinc-800">
-            Currently most popular songs in all genres including **Rock, Pop, Hip-Hop, R&B/Soul, Country, Dance, J-Pop, J-Rock, K-Pop, Jazz, and Classic**. 
-            All world music charts are ranked by audience votes. Follow **MTA awards**, festival announcements, latest music news, and official concert dates for global artists.
+            Discover popular songs in every genre, including Rock, Pop, Hip-Hop, R&B/Soul, Country, Dance, J-Pop, J-Rock, K-Pop, Jazz, and Classical. All world music charts are ranked by audience votes. Follow MTA awards, festival announcements, latest music news, and official concert dates for global artists.
           </p>
         </div>
 
@@ -81,6 +80,8 @@ export default function Footer() {
               Legal
             </h4>
             <ul className="flex flex-col gap-1.5 font-bold text-[11px] uppercase">
+              <li><Link href="/about" className="hover:text-purple-600 transition-colors">About MusicTop</Link></li>
+              <li><Link href="/contact" className="hover:text-purple-600 transition-colors">Contact</Link></li>
               <li><Link href="/privacy" className="hover:text-purple-600 transition-colors">Privacy Policy</Link></li>
               <li><Link href="/terms" className="hover:text-purple-600 transition-colors">Terms of Service</Link></li>
             </ul>

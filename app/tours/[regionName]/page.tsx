@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     title: `Live Music Concerts & Tours in ${displayRegion} (${new Date().getFullYear()}) | MusicTop`,
     description: `Find upcoming concert dates, arena tour schedules, and ticket availability for top artists performing in ${displayRegion}. Check live ticket updates now!`,
     alternates: {
-      canonical: `https://www.musictop.net/tours/${regionName.toLowerCase()}`,
+      canonical: `https://musictop.net/tours/${regionName.toLowerCase()}`,
     }
   };
 }

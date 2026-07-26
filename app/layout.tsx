@@ -10,8 +10,7 @@ import StructuredData from "@/components/StructuredData";
 
 
 const inter = Inter({ subsets: ["latin"] });
-
-
+const googleAnalyticsId = process.env.NEXT_PUBLIC_GA_ID;
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://musictop.net'),
@@ -21,6 +20,7 @@ export const metadata: Metadata = {
   },
   description: "Discover the most popular songs globally. Follow the Official MUSIC TOP charts, vote for your favorite artists, find worldwide concert dates, and get the latest AI-exclusive music news. Your ultimate destination for global music rankings and festival tickets.",
   verification: {
+    google: 'google0f815af240dfb5bc',
     other: {
       'google-adsense-account': 'ca-pub-5019317238845372',
     },
@@ -96,10 +96,9 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <StructuredData data={organizationSchema} />
-        <meta name="google-site-verification" content="google-site-verification: google0f815af240dfb5bc.html" />
         <meta name='impact-site-verification' content='e731ab44-d92b-4034-9fa2-f684ac52903b' />
-        
-        {/* Koristimo next/script za bolju kontrolu */}
+
+        {/* AdSense ownership and ad serving script. */}
         <Script 
           async 
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5019317238845372" 
@@ -118,7 +117,7 @@ export default function RootLayout({
         </main>
         <Footer />
         <Analytics />
-        <GoogleAnalytics gaId="G-XXXXXX" />
+        {googleAnalyticsId ? <GoogleAnalytics gaId={googleAnalyticsId} /> : null}
       </body>
     </html>
   );
