@@ -96,14 +96,19 @@ export default async function RegionalFestivalsPage({
 
                     {/* KOLONA 2: Naslov i Lokacija */}
                     <div className="md:col-span-5 pr-4">
-                      <Link href={`/festivals/${region}/${fest.id}`} className="block">
+                      <a
+                        href={fest.tickets_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block"
+                      >
                         <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tighter leading-none mb-4 group-hover:italic transition-all break-words">
                           {fest.name}
                         </h2>
                         <div className="inline-block bg-black text-white px-3 py-1 text-[10px] font-black uppercase tracking-widest group-hover:bg-purple-600">
                           {fest.location}
                         </div>
-                      </Link>
+                      </a>
                     </div>
 
                     {/* KOLONA 3: Kartica sa živim screenshotom */}
