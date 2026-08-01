@@ -2,10 +2,19 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import HeaderAuth from '@/components/HeaderAuth';
+import { EUROPA_SUBREGIONS } from '@/lib/region-navigation';
 
 
 export default function Header() {
   const pathname = usePathname();
+
+  const pathSegments = pathname.split('/').filter(Boolean);
+  const currentRegion = pathSegments[1] || 'us';
+  const currentEuropaSubregion = currentRegion === 'europa'
+    && EUROPA_SUBREGIONS.some((subregion) => subregion.slug === pathSegments[2])
+    ? pathSegments[2]
+    : null;
+  const currentGenre = currentEuropaSubregion ? pathSegments[3] : pathSegments[2];
 
   // 1. Definicije stranica
   const isHome = pathname === '/';
@@ -64,7 +73,8 @@ export default function Header() {
 
   const showRegions = isHome || isNewsPage || isToursPage || isFestivalsPage || isRegionPage;
   const showGenres = isHome || isRegionPage;
-  const isAsia = pathname.includes('/asia');
+  const showEuropaSubregions = isRegionPage && currentRegion === 'europa';
+  const isAsia = currentRegion === 'asia';
 
   return (
     <header className="fixed top-0 left-0 w-full z-[100] bg-black border-b border-white/10">
@@ -135,10 +145,12 @@ export default function Header() {
 
               if (base === 'festivals') {
                 finalHref = `/festivals/${r.slug}`;
-              } else if (base === 'region') {
-                const defaultGenre = r.slug === 'asia' ? 'j-pop' : 'rock';
-                finalHref = `/region/${r.slug}/${defaultGenre}`;
-              } else {
+               } else if (base === 'region') {
+                 const defaultGenre = r.slug === 'asia' ? 'j-pop' : 'rock';
+                 finalHref = r.slug === 'europa'
+                   ? `/region/europa/germany/${defaultGenre}`
+                   : `/region/${r.slug}/${defaultGenre}`;
+               } else {
                 finalHref = `/${base}/${r.slug}`;
               }
 
@@ -158,18 +170,44 @@ export default function Header() {
         </div>
       )}
 
+      {/* EUROPA PODREGIONI: samo na muzičkim chart stranicama */}
+      {showEuropaSubregions && (
+        <div className="bg-zinc-950 border-t border-white/5 py-2 overflow-x-auto">
+          <nav aria-label="Europa subregions" className="flex justify-center gap-4 md:gap-7 px-6 min-w-max">
+            {EUROPA_SUBREGIONS.map((subregion) => {
+              const activeGenre = currentGenre || 'rock';
+              const isActive = currentEuropaSubregion === subregion.slug;
+
+              return (
+                <Link
+                  key={subregion.slug}
+                  href={`/region/europa/${subregion.slug}/${activeGenre}`}
+                  className={`text-[9px] font-bold tracking-widest px-3 py-1 transition-all ${
+                    isActive ? 'text-white border-b-2 border-purple-500' : 'text-zinc-600 hover:text-zinc-300'
+                  }`}
+                >
+                  {subregion.name}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+      )}
+
       {/* RED 3: ŽANROVI */}
       {showGenres && (
         <div className="bg-black border-t border-white/5 py-3">
           <div className="flex flex-wrap justify-center gap-4 px-4">
             {(isAsia ? asiaGenres : globalGenres).map((g) => {
-              const currentRegion = pathname.split('/')[2] || 'us';
               const isActive = pathname.includes(g.slug) || (isHome && g.slug === 'rock');
+              const genreHref = currentEuropaSubregion
+                ? `/region/europa/${currentEuropaSubregion}/${g.slug}`
+                : `/region/${currentRegion}/${g.slug}`;
               
               return (
                 <Link 
                   key={g.slug} 
-                  href={`/region/${currentRegion}/${g.slug}`}
+                  href={genreHref}
                   className={`text-[9px] font-bold border px-4 py-1 transition-all uppercase ${
                     isActive 
                       ? 'border-purple-500 text-white bg-purple-500/10' 

@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { createClient } from '@supabase/supabase-js';
+import { EUROPA_SUBREGIONS } from '@/lib/region-navigation';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,7 +28,7 @@ const genreMapping: Record<number, string> = {
   3: 'hip-hop',
   4: 'rb-soul',
   5: 'country',
-  6: 'dance',
+  6: 'dance-electronic',
   7: 'j-pop',
   8: 'j-rock-metal',
   9: 'k-pop',
@@ -37,12 +38,12 @@ const genreMapping: Record<number, string> = {
 };
 
 const siteStructure: Record<string, string[]> = {
-  us: ['rock', 'pop', 'hip-hop', 'rb-soul', 'country', 'dance'],
-  uk: ['rock', 'pop', 'hip-hop', 'rb-soul', 'country', 'dance'],
-  europa: ['rock', 'pop', 'hip-hop', 'rb-soul', 'country', 'dance'],
-  latino: ['rock', 'pop', 'hip-hop', 'rb-soul', 'country', 'dance'],
+  us: ['rock', 'pop', 'hip-hop', 'rb-soul', 'country', 'dance-electronic'],
+  uk: ['rock', 'pop', 'hip-hop', 'rb-soul', 'country', 'dance-electronic'],
+  europa: ['rock', 'pop', 'hip-hop', 'rb-soul', 'country', 'dance-electronic'],
+  latino: ['rock', 'pop', 'hip-hop', 'rb-soul', 'country', 'dance-electronic'],
   asia: ['j-pop', 'j-rock-metal', 'k-pop', 'c-pop', 'india', 'other'],
-  world: ['rock', 'pop', 'hip-hop', 'rb-soul', 'country', 'dance'],
+  world: ['rock', 'pop', 'hip-hop', 'rb-soul', 'country', 'dance-electronic'],
   jazz: ['jazz'],
   classical: ['classical'],
 };
@@ -87,7 +88,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: '/awards', priority: 0.8 },
   ];
 
-  const dynamicRoutes: SitemapRoute[] = Object.entries(siteStructure).flatMap(([region, genres]) =>
+const dynamicRoutes: SitemapRoute[] = Object.entries(siteStructure).flatMap(([region, genres]) =>
     genres.map((genre) => {
       const matchingSongs = songs.filter((song) => {
         const songRegion = song.region?.toLowerCase();
@@ -118,6 +119,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }),
   );
 
+  const europaSubregionRoutes: SitemapRoute[] = EUROPA_SUBREGIONS.flatMap(({ slug }) =>
+    siteStructure.europa.map((genre) => ({
+      url: `/region/europa/${slug}/${genre}`,
+      priority: 0.65,
+    })),
+  );
+
   const toursRoutes: SitemapRoute[] = Object.keys(siteStructure).map((region) => ({
     url: `/tours/${region}`,
     priority: 0.9,
@@ -133,7 +141,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.9,
   }));
 
-  const routes: SitemapRoute[] = [...mainRoutes, ...dynamicRoutes, ...newsRoutes, ...toursRoutes, ...festivalsRoutes];
+  const routes: SitemapRoute[] = [
+    ...mainRoutes,
+    ...dynamicRoutes,
+    ...europaSubregionRoutes,
+    ...newsRoutes,
+    ...toursRoutes,
+    ...festivalsRoutes,
+  ];
   const lastModified = new Date();
 
   return routes.map((route) => ({
