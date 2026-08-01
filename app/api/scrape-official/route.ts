@@ -69,6 +69,15 @@ export async function GET() {
   { url: 'https://www.beatportal.com/news/', region: 'uk' }, // Beatport UK news
   { url: 'https://www.list.co.uk/music/', region: 'uk' }, // Scottish/UK events
    // --- LATINO (20 SAJTOVA) ---
+   { url: 'https://www.billboard.com/espanol', region: 'LATINO' },
+{ url: 'https://www.los40.com', region: 'LATINO' },
+{ url: 'https://www.ociolatino.com', region: 'LATINO' },
+{ url: 'https://www.popelera.net', region: 'LATINO' },
+{ url: 'https://www.latin-roll.com', region: 'LATINO' },
+{ url: 'https://www.latinolife.co.uk', region: 'LATINO' },
+{ url: 'https://www.global-pop-magazine.com', region: 'LATINO' },
+{ url: 'https://www.radio-gladyspalmera.com', region: 'LATINO' },
+{ url: 'https://worldmusicviews.com', region: 'LATINO' },
   { url: 'https://www.billboard.com/c/music/latin/', region: 'LATINO' },
   { url: 'https://remezcla.com/music/', region: 'LATINO' },
   { url: 'https://www.rollingstone.com/music/music-latin/', region: 'LATINO' },
@@ -82,6 +91,18 @@ export async function GET() {
   // ... dodaj slične za LATINO do 20
 
   // --- ASIA (K-POP, J-POP & MORE - 20 SAJTOVA) ---
+  { url: 'https://www.soompi.com/category/music', region: 'ASIA' },
+{ url: 'https://www.billboard-japan.com', region: 'ASIA' },
+{ url: 'https://natalie.mu/music', region: 'ASIA' },
+{ url: 'https://rockinon.com', region: 'ASIA' },
+{ url: 'https://www.cdjournal.com', region: 'ASIA' },
+{ url: 'http://www.izm.co.kr', region: 'ASIA' },
+{ url: 'https://www.visla.kr', region: 'ASIA' },
+{ url: 'https://music.bugs.co.kr', region: 'ASIA' },  // K-pop vijesti + chartovi
+{ url: 'https://music.sohu.com', region: 'ASIA' },
+{ url: 'https://music.douban.com', region: 'ASIA' },
+{ url: 'https://y.qq.com', region: 'ASIA' },  // QQ Music – vijesti i top liste
+{ url: 'https://www.musicbusinesschina.com', region: 'ASIA' },
   { url: 'https://www.soompi.com/category/music', region: 'ASIA' },
   { url: 'https://www.allkpop.com/category/news', region: 'ASIA' },
   { url: 'https://www.koreaboo.com/category/news/', region: 'ASIA' },
