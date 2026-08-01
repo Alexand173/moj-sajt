@@ -3,10 +3,11 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabase = supabaseUrl && supabaseAnonKey
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : null;
 
 interface Suggestion {
   id: string;
@@ -76,6 +77,12 @@ export default function SuggestionList({
         }
       }
 
+      if (!supabase) {
+        setSuggestions([]);
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('suggestions')
         .select('id, artist_name, song_title, youtube_id, votes')
@@ -97,6 +104,11 @@ export default function SuggestionList({
   const handleVote = async (id: string, currentVotes: number, e: React.MouseEvent) => {
     e.stopPropagation();
     setVotingId(id);
+
+    if (!supabase) {
+      setVotingId(null);
+      return;
+    }
 
     const { error } = await supabase
       .from('suggestions')

@@ -7,15 +7,21 @@ interface AdSenseBannerProps {
 }
 
 export default function AdSenseBanner({ adSlot }: AdSenseBannerProps) {
+  const adsenseEnabled = process.env.NEXT_PUBLIC_ADSENSE_ENABLED === 'true';
+
   useEffect(() => {
     try {
       if (typeof window !== 'undefined') {
-        ((window as any).adsbygoogle = (window as any).adsbygoogle || []).push({});
+        const adsWindow = window as Window & { adsbygoogle?: unknown[] };
+        adsWindow.adsbygoogle = adsWindow.adsbygoogle || [];
+        adsWindow.adsbygoogle.push({});
       }
     } catch (err) {
       console.warn('AdSense blokiran ili nije učitan:', err);
     }
-  }, [adSlot]);
+  }, [adSlot, adsenseEnabled]);
+
+  if (!adsenseEnabled) return null;
 
   return (
     <div className="w-full my-6 flex flex-col justify-center items-center min-h-[120px] bg-zinc-900/60 rounded-2xl border-2 border-dashed border-red-600/30 overflow-hidden relative">

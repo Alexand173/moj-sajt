@@ -1,44 +1,41 @@
-import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
+import { getPublicSupabaseClient } from '@/lib/supabase-public';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+type FestivalRecord = {
+  name: string;
+  location: string;
+  description: string | null;
+  lineup: string[] | null;
+  image_url: string[] | null;
+  video_id: string | null;
+  tickets_url: string;
+};
 
-export default async function FestivalDetailPage({ 
+export default async function FestivalDetailPage({
   params 
 }: { 
   params: Promise<{ regionName: string, id: string }> 
 }) {
   const { id, regionName } = await params;
 
-  // U produkciji, koristi util koji koristi anon key + RLS
-// 1. Fetch festivala
-const { data: fest } = await supabase
-  .from('festivals')
-  .select('*')
-  .eq('id', id)
-  .single();
+  const supabase = getPublicSupabaseClient();
+  if (!supabase) notFound();
 
-// 2. Fetch vesti koje sadrže ime festivala
-const { data: relatedNews } = await supabase
-  .from('news')
-  .select('*')
-  .ilike('title', `%${fest.name}%`) // Ovo traži vesti čiji naslov sadrži ime festivala
-  .limit(3);
+  let fest: FestivalRecord | null = null;
 
-// 3. Prikaz u JSX-u (dodaj ovo ispod galerije u svom kodu):
-{relatedNews && relatedNews.length > 0 && (
-  <div className="mt-20">
-    <h3 className="text-xs tracking-[0.5em] mb-8 text-purple-600">RELATED NEWS</h3>
-    {relatedNews.map((news) => (
-      <div key={news.id} className="border-t border-black py-6">
-        <h4 className="text-xl font-bold">{news.title}</h4>
-      </div>
-    ))}
-  </div>
-)}
+  try {
+    const { data } = await supabase
+      .from('festivals')
+      .select('*')
+      .eq('id', id)
+      .single();
+    fest = data as FestivalRecord | null;
+  } catch (error) {
+    console.warn(`Could not load festival ${id}:`, error);
+  }
+
+  if (!fest) notFound();
 
   return (
     

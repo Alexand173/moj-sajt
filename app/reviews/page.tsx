@@ -1,23 +1,37 @@
-import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
+import { getPublicSupabaseClient } from '@/lib/supabase-public';
 
 export const revalidate = 3600;
 
+type ReviewItem = {
+  id: string | number;
+  title: string;
+  excerpt: string | null;
+  image: string | null;
+  url: string | null;
+  category: string | null;
+  created_at: string;
+  region: string | null;
+};
+
 export default async function ReviewsPage() {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const supabase = getPublicSupabaseClient();
+  let items: ReviewItem[] = [];
 
-  const { data: items, error } = await supabase
-    .from('news')
-    .select('*')
-    .or('title.ilike.%review%,title.ilike.%interview%')
-    .order('created_at', { ascending: false })
-    .limit(40);
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('news')
+        .select('*')
+        .or('title.ilike.%review%,title.ilike.%interview%')
+        .order('created_at', { ascending: false })
+        .limit(40);
 
-  if (error) {
-    console.error("Fetch error:", error.message);
+      if (error) console.warn('Could not load reviews:', error.message);
+      items = data || [];
+    } catch (error) {
+      console.warn('Could not load reviews:', error);
+    }
   }
 
   return (

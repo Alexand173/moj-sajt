@@ -19,15 +19,21 @@ export default function SuggestionSection({
   const [refreshTrigger, setRefreshTrigger] = useState(false);
 
   // 🚨 Inicijalizacija modernog SSR klijenta za klijentske komponente
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabase = supabaseUrl && supabaseAnonKey
+    ? createBrowserClient(supabaseUrl, supabaseAnonKey)
+    : null;
 
   const handleAddSuggestionClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     
     try {
+      if (!supabase) {
+        alert('Suggestions are temporarily unavailable.');
+        return;
+      }
+
       // 🚨 Sada će ovo uspešno pročitati kolačiće nakon Google/Facebook prijave
       const { data: { session }, error: authError } = await supabase.auth.getSession();
 
@@ -90,7 +96,7 @@ export default function SuggestionSection({
             </h2>
           </div>
           <p className="text-sm font-extrabold text-zinc-400 uppercase tracking-[0.2em] mt-3 sm:pl-12">
-            VOTE FOR THIS WEEK'S TOP 10 • {genreName} ({regionName})
+            VOTE FOR THIS WEEK&apos;S TOP 10 • {genreName} ({regionName})
           </p>
         </div>
 

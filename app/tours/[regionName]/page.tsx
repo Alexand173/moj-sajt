@@ -1,12 +1,27 @@
-import { createClient } from '../../../utils/supabase/server';
 import ConcertsList from '@/components/ConcertsList';
+import { getPublicSupabaseClient } from '@/lib/supabase-public';
 import AdSenseBanner from '@/components/AdSenseBanner';
 import { Metadata } from 'next';
 
-// Read Supabase at request time so every sync is visible on all tour pages.
-export const dynamic = 'force-dynamic';
+export const revalidate = 300;
 
 type Params = Promise<{ regionName: string }>;
+
+type TourRow = {
+  id: string;
+  artist_name: string;
+  image_url: string;
+  date: string;
+  location: string;
+  city?: string | null;
+  ticket_link: string;
+};
+
+type GroupedTour = {
+  artist_name: string;
+  image_url: string;
+  events: Array<Pick<TourRow, 'id' | 'date' | 'location' | 'city' | 'ticket_link'>>;
+};
 
 // --- KORAK 1: DINAMIČKI METADATA ZA GOOGLE ---
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
@@ -35,15 +50,23 @@ export default async function Page({ params }: { params: Params }) {
     return <div className="text-center py-20 text-gray-500">Region not found.</div>;
   }
 
-  const supabase = await createClient();
+  const supabase = getPublicSupabaseClient();
+  let data: TourRow[] = [];
 
-  const { data, error } = await supabase
-    .from('koncerti')
-    .select('*')
-    .ilike('region', regionName);
+  if (supabase) {
+    try {
+      const { data: concerts } = await supabase
+        .from('koncerti')
+        .select('*')
+        .ilike('region', regionName);
+      data = (concerts || []) as TourRow[];
+    } catch (error) {
+      console.warn(`Could not load ${regionName} tours:`, error);
+    }
+  }
 
   // --- LOGIKA GRUPISANJA ---
-  const grupisani = data?.reduce((acc: any, item: any) => {
+  const grupisani = data.reduce<Record<string, GroupedTour>>((acc, item) => {
     const key = item.artist_name;
     if (!acc[key]) {
       acc[key] = {
@@ -57,12 +80,12 @@ export default async function Page({ params }: { params: Params }) {
       date: item.date,
       location: item.location,
       city: item.city,
-      ticket_link: item.ticket_link
+      ticket_link: item.ticket_link,
     });
     return acc;
   }, {});
 
-  const dataZaPrikaz = grupisani ? Object.values(grupisani) : [];
+  const dataZaPrikaz = Object.values(grupisani);
 
   // --- MAPIRANJE REKLAMA (Svi slotovi na jednom mestu) ---
   const region = regionName.toUpperCase();
@@ -101,7 +124,7 @@ export default async function Page({ params }: { params: Params }) {
 
       {/* Svi slotovi idu dalje u ConcertsList */}
       <ConcertsList 
-        dataZaPrikaz={dataZaPrikaz as any} 
+        dataZaPrikaz={dataZaPrikaz} 
         mid1={trenutniSlotovi.mid1}
         mid2={trenutniSlotovi.mid2}
         mid3={trenutniSlotovi.mid3}

@@ -1,13 +1,8 @@
-import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
 import { Metadata } from 'next';
+import { getPublicSupabaseClient } from '@/lib/supabase-public';
 
-export const revalidate = 3600; 
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+export const revalidate = 3600;
 
 export async function generateMetadata({ params }: { params: Promise<{ regionName: string }> }): Promise<Metadata> {
   const { regionName } = await params;
@@ -35,14 +30,27 @@ export default async function RegionalFestivalsPage({
   const region = regionName.toLowerCase();
   const today = new Date().toISOString();
 
-  const { data: festivals, error } = await supabase
-    .from('festivals')
-    .select('*')
-    .eq('region', region)
-    .gte('date_start', today) 
-    .order('date_start', { ascending: true }) as { data: Festival[] | null, error: any };
+  const supabase = getPublicSupabaseClient();
+  let festivals: Festival[] | null = null;
+  let hasDatabaseError = false;
 
-  if (error) return <div className="pt-60 text-center uppercase font-black text-red-500">Error loading festivals</div>;
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('festivals')
+        .select('*')
+        .eq('region', region)
+        .gte('date_start', today)
+        .order('date_start', { ascending: true });
+      festivals = (data || []) as Festival[];
+      hasDatabaseError = Boolean(error);
+    } catch (error) {
+      console.warn(`Could not load ${region} festivals:`, error);
+      hasDatabaseError = true;
+    }
+  }
+
+  if (hasDatabaseError) return <div className="pt-60 text-center uppercase font-black text-red-500">Festival guide is temporarily unavailable</div>;
 
   return (
     <div 

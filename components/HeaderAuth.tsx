@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
+import type { User } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 
 interface UserProfile {
@@ -10,12 +11,13 @@ interface UserProfile {
 }
 
 export default function HeaderAuth() {
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabase = supabaseUrl && supabaseAnonKey
+    ? createBrowserClient(supabaseUrl, supabaseAnonKey)
+    : null;
 
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isAuthenticating, setIsAuthenticating] = useState(true);
   const router = useRouter();
@@ -25,6 +27,11 @@ export default function HeaderAuth() {
 
     // Glavna i jedina sigurna funkcija za proveru korisnika i profila
     const checkAuth = async () => {
+      if (!supabase) {
+        if (isMounted) setIsAuthenticating(false);
+        return;
+      }
+
       try {
         // Tražimo sesiju preko zvaničnog SDK-a koji sam čita sve tipove kolačića
         const { data: { session } } = await supabase.auth.getSession();
@@ -62,6 +69,12 @@ export default function HeaderAuth() {
     checkAuth();
 
     // Prati promene stanja (npr. kada klikne na Login ili Logout)
+    if (!supabase) {
+      return () => {
+        isMounted = false;
+      };
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!isMounted) return;
       
@@ -85,6 +98,8 @@ export default function HeaderAuth() {
 
   const handleLogout = async () => {
     try {
+      if (!supabase) return;
+
       setIsAuthenticating(true);
       await supabase.auth.signOut();
       if (typeof window !== 'undefined') {

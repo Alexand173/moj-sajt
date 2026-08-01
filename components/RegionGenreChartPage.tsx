@@ -1,16 +1,12 @@
-import { createClient } from '@supabase/supabase-js';
 import { notFound } from 'next/navigation';
+import { getPublicSupabaseClient } from '@/lib/supabase-public';
+import type { ChartSong } from '@/lib/chart-types';
 import type { Metadata } from 'next';
 import SongCard from '@/components/SongCard';
 import SuggestionSection from '@/components/SuggestionSection';
 import AdSenseBanner from '@/components/AdSenseBanner';
 import SuggestionScrollBadge from '@/components/SuggestionScrollBadge';
 import StructuredData from '@/components/StructuredData';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 export const GENRE_MAP: Record<string, number> = {
   rock: 1,
@@ -40,21 +36,7 @@ export async function getRegionGenreMetadata({
   genreName,
   canonicalPath,
 }: RegionGenreMetadataOptions): Promise<Metadata> {
-  const genreSlug = genreName.toLowerCase();
-  const genreId = GENRE_MAP[genreSlug];
-
-  let genreNameFormatted = genreName.charAt(0).toUpperCase() + genreName.slice(1);
-  if (genreId) {
-    const { data: genreData } = await supabase
-      .from('genres')
-      .select('name')
-      .eq('id', genreId)
-      .single();
-
-    if (genreData?.name) {
-      genreNameFormatted = genreData.name;
-    }
-  }
+  const genreNameFormatted = genreName.charAt(0).toUpperCase() + genreName.slice(1);
 
   const regionRaw = regionName.toUpperCase();
   const region = regionRaw === 'US' || regionRaw === 'UK'
@@ -99,13 +81,23 @@ export async function RegionGenreChartPage({
 
   if (!genreId) return notFound();
 
-  const { data: songs } = await supabase
-    .from('songs')
-    .select('*')
-    .eq('region', normalizedRegion.toUpperCase())
-    .eq('genre_id', genreId)
-    .order('viewers', { ascending: false })
-    .limit(200);
+  const supabase = getPublicSupabaseClient();
+  let songs: ChartSong[] | null = null;
+
+  if (supabase) {
+    try {
+      const { data } = await supabase
+        .from('songs')
+        .select('*')
+        .eq('region', normalizedRegion.toUpperCase())
+        .eq('genre_id', genreId)
+        .order('viewers', { ascending: false })
+        .limit(200);
+      songs = (data || []) as ChartSong[];
+    } catch (error) {
+      console.warn(`Could not load the ${normalizedRegion} ${normalizedGenre} chart:`, error);
+    }
+  }
 
   if (!songs || songs.length === 0) {
     return (

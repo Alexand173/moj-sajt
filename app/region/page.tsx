@@ -1,16 +1,12 @@
-import { createClient } from '@supabase/supabase-js';
 import SongCard from '@/components/SongCard';
+import { getPublicSupabaseClient } from '@/lib/supabase-public';
+import type { ChartSong } from '@/lib/chart-types';
 import { notFound } from 'next/navigation';
 import SuggestionSection from '@/components/SuggestionSection';
 import AdSenseBanner from '@/components/AdSenseBanner';
 import SuggestionScrollBadge from '@/components/SuggestionScrollBadge';
 import StructuredData from '@/components/StructuredData';
 import { Metadata } from 'next';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
 
 // Mapa za povezivanje naziva iz URL-a sa ID-evima u bazi
 const GENRE_MAP: Record<string, number> = {
@@ -34,24 +30,10 @@ const GENRE_MAP: Record<string, number> = {
 export async function generateMetadata(): Promise<Metadata> {
   const regionName = 'us';
   const genreName = 'rock';
-  const genreSlug = genreName.toLowerCase();
-  
-  // 1. Nalazimo ID žanra iz mape
-  const genreId = GENRE_MAP[genreSlug];
 
-  // 2. Vučemo tačan naziv žanra direktno iz Supabase tabele 'genres' na osnovu ID-ja
-  let genreNameFormatted = genreName.charAt(0).toUpperCase() + genreName.slice(1);
-  if (genreId) {
-    const { data: genreData } = await supabase
-      .from('genres')
-      .select('name')
-      .eq('id', genreId)
-      .single();
-    
-    if (genreData?.name) {
-      genreNameFormatted = genreData.name; // Uzima "R&B/Soul", "Dance/Electronic", "J-ROCK & METAL"...
-    }
-  }
+  // Metadata must not depend on a database request. Crawlers should receive
+  // a complete title even while Supabase is unavailable.
+  const genreNameFormatted = genreName.charAt(0).toUpperCase() + genreName.slice(1);
 
   // 3. Formatiranje regiona (npr. 'us' -> 'US', 'europa' -> 'Europa')
   const regionRaw = regionName.toUpperCase();
@@ -93,14 +75,25 @@ export default async function HomePage() {
   const genreId = GENRE_MAP[genreName.toLowerCase()];
   if (!genreId) return notFound();
 
-  // Povlačenje podataka iz Supabase-a
-  const { data: songs } = await supabase
-    .from('songs')
-    .select('*')
-    .eq('region', regionName.toUpperCase())
-    .eq('genre_id', genreId)
-    .order('viewers', { ascending: false }) // 🚀 PROMENJENO: Sortira automatski po broju pregleda (od najvećeg ka najmanjem)
-    .limit(200);
+  // Povlačenje podataka iz Supabase-a. A database outage should still
+  // produce a crawlable page with the useful empty-state HTML.
+  const supabase = getPublicSupabaseClient();
+  let songs: ChartSong[] | null = null;
+
+  if (supabase) {
+    try {
+      const { data } = await supabase
+        .from('songs')
+        .select('*')
+        .eq('region', regionName.toUpperCase())
+        .eq('genre_id', genreId)
+        .order('viewers', { ascending: false })
+        .limit(200);
+      songs = (data || []) as ChartSong[];
+    } catch (error) {
+      console.warn('Could not load the homepage chart:', error);
+    }
+  }
 
   if (!songs || songs.length === 0) {
     return (
@@ -155,7 +148,7 @@ export default async function HomePage() {
     "@type": "ItemList",
     "name": `${region} ${genreName.toUpperCase()} Top 100`,
     "description": `Top 100 ${genreName} songs in ${region}`,
-    "itemListElement": songs.slice(0, 10).map((song: any, index: number) => ({
+    "itemListElement": songs.slice(0, 10).map((song, index) => ({
       "@type": "ListItem",
       "position": index + 1,
       "name": song.title,

@@ -11,6 +11,7 @@ import StructuredData from "@/components/StructuredData";
 
 const inter = Inter({ subsets: ["latin"] });
 const googleAnalyticsId = process.env.NEXT_PUBLIC_GA_ID;
+const adsenseEnabled = process.env.NEXT_PUBLIC_ADSENSE_ENABLED === 'true';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://musictop.net'),
@@ -98,13 +99,15 @@ export default function RootLayout({
         <StructuredData data={organizationSchema} />
         <meta name='impact-site-verification' content='e731ab44-d92b-4034-9fa2-f684ac52903b' />
 
-        {/* AdSense ownership and ad serving script. */}
-        <Script 
-          async 
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5019317238845372" 
-          crossOrigin="anonymous"
-          strategy="afterInteractive" // Ovo je ključno za izbegavanje hydration grešaka
-        />
+        {/* Load AdSense only after real ad units are configured in Vercel. */}
+        {adsenseEnabled ? (
+          <Script
+            async
+            src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5019317238845372"
+            crossOrigin="anonymous"
+            strategy="afterInteractive"
+          />
+        ) : null}
 
         
       </head>

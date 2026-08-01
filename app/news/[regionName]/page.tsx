@@ -1,5 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
 import { unstable_noStore as noStore } from 'next/cache';
+import { getPublicSupabaseClient } from '@/lib/supabase-public';
 import Link from 'next/link';
 import AddPostTrigger from '@/components/AddPostTrigger';
 import AddCommentTrigger from '@/components/AddCommentTrigger';
@@ -7,10 +7,28 @@ import AddAlbumTrigger from '@/components/AddAlbumTrigger';
 // Uvozimo AlbumGallery za prelistavanje i lightbox efekat
 import AlbumGallery from '@/components/AlbumGallery';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+type NewsProfile = {
+  first_name?: string | null;
+  avatar_url?: string | null;
+};
+
+type NewsFeedItem = {
+  id: string | number;
+  title?: string;
+  content?: string | null;
+  created_at?: string | null;
+  region?: string | null;
+  post_image?: string | null;
+  profiles?: NewsProfile | NewsProfile[] | null;
+  album_name?: string;
+  images?: string[] | null;
+  text?: string | null;
+  user_name?: string | null;
+  image?: string;
+  url?: string | null;
+  excerpt?: string | null;
+  category?: string | null;
+};
 
 export default async function BillboardNewsPage({
   params,
@@ -24,51 +42,39 @@ export default async function BillboardNewsPage({
   const { blogId, albumId } = await searchParams;
  
   const region = regionName.toLowerCase();
+  const supabase = getPublicSupabaseClient();
 
-  const [officialRes, latestRes, blogRes, discRes, concertRes] = await Promise.all([
-    supabase.from('news').select('*').eq('region', region).eq('category', 'OFFICIAL').order('created_at', { ascending: false }).limit(50),
-    supabase.from('news').select('*').eq('region', region).eq('category', 'LATEST').order('created_at', { ascending: false }).limit(50),
-    supabase
-  .from('community_posts')
-  .select(`
-    id,
-    title,
-    content,
-    created_at,
-    region,
-    post_image,
-    author_id,
-    profiles (
-      first_name,
-      avatar_url
-    )
-  `)
-  .eq('region', region)
-  .order('created_at', { ascending: false })
-  .limit(3),
-    supabase.from('discussions').select('*').eq('region', region).order('created_at', { ascending: false }).limit(3),
-    supabase.from('concert_albums').select(`
-        id,
-        album_name,
-        created_at,
-        region,
-        images,
-        author_id,
-        profiles (
-          first_name,
-          avatar_url
-        )
-      `)
-      .eq('region', region)
-      .order('created_at', { ascending: false })
-      .limit(4)
-  ]);
+  let officialNews: NewsFeedItem[] = [];
+  let latestNews: NewsFeedItem[] = [];
+  let communityPosts: NewsFeedItem[] = [];
+  let discussions: NewsFeedItem[] = [];
+  let concertAlbums: NewsFeedItem[] = [];
 
-  const officialNews = officialRes.data || [];
-  const latestNews = latestRes.data || [];
-  const communityPosts = blogRes.data || [];
-  const discussions = discRes.data || [];
-  const concertAlbums = concertRes.data || [];
+  if (supabase) {
+    try {
+      const [officialRes, latestRes, blogRes, discRes, concertRes] = await Promise.all([
+        supabase.from('news').select('*').eq('region', region).eq('category', 'OFFICIAL').order('created_at', { ascending: false }).limit(50),
+        supabase.from('news').select('*').eq('region', region).eq('category', 'LATEST').order('created_at', { ascending: false }).limit(50),
+        supabase.from('community_posts').select(`
+          id, title, content, created_at, region, post_image, author_id,
+          profiles (first_name, avatar_url)
+        `).eq('region', region).order('created_at', { ascending: false }).limit(3),
+        supabase.from('discussions').select('*').eq('region', region).order('created_at', { ascending: false }).limit(3),
+        supabase.from('concert_albums').select(`
+          id, album_name, created_at, region, images, author_id,
+          profiles (first_name, avatar_url)
+        `).eq('region', region).order('created_at', { ascending: false }).limit(4),
+      ]);
+
+      officialNews = (officialRes.data || []) as NewsFeedItem[];
+      latestNews = (latestRes.data || []) as NewsFeedItem[];
+      communityPosts = (blogRes.data || []) as NewsFeedItem[];
+      discussions = (discRes.data || []) as NewsFeedItem[];
+      concertAlbums = (concertRes.data || []) as NewsFeedItem[];
+    } catch (error) {
+      console.warn(`Could not load the ${region} news feed:`, error);
+    }
+  }
 
   const activeBlog = blogId ? communityPosts.find(p => p.id.toString() === blogId) : null;
   const activeAlbum = albumId ? concertAlbums.find(a => a.id.toString() === albumId) : null;
@@ -98,7 +104,7 @@ export default async function BillboardNewsPage({
             </h2>
             <div className="flex flex-col gap-6">
               {officialNews.map((news) => (
-                <a key={news.id} href={news.url} target="_blank" rel="noopener noreferrer" className="block group border-b border-black/5 pb-4 hover:opacity-70 transition">
+                <a key={news.id} href={news.url || '#'} target="_blank" rel="noopener noreferrer" className="block group border-b border-black/5 pb-4 hover:opacity-70 transition">
                   <span className="text-purple-600 font-bold text-[10px] tracking-widest mb-1 uppercase">LIVE FEED</span>
                   <h3 className="font-black text-sm leading-tight uppercase line-clamp-2 group-hover:underline">{news.title}</h3>
                   <p className="italic text-gray-400 text-[10px] mt-1 normal-case font-medium">{news.excerpt}</p>
@@ -114,10 +120,10 @@ export default async function BillboardNewsPage({
                 <Link href={`/news/${region}`} className="mb-6 inline-block font-bold hover:text-purple-600 border-b-2 border-black transition-colors">
                   &larr; BACK TO FEED
                 </Link>
-                <h1 className="text-4xl font-black uppercase mb-6">{activeAlbum.album_name}</h1>
+                <h1 className="text-4xl font-black uppercase mb-6">{activeAlbum.album_name || 'Concert Album'}</h1>
                 
                 {/* OVDE JE UBACEN ALBUM GALLERY SA MEHANIZMOM KLIK-ZA-FULLSIZE I DESNIM SKROLOVANJEM */}
-                <AlbumGallery images={activeAlbum.images || []} albumName={activeAlbum.album_name} />
+                <AlbumGallery images={activeAlbum.images || []} albumName={activeAlbum.album_name || 'Concert Album'} />
               </div>
             ) : activeBlog ? (
               <div className="bg-white p-6 border-4 border-black">
@@ -165,7 +171,7 @@ export default async function BillboardNewsPage({
               <h2 className="text-xl font-black uppercase tracking-widest italic">Community.Hub</h2>
 
               <div className="border-b-4 border-black pb-8">
-                <h4 className="text-[10px] font-bold uppercase text-zinc-400 mb-4">Reader's Blog</h4>
+                <h4 className="text-[10px] font-bold uppercase text-zinc-400 mb-4">Reader&apos;s Blog</h4>
                 <AddPostTrigger region={region} />
                 <div className="space-y-6 mt-6">
                   {communityPosts.map((post) => {
@@ -183,7 +189,7 @@ export default async function BillboardNewsPage({
                             <div className="w-16 h-16 bg-zinc-100 border-2 border-black flex items-center justify-center text-xs font-bold">N/A</div>
                           )}
                           <div className="flex-1">
-                            <p className="font-bold text-sm leading-tight group-hover:text-purple-600 transition underline decoration-2">"{post.title}"</p>
+                            <p className="font-bold text-sm leading-tight group-hover:text-purple-600 transition underline decoration-2">&quot;{post.title}&quot;</p>
                             <div className="flex items-center gap-2 mt-1">
                               {authorAvatar ? (
                                 <img 
@@ -217,7 +223,7 @@ export default async function BillboardNewsPage({
                 <div className="space-y-4 mt-4">
                   {discussions.map((d) => (
                     <div key={d.id} className="border-l-2 border-purple-600 pl-3">
-                      <p className="text-xs font-bold leading-tight">"{d.text}"</p>
+                      <p className="text-xs font-bold leading-tight">&quot;{d.text}&quot;</p>
                       <span className="text-[9px] text-zinc-400 uppercase">{d.user_name}</span>
                     </div>
                   ))}

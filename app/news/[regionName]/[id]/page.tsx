@@ -1,19 +1,13 @@
-import { createClient } from '@supabase/supabase-js';
 import { cache } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import StructuredData from '@/components/StructuredData';
-import { generateAiNewsArticle, getNewsSourceName, resolveNewsSource } from '@/lib/ai-news';
-import { getAiNewsStatus } from '@/lib/news-ai-enrichment';
-//export const revalidate = 3600; // Osveži stranicu na svakih sat vremena (3600 sekundi)
-// OVO JE OBAVEZNO: Da bi stranica uvek povukla najnoviju vest iz baze
+import { getNewsSourceName } from '@/lib/ai-news';
+import { getPublicSupabaseClient } from '@/lib/supabase-public';
+// Keep article pages dynamic, but never let an external provider block HTML rendering.
 export const revalidate = 0;
-export const maxDuration = 60;
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const getSupabase = () => getPublicSupabaseClient();
 
 interface NewsArticleRecord {
   id: string | number;
@@ -46,26 +40,37 @@ function getArticlePageUrl(regionName: string, id: string): string {
 }
 
 const getNewsArticle = cache(async (id: string): Promise<NewsArticleRecord | null> => {
-  const { data, error } = await supabase
-    .from('news')
-    .select('*')
-    .eq('id', id)
-    .single();
+  const supabase = getSupabase();
+  if (!supabase) return null;
 
-  if (error || !data) return null;
-  return data as NewsArticleRecord;
+  try {
+    const { data, error } = await supabase
+      .from('news')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error || !data) return null;
+    return data as NewsArticleRecord;
+  } catch (error) {
+    console.warn(`Could not load news article ${id}:`, error);
+    return null;
+  }
 });
 
+/**
+ * Article rendering uses only stored fields. Source scraping and AI generation
+ * belong in the background enrichment job, not in a crawler-facing request.
+ */
 const getResolvedSource = cache(async (article: NewsArticleRecord) => {
   const sourceUrl = getSafeSourceUrl(article.url);
 
-  return resolveNewsSource({
-    title: article.title,
-    excerpt: article.excerpt,
-    existingContent: article.content,
+  return {
     sourceUrl,
     sourceName: getNewsSourceName(sourceUrl),
-  });
+    sourceArticleText: '',
+    excerpt: article.excerpt?.trim() || '',
+  };
 });
 
 export async function generateMetadata({
@@ -135,24 +140,9 @@ export default async function SingleNewsPage({
 
   const resolvedSource = await getResolvedSource(article);
 
-  // Repair older rows that were imported before the source URL was persisted.
-  // This keeps future visits independent of a live NewsAPI lookup.
-  if (!article.url && resolvedSource.sourceUrl) {
-    const { error: sourceRepairError } = await supabase
-      .from('news')
-      .update({
-        url: resolvedSource.sourceUrl,
-      })
-      .eq('id', id);
-
-    if (sourceRepairError) {
-      console.warn('Could not persist the recovered news source URL:', sourceRepairError.message);
-    }
-  }
-
   const sourceName = resolvedSource.sourceName;
   const isLatestNews = article.category === 'LATEST';
-  const storedAiArticle = isLatestNews && article.ai_content?.trim()
+  const aiArticle = article.ai_content?.trim()
     ? {
         seoTitle: article.title,
         seoDescription: article.excerpt || 'Read the source-attributed music news report.',
@@ -162,41 +152,17 @@ export default async function SingleNewsPage({
         similarityCheckPassed: article.ai_status === 'generated',
         retryCount: 0,
       }
-    : null;
-  const aiArticle = storedAiArticle || (isLatestNews
-    ? await generateAiNewsArticle({
-        title: article.title,
-        excerpt: resolvedSource.excerpt,
-        existingContent: article.content,
-        sourceUrl: resolvedSource.sourceUrl,
-        sourceArticleText: resolvedSource.sourceArticleText,
-        sourceName,
-      })
     : {
         seoTitle: article.title,
-        seoDescription: `Official source link from ${sourceName}.`,
+        seoDescription: isLatestNews
+          ? `MusicTop is reporting on a music story published by ${sourceName}.`
+          : `Official source link from ${sourceName}.`,
         articleContent: article.content || `Open the original report from ${sourceName}.`,
         isAiGenerated: false,
         similarityScore: 0,
         similarityCheckPassed: false,
         retryCount: 0,
-      });
-
-  if (isLatestNews && !storedAiArticle) {
-    const { error: aiPersistError } = await supabase
-      .from('news')
-      .update({
-        ai_content: aiArticle.articleContent,
-        ai_similarity_score: aiArticle.similarityScore,
-        ai_generated: aiArticle.isAiGenerated,
-        ai_status: getAiNewsStatus(aiArticle),
-      })
-      .eq('id', id);
-
-    if (aiPersistError) {
-      console.warn('Could not persist generated AI news fields:', aiPersistError.message);
-    }
-  }
+      };
 
   const articleParagraphs = aiArticle.articleContent
     .split(/\n\s*\n/)
