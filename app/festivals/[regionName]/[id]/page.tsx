@@ -1,6 +1,29 @@
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getPublicSupabaseClient } from '@/lib/supabase-public';
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ regionName: string; id: string }>;
+}): Promise<Metadata> {
+  const { regionName, id } = await params;
+  const region = regionName.toLowerCase();
+  const canonical = `/festivals/${encodeURIComponent(region)}/${encodeURIComponent(id)}`;
+
+  return {
+    title: `Festival Details in ${region.toUpperCase()}`,
+    description: `Explore festival details, lineup information, and official tickets for this ${region.toUpperCase()} music festival.`,
+    alternates: { canonical },
+    openGraph: {
+      title: `Festival Details in ${region.toUpperCase()}`,
+      description: `Explore festival details, lineup information, and official tickets for this ${region.toUpperCase()} music festival.`,
+      url: canonical,
+      type: 'website',
+    },
+  };
+}
 
 type FestivalRecord = {
   name: string;

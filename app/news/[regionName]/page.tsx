@@ -1,4 +1,5 @@
 import { unstable_noStore as noStore } from 'next/cache';
+import type { Metadata } from 'next';
 import { getPublicSupabaseClient } from '@/lib/supabase-public';
 import Link from 'next/link';
 import AddPostTrigger from '@/components/AddPostTrigger';
@@ -6,6 +7,28 @@ import AddCommentTrigger from '@/components/AddCommentTrigger';
 import AddAlbumTrigger from '@/components/AddAlbumTrigger';
 // Uvozimo AlbumGallery za prelistavanje i lightbox efekat
 import AlbumGallery from '@/components/AlbumGallery';
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ regionName: string }>;
+}): Promise<Metadata> {
+  const { regionName } = await params;
+  const region = regionName.toLowerCase();
+  const canonical = `/news/${encodeURIComponent(region)}`;
+
+  return {
+    title: `${region.toUpperCase()} Music News`,
+    description: `Read the latest official, community, and concert news from ${region.toUpperCase()} on MusicTop.`,
+    alternates: { canonical },
+    openGraph: {
+      title: `${region.toUpperCase()} Music News | MusicTop`,
+      description: `Read the latest music news from ${region.toUpperCase()} on MusicTop.`,
+      url: canonical,
+      type: 'website',
+    },
+  };
+}
 
 type NewsProfile = {
   first_name?: string | null;

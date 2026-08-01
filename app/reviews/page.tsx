@@ -1,7 +1,14 @@
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import { getPublicSupabaseClient } from '@/lib/supabase-public';
 
 export const revalidate = 3600;
+
+export const metadata: Metadata = {
+  title: 'Reviews & Interviews',
+  description: 'Read MusicTop reviews, interviews, and in-depth music industry features.',
+  alternates: { canonical: '/reviews' },
+};
 
 type ReviewItem = {
   id: string | number;

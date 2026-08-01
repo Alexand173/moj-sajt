@@ -79,15 +79,18 @@ export async function generateMetadata({
   params: Promise<{ regionName: string; id: string }>;
 }): Promise<Metadata> {
   const { id, regionName } = await params;
+  const pageUrl = getArticlePageUrl(regionName, id);
   const article = await getNewsArticle(id);
 
   if (!article) {
-    return { title: 'Article not found | MusicTop' };
+    return {
+      title: 'Article not found | MusicTop',
+      alternates: { canonical: pageUrl },
+    };
   }
 
   const resolvedSource = await getResolvedSource(article);
   const sourceName = resolvedSource.sourceName;
-  const pageUrl = getArticlePageUrl(regionName, id);
   const description = `Source-attributed MusicTop reporting based on reporting by ${sourceName}. ${article.excerpt || 'Read the source-attributed music news report.'}`.slice(0, 180);
   const imageUrl = getSafeSourceUrl(article.image);
   const sourceUrl = getSafeSourceUrl(resolvedSource.sourceUrl);

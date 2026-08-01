@@ -6,9 +6,19 @@ export const revalidate = 3600;
 
 export async function generateMetadata({ params }: { params: Promise<{ regionName: string }> }): Promise<Metadata> {
   const { regionName } = await params;
+  const region = regionName.toLowerCase();
+  const canonical = `/festivals/${encodeURIComponent(region)}`;
+
   return {
-    title: `Best Music Festivals in ${regionName.toUpperCase()} - 2026 Guide`,
-    description: `Discover upcoming music festivals in ${regionName} for 2026. Get tickets and info.`
+    title: `Best Music Festivals in ${region.toUpperCase()} - 2026 Guide`,
+    description: `Discover upcoming music festivals in ${region} for 2026. Get tickets and info.`,
+    alternates: { canonical },
+    openGraph: {
+      title: `Best Music Festivals in ${region.toUpperCase()} - 2026 Guide`,
+      description: `Discover upcoming music festivals in ${region} for 2026. Get tickets and info.`,
+      url: canonical,
+      type: 'website',
+    },
   };
 }
 
