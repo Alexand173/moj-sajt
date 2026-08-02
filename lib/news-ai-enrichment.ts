@@ -45,12 +45,15 @@ export async function enrichPendingNews(
   supabase: SupabaseClient,
   requestedLimit = getAiNewsBatchSize(),
 ): Promise<AiNewsEnrichmentSummary> {
+  
+  const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString();
   const { data, error } = await supabase
     .from('news')
     .select('id, title, excerpt, content, url, category')
     .eq('category', 'LATEST')
+    .gte('created_at', fiveDaysAgo) // 👈 2. Samo vesti mlađe od 5 dana
     .or('ai_status.is.null,ai_status.eq.pending')
-    .order('created_at', { ascending: true })
+    .order('created_at', { ascending: false }) // Promenjeno na desc da prve obradi najnovije!
     .limit(Math.min(Math.max(Math.floor(requestedLimit), 1), MAX_AI_NEWS_BATCH_SIZE));
 
   if (error) throw new Error(`Could not load pending AI news rows: ${error.message}`);
