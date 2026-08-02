@@ -16,16 +16,122 @@ if (!supabaseUrl || !supabaseKey) {
   console.error("❌ ERROR: Nedostaju Supabase URL ili KEY!");
 }
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+// A missing key must never crash the whole job — fall back to a null client and
+// skip persistence instead of throwing when .from() is eventually called.
+const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
+
+const SOURCE_TIMEOUT_MS = 15_000;
+const UPSERT_CHUNK_SIZE = 50;
+
+interface ScrapedArticle {
+  title: string;
+  excerpt: string;
+  image: string;
+  category: string;
+  region: string;
+  url: string;
+  content: string;
+  created_at: string;
+}
+
+interface NewsSource {
+  url: string;
+  region: string;
+}
+
+/**
+ * Scrapes a single source. Any network, parsing, or unexpected error is caught
+ * here so one bad site can never abort the loop or fail the whole job.
+ */
+async function scrapeSource(source: NewsSource, scrapedData: ScrapedArticle[]): Promise<boolean> {
+  try {
+    const res = await axios.get(source.url, {
+      timeout: SOURCE_TIMEOUT_MS,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
+    });
+
+    const $ = cheerio.load(res.data);
+    const domainName = new URL(source.url).hostname.replace('www.', '');
+    let countPerSite = 0;
+
+    $('h2, h3').toArray().some((el) => {
+      if (countPerSite >= 3) return true;
+
+      const title = $(el).text().trim();
+      const link = $(el).find('a').attr('href') || $(el).closest('a').attr('href');
+
+      if (title.length > 25 && link) {
+        const fullLink = link.startsWith('http') ? link : new URL(source.url).origin + link;
+
+        scrapedData.push({
+          title,
+          excerpt: `SOURCE: ${domainName.toUpperCase()}`,
+          image: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745',
+          category: 'OFFICIAL',
+          region: source.region,
+          url: fullLink,
+          content: `Music update from ${domainName}`,
+          created_at: new Date().toISOString(),
+        });
+
+        countPerSite++;
+      }
+      return false;
+    });
+
+    console.log(`✅ ${domainName} - uspeh (${countPerSite} stavki).`);
+    return true;
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e);
+    console.error(`❌ Greška za ${source.url}: ${message}`);
+    return false;
+  }
+}
+
+/**
+ * Upserts scraped articles in small chunks. A malformed row or a transient
+ * Supabase error in one chunk is logged and skipped instead of discarding
+ * every other successfully scraped article in the batch.
+ */
+async function upsertInChunks(mixedData: ScrapedArticle[]): Promise<{ inserted: number; failedChunks: number }> {
+  if (!supabase) {
+    console.error('❌ Supabase klijent nije konfigurisan — preskačem upis.');
+    return { inserted: 0, failedChunks: 0 };
+  }
+
+  let inserted = 0;
+  let failedChunks = 0;
+
+  for (let i = 0; i < mixedData.length; i += UPSERT_CHUNK_SIZE) {
+    const chunk = mixedData.slice(i, i + UPSERT_CHUNK_SIZE);
+    try {
+      const { error } = await supabase.from('news').upsert(chunk, {
+        onConflict: 'url',
+        ignoreDuplicates: true,
+      });
+
+      if (error) throw error;
+      inserted += chunk.length;
+    } catch (error: unknown) {
+      failedChunks += 1;
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`❌ Neuspešan upis grupe (${chunk.length} stavki): ${message}`);
+    }
+  }
+
+  return { inserted, failedChunks };
+}
 
 export async function GET() {
   console.log("🚀 Startujem Official Scraper (100+ sajtova)...");
-  
+
   try {
-    let scrapedData: any[] = [];
+    const scrapedData: ScrapedArticle[] = [];
 
     // DEFINICIJA IZVORA
-    const SOURCES = [
+    const SOURCES: NewsSource[] = [
      { url: 'https://pitchfork.com/news/', region: 'US' },
   { url: 'https://www.rollingstone.com/music/music-news/', region: 'US' },
   { url: 'https://www.billboard.com/c/music/music-news/', region: 'US' },
@@ -184,77 +290,49 @@ export async function GET() {
       // ... Možeš dopuniti listu po potrebi
     ];
 
-    // SKREPING PETLJA
+    // SKREPING PETLJA — jedan loš sajt se hvata unutar scrapeSource() i nikad ne prekida petlju.
+    let succeededSources = 0;
+    let failedSources = 0;
+
     for (const source of SOURCES) {
-      try {
-        const res = await axios.get(source.url, { 
-          timeout: 15000,
-          headers: { 
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' 
-          } 
-        });
-        
-        const $ = cheerio.load(res.data);
-        const domainName = new URL(source.url).hostname.replace('www.', '');
-        let countPerSite = 0;
-
-        $('h2, h3').toArray().some((el) => {
-          if (countPerSite >= 3) return true;
-
-          const title = $(el).text().trim();
-          const link = $(el).find('a').attr('href') || $(el).closest('a').attr('href');
-          
-          if (title.length > 25 && link) {
-            const fullLink = link.startsWith('http') ? link : new URL(source.url).origin + link;
-            
-            scrapedData.push({
-              title: title,
-              excerpt: `SOURCE: ${domainName.toUpperCase()}`,
-              image: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745',
-              category: 'OFFICIAL',
-              region: source.region,
-              url: fullLink,
-              content: `Music update from ${domainName}`,
-              created_at: new Date().toISOString(),
-            });
-
-            countPerSite++;
-          }
-          return false;
-        });
-        console.log(`✅ ${domainName} - uspeh.`);
-      } catch (e) {
-        console.error(`❌ Greška za ${source.url}`);
-      }
+      const ok = await scrapeSource(source, scrapedData);
+      if (ok) succeededSources++;
+      else failedSources++;
     }
 
     let insertedCount = 0;
+    let failedUpsertChunks = 0;
 
     if (scrapedData.length > 0) {
       const uniqueData = Array.from(new Map(scrapedData.map(item => [item.title, item])).values());
       const mixedData = uniqueData.sort(() => Math.random() - 0.5);
 
-      const { error } = await supabase.from('news').upsert(mixedData, {
-        onConflict: 'url', // Promeni iz 'title' u 'url'
-        ignoreDuplicates: true,
-      });
-
-      if (error) throw error;
-      insertedCount = mixedData.length;
-      console.log(`🚀 Uspešno uneto ${mixedData.length} vesti.`);
+      const upsertResult = await upsertInChunks(mixedData);
+      insertedCount = upsertResult.inserted;
+      failedUpsertChunks = upsertResult.failedChunks;
+      console.log(`🚀 Uspešno uneto ${insertedCount}/${mixedData.length} vesti (${failedUpsertChunks} neuspešnih grupa).`);
     }
 
+    console.log(`ℹ️ Skrejping završen: ${succeededSources}/${SOURCES.length} sajtova uspešno, ${failedSources} neuspešno.`);
     console.log('ℹ️ Official news remains source-link-only; LATEST NewsAPI rows are the only AI-enriched records.');
 
+    // Always resolve with 200 so a partial failure (some sources or one upsert
+    // chunk) never fails the GitHub Actions step or blocks the next steps.
     return new Response(JSON.stringify({
       success: true,
+      sources: { succeeded: succeededSources, failed: failedSources, total: SOURCES.length },
       count: insertedCount,
+      failedUpsertChunks,
       message: 'Official source links synchronized. AI enrichment applies only to LATEST NewsAPI rows.',
     }), { status: 200 });
 
-  } catch (error: any) {
-    console.error("Scraper Error:", error.message);
-    return new Response(JSON.stringify({ success: false, error: error.message }), { status: 500 });
+  } catch (error: unknown) {
+    // Only a truly unexpected error (outside the per-source and per-chunk
+    // safety nets above) lands here. Still return 200 with success:false so
+    // the CLI wrapper below doesn't mark the whole job as failed.
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("Scraper Error:", message);
+    return new Response(JSON.stringify({ success: false, error: message }), { status: 200 });
   }
 }
 
