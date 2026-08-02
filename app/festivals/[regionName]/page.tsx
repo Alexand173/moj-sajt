@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { Metadata } from 'next';
 import { getPublicSupabaseClient } from '@/lib/supabase-public';
 
@@ -94,8 +93,6 @@ export default async function RegionalFestivalsPage({
           <div className="divide-y-[2px] divide-black">
             {festivals && festivals.length > 0 ? (
               festivals.map((fest) => {
-                
-                // Microlink API screenshot link - uklonjen fallback klijentski handler
                 const screenshotUrl = `https://api.microlink.io/?url=${encodeURIComponent(fest.tickets_url)}&screenshot=true&embed=screenshot.url`;
 
                 return (
@@ -103,13 +100,11 @@ export default async function RegionalFestivalsPage({
                     key={fest.id} 
                     className="group grid grid-cols-1 md:grid-cols-12 py-12 md:py-16 items-center hover:bg-zinc-50/50 transition-all px-4 gap-y-6 md:gap-y-0"
                   >
-                    {/* KOLONA 1: Datum */}
+                    {/* KOLONA 1: Datum — informational text, not a link */}
                     <div className="md:col-span-2">
-                      <Link href={`/festivals/${region}/${fest.id}`} className="inline-block">
-                        <span className="text-3xl font-black uppercase tracking-tighter group-hover:text-purple-600 transition-colors">
-                          {new Date(fest.date_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                        </span>
-                      </Link>
+                      <span className="text-3xl font-black uppercase tracking-tighter">
+                        {new Date(fest.date_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </span>
                     </div>
 
                     {/* KOLONA 2: Naslov i Lokacija */}
@@ -145,17 +140,6 @@ export default async function RegionalFestivalsPage({
                       </a>
                     </div>
 
-                    {/* KOLONA 4: Dugme desno */}
-                    <div className="md:col-span-3 flex md:justify-end z-10">
-                      <a 
-                        href={fest.tickets_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="border-4 border-black bg-white text-black px-6 py-4 text-xs font-black uppercase tracking-[0.15em] hover:bg-black hover:text-white transition-all shadow-[8px_8px_0px_0px_rgba(0,0,0,0.1)] hover:shadow-[8px_8px_0px_0px_rgba(147,51,234,1)] text-center whitespace-nowrap"
-                      >
-                        Visit Festival Home
-                      </a>
-                    </div>
                   </div>
                 );
               })

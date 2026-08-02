@@ -61,7 +61,7 @@ export default async function FestivalDetailPage({
   if (!fest) notFound();
 
   return (
-    
+
     
     
     
@@ -136,22 +136,6 @@ export default async function FestivalDetailPage({
             </div>
           </div>
 
-          {/* Desna strana */}
-          <div className="lg:col-span-4">
-            <div className="sticky top-40 space-y-12">
-              <div className="bg-black text-white p-10 shadow-[15px_15px_0px_0px_rgba(147,51,234,1)]">
-                <span className="text-[10px] tracking-[0.5em] text-zinc-500 block mb-6 uppercase">Official Tickets Partner</span>
-                <a 
-                  href={fest.tickets_url} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="block w-full bg-purple-600 py-6 text-center text-sm font-black hover:bg-white hover:text-black transition-all border-2 border-transparent hover:border-black"
-                >
-                  BUY ON TICKETMASTER →
-                </a>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
