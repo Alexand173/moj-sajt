@@ -4,6 +4,12 @@ on:
   schedule:
     - cron: "0 */6 * * *"
   workflow_dispatch:
+    inputs:
+      enrichment_only:
+        description: "Skip fetch/scrape and only run the AI enrichment worker"
+        type: boolean
+        required: false
+        default: false
 
 jobs:
       refresh:
@@ -23,6 +29,7 @@ jobs:
               npm install -g tsx
 
           - name: Run Fetch Script
+            if: ${{ github.event.inputs.enrichment_only != 'true' }}
             run: npx tsx app/api/fetch-news/route.ts
             env:
               SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -34,11 +41,21 @@ jobs:
               AI_NEWS_BATCH_SIZE: 5
 
           - name: Run Official Scraper (100+ Sites)
+            if: ${{ github.event.inputs.enrichment_only != 'true' }}
             run: npx tsx app/api/scrape-official/route.ts
             env:
               SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
               SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
               # DODAJEMO GA I ZA DRUGI SKREJPER AKO I ON PIŠE U BAZU:
+              SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+              OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+              AI_NEWS_BATCH_SIZE: 5
+
+          - name: Run AI Enrichment Worker
+            if: ${{ !cancelled() }}
+            run: npx tsx scripts/enrich-news.ts
+            env:
+              SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
               SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
               OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
               AI_NEWS_BATCH_SIZE: 5

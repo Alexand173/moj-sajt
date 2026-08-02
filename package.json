@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "ai:enrich": "npx tsx scripts/enrich-news.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
