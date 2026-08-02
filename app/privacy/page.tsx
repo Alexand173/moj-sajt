@@ -31,14 +31,13 @@ export default function PrivacyPage() {
           <li>To operate charts, voting, accounts, news, event listings, and community features.</li>
           <li>To respond to requests, prevent abuse, and maintain site security.</li>
           <li>To measure site performance and improve the usefulness of our content.</li>
-          <li>To display advertising through Google AdSense and similar advertising partners where enabled.</li>
         </ul>
       </section>
 
       <section>
-        <h2>Cookies and advertising</h2>
+        <h2>Cookies</h2>
         <p>
-          MusicTop and its service providers may use cookies or similar technologies for authentication, preferences, analytics, security, and advertising. Google may use advertising cookies to personalize or measure ads in accordance with its own policies and your available privacy choices.
+          MusicTop and its service providers may use cookies or similar technologies for authentication, preferences, analytics, and security. We do not currently display third-party advertising on MusicTop.
         </p>
         <p className="mt-4">
           You can manage cookies through your browser settings. Blocking some cookies may affect account or interactive features.

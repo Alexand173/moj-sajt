@@ -3,7 +3,6 @@ import { getPublicSupabaseClient } from '@/lib/supabase-public';
 import type { ChartSong } from '@/lib/chart-types';
 import { notFound } from 'next/navigation';
 import SuggestionSection from '@/components/SuggestionSection';
-import AdSenseBanner from '@/components/AdSenseBanner';
 import SuggestionScrollBadge from '@/components/SuggestionScrollBadge';
 import StructuredData from '@/components/StructuredData';
 import { Metadata } from 'next';
@@ -105,44 +104,7 @@ export default async function HomePage() {
     );
   }
 
-  // MAPIRANJE REKLAMA PO REGIONU I ŽANRU
   const region = regionName.toUpperCase();
-  const genre = genreName.toLowerCase().replace('-', ''); 
-  const adKey = `${region}_${genre}`;
-
-  const adSlots: Record<string, { top: string; mid1: string; mid2: string; mid3: string; bottom: string }> = {
-    "US_rock": {
-      top: "5000000001",
-      mid1: "5000000002",
-      mid2: "5000000003",
-      mid3: "5000000004",
-      bottom: "5000000005"
-    },
-    "US_pop": {
-      top: "5100000001",
-      mid1: "5100000002",
-      mid2: "5100000003",
-      mid3: "5100000004",
-      bottom: "5100000005"
-    },
-    "EUROPA_rock": {
-      top: "6000000001",
-      mid1: "6000000002",
-      mid2: "6000000003",
-      mid3: "6000000004",
-      bottom: "6000000005"
-    },
-    "DEFAULT": {
-      top: "0000000001",
-      mid1: "0000000002",
-      mid2: "0000000003",
-      mid3: "0000000004",
-      bottom: "0000000005"
-    }
-  };
-
-  const trenutniSlotovi = adSlots[adKey] || adSlots.DEFAULT;
-
   const itemListSchema = {
     "@context": "https://schema.org",
     "@type": "ItemList",
@@ -207,12 +169,7 @@ export default async function HomePage() {
           </div>
         )}
 
-        {/* --- 1. REKLAMA: IZMEĐU 3. I 4. MESTA --- */}
-        <div className="py-8">
-          <AdSenseBanner adSlot={trenutniSlotovi.top} />
-        </div>
-        
-        {/* TIER 3: OSTALE PESME (STANDARDNE SA REKLAMAMA IZMEĐU) */}
+        {/* TIER 3: OSTALE PESME */}
         {songs.length > 3 && (
           <div className="pt-20 border-t border-white/5">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-8 gap-y-16">
@@ -224,37 +181,12 @@ export default async function HomePage() {
                     {/* Kartica pesme */}
                     <SongCard song={song} rank={trenutniRank} variant="standard" />
 
-                    {/* --- 2. REKLAMA: Posle 25. mesta --- */}
-                    {trenutniRank === 25 && (
-                      <div className="col-span-full py-4">
-                        <AdSenseBanner adSlot={trenutniSlotovi.mid1} />
-                      </div>
-                    )}
-
-                    {/* --- 3. REKLAMA: Posle 50. mesta --- */}
-                    {trenutniRank === 50 && (
-                      <div className="col-span-full py-4">
-                        <AdSenseBanner adSlot={trenutniSlotovi.mid2} />
-                      </div>
-                    )}
-
-                    {/* --- 4. REKLAMA: Posle 75. mesta --- */}
-                    {trenutniRank === 75 && (
-                      <div className="col-span-full py-4">
-                        <AdSenseBanner adSlot={trenutniSlotovi.mid3} />
-                      </div>
-                    )}
                   </div>
                 );
               })}
             </div>
           </div>
         )}
-
-        {/* --- 5. REKLAMA: NA SAMOM DNU STRANICE --- */}
-        <div className="pt-12">
-          <AdSenseBanner adSlot={trenutniSlotovi.bottom} />
-        </div>
 
         {/* PREDLOZI */}
         <div id="suggestions-section" className="w-full pt-20 pb-20 border-t border-white/10">

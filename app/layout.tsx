@@ -3,7 +3,6 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import Script from "next/script"; // <-- 1. Uvozimo Next.js Script komponentu
 import { Analytics } from '@vercel/analytics/react';
 import { GoogleAnalytics } from '@next/third-parties/google';
 import StructuredData from "@/components/StructuredData";
@@ -11,7 +10,6 @@ import StructuredData from "@/components/StructuredData";
 
 const inter = Inter({ subsets: ["latin"] });
 const googleAnalyticsId = process.env.NEXT_PUBLIC_GA_ID;
-const adsenseEnabled = process.env.NEXT_PUBLIC_ADSENSE_ENABLED === 'true';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://musictop.net'),
@@ -22,9 +20,6 @@ export const metadata: Metadata = {
   description: "Discover the most popular songs globally. Follow the Official MUSIC TOP charts, vote for your favorite artists, find worldwide concert dates, and get the latest AI-exclusive music news. Your ultimate destination for global music rankings and festival tickets.",
   verification: {
     google: 'google0f815af240dfb5bc',
-    other: {
-      'google-adsense-account': 'ca-pub-5019317238845372',
-    },
   },
   keywords: [
     "music charts 2026", 
@@ -98,18 +93,6 @@ export default function RootLayout({
       <head>
         <StructuredData data={organizationSchema} />
         <meta name='impact-site-verification' content='e731ab44-d92b-4034-9fa2-f684ac52903b' />
-
-        {/* Load AdSense only after real ad units are configured in Vercel. */}
-        {adsenseEnabled ? (
-          <Script
-            async
-            src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5019317238845372"
-            crossOrigin="anonymous"
-            strategy="afterInteractive"
-          />
-        ) : null}
-
-        
       </head>
       <body 
         className={`${inter.className} bg-black text-white flex flex-col min-h-screen`} 

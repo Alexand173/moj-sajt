@@ -10,11 +10,6 @@ export default function robots(): MetadataRoute.Robots {
         allow: '/',
         disallow: disallowedPaths,
       },
-      {
-        userAgent: ['Mediapartners-Google', 'Google-Display-Ads-Bot'],
-        allow: ['/', '/ads.txt'],
-        disallow: disallowedPaths,
-      },
     ],
     sitemap: 'https://musictop.net/sitemap.xml',
   };

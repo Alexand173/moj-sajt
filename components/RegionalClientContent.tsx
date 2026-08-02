@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import SongCard from '@/components/SongCard';
 import SuggestionForm from '@/components/SuggestionForm';
-import AdSenseBanner from '@/components/AdSenseBanner';
 
 interface RegionalClientContentProps {
   
@@ -19,17 +18,6 @@ export default function RegionalClientContent({ initialSongs, region }: Regional
     if (!id) return null;
     return `https://www.youtube.com/embed/${id}`;
   };
-
-  // 3. Mapiranje oglasnih jedinica (AdSense Slot ID) po regijama
-  const adSlots: Record<string, { top: string; mid1: string; mid2: string; mid3: string; bottom: string }> = {
-    "US": { top: "1000000001", mid1: "1000000002", mid2: "1000000003", mid3: "1000000004", bottom: "1000000005" },
-    "EUROPA": { top: "2000000001", mid1: "2000000002", mid2: "2000000003", mid3: "2000000004", bottom: "2000000005" },
-    "LATINO": { top: "3000000001", mid1: "3000000002", mid2: "3000000003", mid3: "3000000004", bottom: "3000000005" },
-    "ASIA": { top: "4000000001", mid1: "4000000002", mid2: "4000000003", mid3: "4000000004", bottom: "4000000005" },
-    "DEFAULT": { top: "0000000001", mid1: "0000000002", mid2: "0000000003", mid3: "0000000004", bottom: "0000000005" }
-  };
-
-  const trenutniSlotovi = adSlots[region] || adSlots.DEFAULT;
 
   return (
     <div className="min-h-screen bg-[#050505] text-white pt-32 pb-20 px-4 md:px-10">
@@ -81,10 +69,6 @@ export default function RegionalClientContent({ initialSongs, region }: Regional
           ))}
         </div>
 
-        <div className="mt-12">
-          <AdSenseBanner adSlot={trenutniSlotovi.top} />
-        </div>
-
         {/* LISTA */}
         <div className="mt-16 space-y-3">
           <div className="px-8 py-2 text-[10px] font-bold text-zinc-600 tracking-[0.3em] flex justify-between uppercase">
@@ -113,15 +97,10 @@ export default function RegionalClientContent({ initialSongs, region }: Regional
                   </div>
                 </div>
 
-                {trenutnaPozicija === 25 && <div className="py-4"><AdSenseBanner adSlot={trenutniSlotovi.mid1} /></div>}
-                {trenutnaPozicija === 50 && <div className="py-4"><AdSenseBanner adSlot={trenutniSlotovi.mid2} /></div>}
-                {trenutnaPozicija === 75 && <div className="py-4"><AdSenseBanner adSlot={trenutniSlotovi.mid3} /></div>}
               </div>
             );
           })}
         </div>
-
-        <div className="mt-12"><AdSenseBanner adSlot={trenutniSlotovi.bottom} /></div>
 
         <div className="mt-24 grid grid-cols-1 lg:grid-cols-3 gap-12 border-t border-white/5 pt-16">
           <div className="lg:col-span-1">

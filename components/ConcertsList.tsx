@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef, useMemo, useEffect } from 'react';
-import AdSenseBanner from '@/components/AdSenseBanner';
 import { resolveConcertCity } from '@/lib/concert-city';
 
 interface Event {
@@ -20,11 +19,6 @@ interface GroupedConcert {
 
 interface ConcertsListProps {
   dataZaPrikaz: GroupedConcert[];
-  mid1: string;
-  mid2: string;
-  mid3: string;
-  mid4: string;
-  bottom: string;
 }
 
 
@@ -80,7 +74,7 @@ function generisiAffiliateLink(izvorniLink: string): string {
   return `https://ticketmaster.evyy.net/c/${mojImpactId}/264167/4272?u=${encodeURIComponent(izvorniLink)}`;
 }
 
-export default function ConcertsList({ dataZaPrikaz, mid1, mid2, mid3, mid4, bottom }: ConcertsListProps) {
+export default function ConcertsList({ dataZaPrikaz }: ConcertsListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const [pendingArtist, setPendingArtist] = useState<string | null>(null);
@@ -175,17 +169,6 @@ export default function ConcertsList({ dataZaPrikaz, mid1, mid2, mid3, mid4, bot
   }, [dataZaPrikaz, selectedCity]);
 
   const ukupno = filteredData ? filteredData.length : 0;
-  let prikaziCetiriSrednje = ukupno > 100;
-  let indexMid1 = -1, indexMid2 = -1, indexMid3 = -1, indexMid4 = -1;
-
-  if (prikaziCetiriSrednje) {
-    indexMid1 = Math.floor(ukupno * 0.25) - 1;
-    indexMid2 = Math.floor(ukupno * 0.50) - 1;
-    indexMid3 = Math.floor(ukupno * 0.75) - 1;
-    indexMid4 = ukupno - 3;
-  } else if (ukupno > 1) {
-    indexMid1 = Math.floor(ukupno / 2) - 1;
-  }
 
   return (
     <>
@@ -244,7 +227,7 @@ export default function ConcertsList({ dataZaPrikaz, mid1, mid2, mid3, mid4, bot
       {ukupno > 0 ? (
         <div className="space-y-12">
           <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 px-4">
-            {filteredData.map((grupa: GroupedConcert, index: number) => (
+            {filteredData.map((grupa: GroupedConcert) => (
               <div key={grupa.artist_name} className="contents">
                 {/* 🎨 NAŠMINKANA KARTICA */}
                 <div
@@ -280,14 +263,9 @@ export default function ConcertsList({ dataZaPrikaz, mid1, mid2, mid3, mid4, bot
                   </div>
                 </div>
 
-                {index === indexMid1 && <div className="col-span-full py-6"><AdSenseBanner adSlot={mid1} /></div>}
-                {prikaziCetiriSrednje && index === indexMid2 && <div className="col-span-full py-6"><AdSenseBanner adSlot={mid2} /></div>}
-                {prikaziCetiriSrednje && index === indexMid3 && <div className="col-span-full py-6"><AdSenseBanner adSlot={mid3} /></div>}
-                {prikaziCetiriSrednje && index === indexMid4 && <div className="col-span-full py-6"><AdSenseBanner adSlot={mid4} /></div>}
               </div>
             ))}
           </div>
-          <div className="pt-8 px-4"><AdSenseBanner adSlot={bottom} /></div>
         </div>
       ) : (
         <div className="text-center text-gray-500 py-20">
