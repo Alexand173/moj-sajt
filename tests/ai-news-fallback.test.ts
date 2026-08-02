@@ -24,6 +24,7 @@ const sourceArticleText = [
 describe('generateAiNewsArticle safe fallback', () => {
   beforeEach(() => {
     mocks.responsesCreate.mockReset();
+    process.env.OPENAI_API_KEY = 'test-openai-key';
   });
 
   it('does not publish source prose when OpenAI reports insufficient quota', async () => {

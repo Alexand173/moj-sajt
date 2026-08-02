@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "ai:enrich": "npx tsx scripts/enrich-news.ts"
+    "ai:enrich": "npx tsx scripts/enrich-news.ts",
+    "charts:update": "npx tsx scripts/update-charts.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

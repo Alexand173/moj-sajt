@@ -28,6 +28,18 @@ jobs:
               npm install
               npm install -g tsx
 
+          - name: Run Soundcharts Chart Sync
+            if: ${{ github.event.inputs.enrichment_only != 'true' }}
+            run: npm run charts:update
+            env:
+              SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+              SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+              YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+              SOUNDCHARTS_APP_ID: ${{ secrets.SOUNDCHARTS_APP_ID }}
+              SOUNDCHARTS_APP_KEY: ${{ secrets.SOUNDCHARTS_APP_KEY }}
+              CHART_SYNC_PAGE_LIMIT: 100
+              CHART_SYNC_MAX_PAGES: 50
+
           - name: Run Fetch Script
             if: ${{ github.event.inputs.enrichment_only != 'true' }}
             run: npx tsx app/api/fetch-news/route.ts

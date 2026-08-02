@@ -1,12 +1,26 @@
-import { updateMusicCharts } from '@/lib/auto-updater'; // Putanja do tvog fajla
+import { NextResponse } from 'next/server';
+import { runBulkImport } from '@/lib/auto-updater';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+function isAuthorized(request: Request): boolean {
+  const cronSecret = process.env.CRON_SECRET?.trim();
+  if (!cronSecret) return process.env.NODE_ENV !== 'production';
+  return request.headers.get('authorization') === `Bearer ${cronSecret}`;
+}
 
 export async function GET(request: Request) {
+  if (!isAuthorized(request)) {
+    return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
+  }
+
   try {
-    // Pozivamo funkciju koju smo upravo sredili
-    await updateMusicCharts();
-    return new Response('Ažuriranje uspešno završeno!', { status: 200 });
-  } catch (error) {
-    console.error('Greška pri cron job-u:', error);
-    return new Response('Greška pri ažuriranju', { status: 500 });
+    const summary = await runBulkImport();
+    return NextResponse.json({ success: true, charts: summary });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown chart sync error.';
+    console.error('Chart sync cron failed:', message);
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
