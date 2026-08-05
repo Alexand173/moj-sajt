@@ -2,6 +2,7 @@ import { loadEnvConfig } from '@next/env';
 import * as cheerio from 'cheerio';
 import axios from 'axios';
 import { createClient } from '@supabase/supabase-js';
+import { normalizeNewsRegion } from '../../../lib/news-regions';
 
 const isDirectScript = typeof require !== 'undefined' && require.main === module;
 if (isDirectScript) {
@@ -22,6 +23,26 @@ const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabase
 
 const SOURCE_TIMEOUT_MS = 15_000;
 const UPSERT_CHUNK_SIZE = 50;
+const MAX_OFFICIAL_ARTICLES_PER_REGION = 30;
+
+type UpsertResult = {
+  inserted: number;
+  failedChunks: number;
+  failedRows: number;
+  skippedConflicts: number;
+};
+
+function isUniqueConstraintError(error: unknown): boolean {
+  const candidate = error as { code?: string; message?: string } | null;
+  const message = candidate?.message || String(error);
+  return candidate?.code === '23505' || message.includes('duplicate key') || message.includes('unique constraint');
+}
+
+function formatError(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object' && error !== null) return JSON.stringify(error);
+  return String(error);
+}
 
 interface ScrapedArticle {
   title: string;
@@ -70,7 +91,7 @@ async function scrapeSource(source: NewsSource, scrapedData: ScrapedArticle[]): 
           excerpt: `SOURCE: ${domainName.toUpperCase()}`,
           image: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745',
           category: 'OFFICIAL',
-          region: source.region,
+          region: normalizeNewsRegion(source.region),
           url: fullLink,
           content: `Music update from ${domainName}`,
           created_at: new Date().toISOString(),
@@ -95,14 +116,16 @@ async function scrapeSource(source: NewsSource, scrapedData: ScrapedArticle[]): 
  * Supabase error in one chunk is logged and skipped instead of discarding
  * every other successfully scraped article in the batch.
  */
-async function upsertInChunks(mixedData: ScrapedArticle[]): Promise<{ inserted: number; failedChunks: number }> {
+async function upsertInChunks(mixedData: ScrapedArticle[]): Promise<UpsertResult> {
   if (!supabase) {
     console.error('❌ Supabase klijent nije konfigurisan — preskačem upis.');
-    return { inserted: 0, failedChunks: 0 };
+    return { inserted: 0, failedChunks: 1, failedRows: mixedData.length, skippedConflicts: 0 };
   }
 
   let inserted = 0;
   let failedChunks = 0;
+  let failedRows = 0;
+  let skippedConflicts = 0;
 
   for (let i = 0; i < mixedData.length; i += UPSERT_CHUNK_SIZE) {
     const chunk = mixedData.slice(i, i + UPSERT_CHUNK_SIZE);
@@ -115,13 +138,34 @@ async function upsertInChunks(mixedData: ScrapedArticle[]): Promise<{ inserted: 
       if (error) throw error;
       inserted += chunk.length;
     } catch (error: unknown) {
+      if (isUniqueConstraintError(error)) {
+        let chunkInserted = 0;
+        for (const row of chunk) {
+          const { error: rowError } = await supabase.from('news').upsert(row, {
+            onConflict: 'url',
+            ignoreDuplicates: true,
+          });
+
+          if (!rowError) {
+            chunkInserted += 1;
+          } else if (isUniqueConstraintError(rowError)) {
+            skippedConflicts += 1;
+          } else {
+            failedRows += 1;
+            console.error(`❌ Neuspešan upis vesti "${row.title}": ${formatError(rowError)}`);
+          }
+        }
+        inserted += chunkInserted;
+        continue;
+      }
+
       failedChunks += 1;
-      const message = error instanceof Error ? error.message : String(error);
-      console.error(`❌ Neuspešan upis grupe (${chunk.length} stavki): ${message}`);
+      failedRows += chunk.length;
+      console.error(`❌ Neuspešan upis grupe (${chunk.length} stavki): ${formatError(error)}`);
     }
   }
 
-  return { inserted, failedChunks };
+  return { inserted, failedChunks, failedRows, skippedConflicts };
 }
 
 export async function GET() {
@@ -285,7 +329,9 @@ export async function GET() {
   { url: 'https://worldmusiccentral.org/category/news/', region: 'WORLD' },
   { url: 'https://www.rootsworld.com/news.html', region: 'WORLD' },
   { url: 'https://www.rhythm-passport.com/news/', region: 'WORLD' },
-  { url: 'https://www.globalmusicnetwork.com/', region: 'WORLD' }
+  { url: 'https://www.globalmusicnetwork.com/', region: 'WORLD' },
+  { url: 'https://www.music-news.com/News', region: 'WORLD' },
+  { url: 'https://www.musicradar.com/news', region: 'WORLD' }
 
       // ... Možeš dopuniti listu po potrebi
     ];
@@ -302,15 +348,31 @@ export async function GET() {
 
     let insertedCount = 0;
     let failedUpsertChunks = 0;
+    let failedUpsertRows = 0;
+    let skippedConflicts = 0;
+    let balancedCount = 0;
+    let balancedRegionCounts: Record<string, number> = {};
 
     if (scrapedData.length > 0) {
-      const uniqueData = Array.from(new Map(scrapedData.map(item => [item.title, item])).values());
+      // Keep the same title from different publishers/regions when the source URLs differ.
+      const uniqueData = Array.from(new Map(scrapedData.map(item => [item.url, item])).values());
       const mixedData = uniqueData.sort(() => Math.random() - 0.5);
+      const regionCounts = new Map<string, number>();
+      const balancedData = mixedData.filter((article) => {
+        const count = regionCounts.get(article.region) || 0;
+        if (count >= MAX_OFFICIAL_ARTICLES_PER_REGION) return false;
+        regionCounts.set(article.region, count + 1);
+        return true;
+      });
 
-      const upsertResult = await upsertInChunks(mixedData);
+      balancedCount = balancedData.length;
+      balancedRegionCounts = Object.fromEntries(regionCounts);
+      const upsertResult = await upsertInChunks(balancedData);
       insertedCount = upsertResult.inserted;
       failedUpsertChunks = upsertResult.failedChunks;
-      console.log(`🚀 Uspešno uneto ${insertedCount}/${mixedData.length} vesti (${failedUpsertChunks} neuspešnih grupa).`);
+      failedUpsertRows = upsertResult.failedRows;
+      skippedConflicts = upsertResult.skippedConflicts;
+      console.log(`🚀 Uspešno uneto ${insertedCount}/${mixedData.length} vesti (${failedUpsertChunks} neuspešnih grupa, ${failedUpsertRows} neuspešnih redova, ${skippedConflicts} postojećih konflikata).`);
     }
 
     console.log(`ℹ️ Skrejping završen: ${succeededSources}/${SOURCES.length} sajtova uspešno, ${failedSources} neuspešno.`);
@@ -322,7 +384,12 @@ export async function GET() {
       success: true,
       sources: { succeeded: succeededSources, failed: failedSources, total: SOURCES.length },
       count: insertedCount,
+      scrapedCount: scrapedData.length,
+      balancedCount,
+      regionCounts: balancedRegionCounts,
       failedUpsertChunks,
+      failedUpsertRows,
+      skippedConflicts,
       message: 'Official source links synchronized. AI enrichment applies only to LATEST NewsAPI rows.',
     }), { status: 200 });
 
@@ -344,8 +411,9 @@ if (isDirectScript) {
       const data = await res.json() as {
         success?: boolean;
         failedUpsertChunks?: number;
+        failedUpsertRows?: number;
       };
-      const hasPersistenceFailures = (data.failedUpsertChunks || 0) > 0;
+      const hasPersistenceFailures = (data.failedUpsertChunks || 0) > 0 || (data.failedUpsertRows || 0) > 0;
 
       if (res.ok && data.success !== false && !hasPersistenceFailures) {
         console.log("🏁 Završeno uspešno!", data);

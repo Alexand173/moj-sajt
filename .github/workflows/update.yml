@@ -57,7 +57,7 @@ jobs:
           NODE
 
       - name: Run LATEST NewsAPI update
-        if: ${{ inputs.enrichment_only != true }}
+        if: ${{ !cancelled() && inputs.enrichment_only != true }}
         run: npx tsx app/api/fetch-news/route.ts
 
       - name: Run OFFICIAL source scraper
