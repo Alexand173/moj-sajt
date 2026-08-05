@@ -198,10 +198,10 @@ if (typeof require !== 'undefined' && require.main === module) {
     .then(async (res) => {
       const data = await res.json();
       console.log("🏁 Završeno!", data);
-      process.exit(0);
+      process.exitCode = res.ok ? 0 : 1;
     })
     .catch((err) => {
       console.error("💀 Skripta je pukla:", err);
-      process.exit(1);
+      process.exitCode = 1;
     });
 }

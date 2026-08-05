@@ -341,8 +341,13 @@ if (isDirectScript) {
   console.log("🔔 GitHub Actions detektovan. Ručno pokrećem Official Scraper...");
   GET()
     .then(async (res) => {
-      const data = await res.json();
-      if (res.status === 200) {
+      const data = await res.json() as {
+        success?: boolean;
+        failedUpsertChunks?: number;
+      };
+      const hasPersistenceFailures = (data.failedUpsertChunks || 0) > 0;
+
+      if (res.ok && data.success !== false && !hasPersistenceFailures) {
         console.log("🏁 Završeno uspešno!", data);
         process.exitCode = 0;
       } else {
