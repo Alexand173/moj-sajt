@@ -43,6 +43,7 @@ interface NewsFetchResult {
   failed: boolean;
 }
 
+const NEWS_API_PAGE_SIZE = 100;
 const MAX_ARTICLES_PER_REGION = 20;
 const IDENTITY_LOOKUP_CHUNK_SIZE = 20;
 
@@ -81,7 +82,7 @@ async function loadExistingNewsRows(
 }
 
 async function fetchNews(query: string, region: NewsRegion, apiKey: string): Promise<NewsFetchResult> {
-  const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&language=en&pageSize=50&sortBy=publishedAt&apiKey=${apiKey}`;
+  const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&language=en&pageSize=${NEWS_API_PAGE_SIZE}&sortBy=publishedAt&apiKey=${apiKey}`;
 
   try {
     const res = await fetch(url);

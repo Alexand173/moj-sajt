@@ -1,6 +1,9 @@
 export const NEWS_REGION_QUERIES = [
   { region: 'us', query: 'music tour' },
-  { region: 'uk', query: 'uk music news 2026 OR london music scene' },
+  {
+    region: 'uk',
+    query: '("UK music" OR "British music" OR "London music" OR "Manchester music" OR "Glasgow music" OR "UK concert" OR "UK festival")',
+  },
   { region: 'latino', query: 'reggaeton OR shakira OR "bad bunny" OR "latin music"' },
   { region: 'asia', query: 'kpop music' },
   { region: 'europa', query: 'europe music' },
