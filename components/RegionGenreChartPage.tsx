@@ -22,6 +22,7 @@ export const GENRE_MAP: Record<string, number> = {
   other: 12,
   jazz: 13,
   classical: 14,
+  metal: 15,
 };
 
 type RegionGenreMetadataOptions = {

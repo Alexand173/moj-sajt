@@ -22,7 +22,8 @@ const GENRE_MAP: Record<string, number> = {
   'india': 11,
   'other': 12,
   'jazz': 13,
-  'classical': 14
+  'classical': 14,
+  'metal': 15
 };
 
 // MOĆNA I TAČNA SEO FUNKCIJA SA UPITOM U BAZU

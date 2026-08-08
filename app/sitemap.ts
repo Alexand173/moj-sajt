@@ -13,7 +13,7 @@ type SitemapRoute = {
 const siteStructure: Record<string, string[]> = {
   us: ['rock', 'pop', 'hip-hop', 'rb-soul', 'country', 'dance-electronic'],
   uk: ['rock', 'pop', 'hip-hop', 'rb-soul', 'country', 'dance-electronic'],
-  europa: ['rock', 'pop', 'hip-hop', 'rb-soul', 'country', 'dance-electronic'],
+  europa: ['rock', 'pop', 'hip-hop', 'rb-soul', 'metal', 'dance-electronic'],
   latino: ['rock', 'pop', 'hip-hop', 'rb-soul', 'country', 'dance-electronic'],
   asia: ['j-pop', 'j-rock-metal', 'k-pop', 'c-pop', 'india', 'other'],
   world: ['rock', 'pop', 'hip-hop', 'rb-soul', 'country', 'dance-electronic'],

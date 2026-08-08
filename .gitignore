@@ -39,6 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Python tooling
+__pycache__/
+*.py[cod]
+
 za_server/
 sajt.zip
 *.zip

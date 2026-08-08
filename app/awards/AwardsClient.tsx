@@ -108,6 +108,7 @@ export default function AwardsPage() {
         else if (gId === 10) { name = 'C-POP'; slug = 'c-pop'; }
         else if (gId === 11) { name = 'INDIA'; slug = 'india'; }
         else if (gId === 12) { name = 'OTHER'; slug = 'other'; }
+        else if (gId === 15) { name = 'Metal'; slug = 'metal'; }
 
         song.genre_name = name;
         song.genre_slug = slug;

@@ -54,6 +54,16 @@ export default function Header() {
     { name: 'DANCE', slug: 'dance-electronic' },
   ];
 
+  // Europa uses Metal instead of Country in its genre navigation.
+  const europaGenres = [
+    { name: 'ROCK', slug: 'rock' },
+    { name: 'POP', slug: 'pop' },
+    { name: 'HIP-HOP', slug: 'hip-hop' },
+    { name: 'R&B/SOUL', slug: 'rb-soul' },
+    { name: 'METAL', slug: 'metal' },
+    { name: 'DANCE', slug: 'dance-electronic' },
+  ];
+
   const asiaGenres = [
     { name: 'J-POP', slug: 'j-pop' },
     { name: 'J-ROCK', slug: 'j-rock-metal' },
@@ -75,6 +85,7 @@ export default function Header() {
   const showGenres = isHome || isRegionPage;
   const showEuropaSubregions = isRegionPage && currentRegion === 'europa';
   const isAsia = currentRegion === 'asia';
+  const isEuropa = currentRegion === 'europa';
 
   return (
     <header className="fixed top-0 left-0 w-full z-[100] bg-black border-b border-white/10">
@@ -198,7 +209,7 @@ export default function Header() {
       {showGenres && (
         <div className="bg-black border-t border-white/5 py-3">
           <div className="flex flex-wrap justify-center gap-4 px-4">
-            {(isAsia ? asiaGenres : globalGenres).map((g) => {
+            {(isAsia ? asiaGenres : isEuropa ? europaGenres : globalGenres).map((g) => {
               const isActive = pathname.includes(g.slug) || (isHome && g.slug === 'rock');
               const genreHref = currentEuropaSubregion
                 ? `/region/europa/${currentEuropaSubregion}/${g.slug}`
