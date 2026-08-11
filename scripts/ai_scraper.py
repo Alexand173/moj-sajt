@@ -82,9 +82,9 @@ _make_console_streams_unicode_safe()
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 
-# Soundcharts stores these filter states in immutable URLs. Keep the supplied
-# Germany chart URLs here so every manual run uses the same source definition.
-GERMANY_DEFAULT_CHART_URLS = {
+# Soundcharts stores these filter states in immutable URLs. Keep every supplied
+# chart URL here so manual runs always use the same source definition.
+CHART_PRESET_URLS = {
     "germany-pop": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiREUiLCJmdHNnIjoicG9wIiwiZnJkIjoiMjAyNS0xMi0xNHwyMDI2LTA4LTA4In0sIm1pIjpbWyJhdWRpZW5jZS5zcG90aWZ5LnRvdGFsIix7Im1tIjoiIn1dXX0%3D",
     "germany-hip-hop": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiREUiLCJmdHNnIjoiaGlwIGhvcCIsImZyZCI6IjIwMjUtMTItMjB8MjAyNi0wOC0wOCJ9LCJtaSI6W1siYXVkaWVuY2Uuc3BvdGlmeS50b3RhbCIseyJtbSI6IiJ9XV19",
     "germany-rock": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiREUiLCJmdHNnIjoicm9jayIsImZyZCI6IjIwMjUtMTItMjB8MjAyNi0wOC0wOCJ9LCJtaSI6W1siYXVkaWVuY2Uuc3BvdGlmeS50b3RhbCIseyJtbSI6IiJ9XV19",
@@ -96,7 +96,7 @@ GERMANY_DEFAULT_CHART_URLS = {
     "germany-dance-electronic": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiREUiLCJmdHNnIjoiZWxlY3Ryb3xkaXNjb3xlZG0iLCJmcmQiOiIyMDI1LTEyLTIwfDIwMjYtMDgtMDgifSwibWkiOltbImF1ZGllbmNlLnNwb3RpZnkudG90YWwiLHsibW0iOiIifV1dfQ%3D%3D",
 }
 
-GERMANY_DEFAULT_CHART_GENRES = {
+CHART_PRESET_GENRES = {
     "germany-pop": "pop",
     "germany-hip-hop": "hip-hop",
     "germany-rock": "rock",
@@ -108,19 +108,48 @@ GERMANY_DEFAULT_CHART_GENRES = {
     "germany-dance-electronic": "dance-electronic",
 }
 
-DEFAULT_CHART_URL = GERMANY_DEFAULT_CHART_URLS["germany-pop"]
+DEFAULT_CHART_URL = CHART_PRESET_URLS["germany-pop"]
 
 
-def resolve_germany_chart_preset(preset: str) -> tuple[str, str]:
+FRANCE_CHART_PRESET_URLS = {
+    "france-pop": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiRlIiLCJmdHNnIjoicG9wIiwiZnJkIjoiTFRfNiJ9LCJtaSI6W1siYXVkaWVuY2Uuc3BvdGlmeS50b3RhbCIseyJtbSI6IiJ9XV19",
+    "france-hip-hop": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiRlIiLCJmdHNnIjoiaGlwIGhvcCIsImZyZCI6IkxUXzYifSwibWkiOltbImF1ZGllbmNlLnNwb3RpZnkudG90YWwiLHsibW0iOiIifV1dfQ%3D%3D",
+    "france-rock": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiRlIiLCJmdHNnIjoicm9jayIsImZyZCI6IkxUXzYifSwibWkiOltbImF1ZGllbmNlLnNwb3RpZnkudG90YWwiLHsibW0iOiIifV1dfQ%3D%3D",
+    "france-rb-soul": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiRlIiLCJmdHNnIjoiciZifHNvdWwiLCJmcmQiOiJMVF82In0sIm1pIjpbWyJhdWRpZW5jZS5zcG90aWZ5LnRvdGFsIix7Im1tIjoiIn1dXX0%3D",
+    "france-country": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiRlIiLCJmdHNnIjoibWV0YWwiLCJmcmQiOiJMVF82In0sIm1pIjpbWyJhdWRpZW5jZS5zcG90aWZ5LnRvdGFsIix7Im1tIjoiIn1dXX0%3D",
+    "france-metal": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiRlIiLCJmdHNnIjoibWV0YWwiLCJmcmQiOiJMVF82In0sIm1pIjpbWyJhdWRpZW5jZS5zcG90aWZ5LnRvdGFsIix7Im1tIjoiIn1dXX0%3D",
+    "france-dance-electronic": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiRlIiLCJmdHNnIjoiZWxlY3Ryb3xkaXNjb3xlZG0iLCJmcmQiOiJMVF82In0sIm1pIjpbWyJhdWRpZW5jZS5zcG90aWZ5LnRvdGFsIix7Im1tIjoiIn1dXX0%3D",
+}
+
+FRANCE_CHART_PRESET_GENRES = {
+    "france-pop": "pop",
+    "france-hip-hop": "hip-hop",
+    "france-rock": "rock",
+    "france-rb-soul": "rb-soul",
+    "france-country": "metal",
+    "france-metal": "metal",
+    "france-dance-electronic": "dance-electronic",
+}
+
+
+
+def resolve_chart_preset(preset: str) -> tuple[str, str]:
     """Return the immutable Soundcharts URL and MusicTop genre for a preset."""
     normalized = preset.strip().lower()
     try:
-        return GERMANY_DEFAULT_CHART_URLS[normalized], GERMANY_DEFAULT_CHART_GENRES[normalized]
+        if normalized.startswith("france-"):
+            return FRANCE_CHART_PRESET_URLS[normalized], FRANCE_CHART_PRESET_GENRES[normalized]
+        return CHART_PRESET_URLS[normalized], CHART_PRESET_GENRES[normalized]
     except KeyError as error:
-        supported = ", ".join(sorted(GERMANY_DEFAULT_CHART_URLS))
+        supported = ", ".join(sorted({*CHART_PRESET_URLS, *FRANCE_CHART_PRESET_URLS}))
         raise ScraperError(
-            f"Unknown Germany chart preset {preset!r}. Choose one of: {supported}."
+            f"Unknown chart preset {preset!r}. Choose one of: {supported}."
         ) from error
+
+
+# Backwards-compatible name retained for existing local invocations.
+def resolve_germany_chart_preset(preset: str) -> tuple[str, str]:
+    return resolve_chart_preset(preset)
 
 
 DEFAULT_MODEL = "gpt-4.1-mini"
@@ -1295,8 +1324,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--genre", help="Song genres filter value")
     parser.add_argument(
         "--preset",
-        choices=sorted(GERMANY_DEFAULT_CHART_URLS),
-        help="Use one of the immutable Germany Soundcharts chart presets",
+        choices=sorted({*CHART_PRESET_URLS, *FRANCE_CHART_PRESET_URLS}),
+        help="Use one of the immutable Germany or France Soundcharts chart presets",
     )
     parser.add_argument("--chart-url", help="Chart page URL; overrides the default Pop URL")
     parser.add_argument("--output-dir", help="Directory for screenshots and chart-data.json")
@@ -1332,14 +1361,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         preset_genre = None
         preset_url = None
+        preset_region = None
         if args.preset:
-            preset_url, preset_genre = resolve_germany_chart_preset(args.preset)
+            preset_url, preset_genre = resolve_chart_preset(args.preset)
+            preset_region = args.preset.split("-", 1)[0].upper()
 
         rows = fetch_chartmetric_data(
             country=args.country,
             genre=args.genre or preset_genre or "Any",
             chart_url=args.chart_url or preset_url or DEFAULT_CHART_URL,
-            region="GERMANY" if args.preset else args.region,
+            region=preset_region or args.region,
             output_dir=args.output_dir,
             resolve_youtube=not args.no_youtube,
             upload=args.upload,
