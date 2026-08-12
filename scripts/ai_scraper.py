@@ -161,12 +161,15 @@ def resolve_chart_preset(preset: str) -> tuple[str, str]:
             return FRANCE_CHART_PRESET_URLS[normalized], FRANCE_CHART_PRESET_GENRES[normalized]
         if normalized.startswith("italy-"):
             return ITALY_CHART_PRESET_URLS[normalized], ITALY_CHART_PRESET_GENRES[normalized]
+        if normalized.startswith("poland-"):
+            return POLAND_CHART_PRESET_URLS[normalized], POLAND_CHART_PRESET_GENRES[normalized]
         return CHART_PRESET_URLS[normalized], CHART_PRESET_GENRES[normalized]
     except KeyError as error:
         supported = ", ".join(sorted({
             *CHART_PRESET_URLS,
             *FRANCE_CHART_PRESET_URLS,
             *ITALY_CHART_PRESET_URLS,
+            *POLAND_CHART_PRESET_URLS,
         }))
         raise ScraperError(
             f"Unknown chart preset {preset!r}. Choose one of: {supported}."
@@ -238,7 +241,26 @@ REGION_ARTIST_COUNTRIES = {
     "ASIA": ["Any"],
     "WORLD": ["Any"],
 }
+POLAND_CHART_PRESET_URLS = {
+    "poland-pop": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiUEwiLCJmdHNnIjoicG9wIiwiZnJkIjoiTFRfNiIsImRzdHI6OmluIjpbIkFMTCJdLCJmYXJnIjoicG9wIn0sIm1pIjpbWyJhdWRpZW5jZS5zcG90aWZ5LnRvdGFsIix7Im1tIjoiIn1dXX0%3D",
+    "poland-hip-hop": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiUEwiLCJmdHNnIjoiaGlwIGhvcCIsImZyZCI6IkxUXzYiLCJkc3RyOjppbiI6WyJBTEwiXSwiZmFyZyI6ImhpcCBob3AifSwibWkiOltbImF1ZGllbmNlLnNwb3RpZnkudG90YWwiLHsibW0iOiIifV1dfQ%3D%3D",
+    "poland-rock": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiUEwiLCJmdHNnIjoicm9jayIsImZyZCI6IkxUXzYiLCJkc3RyOjppbiI6WyJBTEwiXSwiZmFyZyI6InJvY2sifSwibWkiOltbImF1ZGllbmNlLnNwb3RpZnkudG90YWwiLHsibW0iOiIifV1dfQ%3D%3D",
+    "poland-rb-soul": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiUEwiLCJmdHNnIjoiciZifHNvdWwiLCJmcmQiOiJMVF82IiwiZHN0cjo6aW4iOlsiQUxMIl19LCJtaSI6W1siYXVkaWVuY2Uuc3BvdGlmeS50b3RhbCIseyJtbSI6IiJ9XV19",
+  #  "poland-country": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiRlIiLCJmdHNnIjoibWV0YWwiLCJmcmQiOiJMVF82In0sIm1pIjpbWyJhdWRpZW5jZS5zcG90aWZ5LnRvdGFsIix7Im1tIjoiIn1dXX0%3D",
+    "poland-metal": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiUEwiLCJmdHNnIjoibWV0YWwiLCJmcmQiOiJMVF82IiwiZHN0cjo6aW4iOlsiQUxMIl0sImZhcmciOiJtZXRhbCJ9LCJtaSI6W1siYXVkaWVuY2Uuc3BvdGlmeS50b3RhbCIseyJtbSI6IiJ9XV19",
+    "poland-dance-electronic": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiUEwiLCJmdHNnIjoiZWxlY3Ryb3xlZG0iLCJmcmQiOiJMVF82IiwiZHN0cjo6aW4iOlsiQUxMIl0sImZhcmciOiJlbGVjdHJvfGVkbSJ9LCJtaSI6W1siYXVkaWVuY2Uuc3BvdGlmeS50b3RhbCIseyJtbSI6IiJ9XV19",
+}
 
+POLAND_CHART_PRESET_GENRES = {
+    "poland-pop": "pop",
+    "poland-hip-hop": "hip-hop",
+    "poland-rock": "rock",
+    "poland-rb-soul": "rb-soul",
+   # "poland-country": "metal",
+    "poland-metal": "metal",
+    "poland-dance-electronic": "dance-electronic",
+
+}
 
 class ScraperError(RuntimeError):
     """Raised when the local chart capture cannot continue safely."""
@@ -1354,8 +1376,9 @@ def build_parser() -> argparse.ArgumentParser:
             *CHART_PRESET_URLS,
             *FRANCE_CHART_PRESET_URLS,
             *ITALY_CHART_PRESET_URLS,
+            *POLAND_CHART_PRESET_URLS,
         }),
-        help="Use one of the immutable Germany, France, or Italy Soundcharts chart presets",
+        help="Use one of the immutable Germany, France, Italy, or Poland Soundcharts chart presets",
     )
     parser.add_argument("--chart-url", help="Chart page URL; overrides the default Pop URL")
     parser.add_argument("--output-dir", help="Directory for screenshots and chart-data.json")
