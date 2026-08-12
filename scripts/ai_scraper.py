@@ -126,11 +126,31 @@ FRANCE_CHART_PRESET_GENRES = {
     "france-hip-hop": "hip-hop",
     "france-rock": "rock",
     "france-rb-soul": "rb-soul",
-    "france-country": "metal",
+   # "france-country": "metal",
     "france-metal": "metal",
     "france-dance-electronic": "dance-electronic",
 }
 
+ITALY_CHART_PRESET_URLS = {
+    "italy-pop": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiSVQiLCJmdHNnIjoicG9wIiwiZnJkIjoiTFRfNiJ9LCJtaSI6W1siYXVkaWVuY2Uuc3BvdGlmeS50b3RhbCIseyJtbSI6IiJ9XV19",
+    "italy-hip-hop": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiSVQiLCJmdHNnIjoiaGlwIGhvcCIsImZyZCI6IkxUXzYifSwibWkiOltbImF1ZGllbmNlLnNwb3RpZnkudG90YWwiLHsibW0iOiIifV1dfQ%3D%3D",
+    "italy-rock": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiSVQiLCJmdHNnIjoicm9jayIsImZyZCI6IkxUXzYifSwibWkiOltbImF1ZGllbmNlLnNwb3RpZnkudG90YWwiLHsibW0iOiIifV1dfQ%3D%3D",
+    "italy-rb-soul": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiSVQiLCJmdHNnIjoic291bHxyJmIiLCJmcmQiOiJMVF82In0sIm1pIjpbWyJhdWRpZW5jZS5zcG90aWZ5LnRvdGFsIix7Im1tIjoiIn1dXX0%3D",
+    "italy-country": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiSVQiLCJmdHNnIjoibWV0YWwiLCJmcmQiOiJMVF82In0sIm1pIjpbWyJhdWRpZW5jZS5zcG90aWZ5LnRvdGFsIix7Im1tIjoiIn1dXX0%3D",
+    "italy-metal": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiSVQiLCJmdHNnIjoibWV0YWwiLCJmcmQiOiJMVF82In0sIm1pIjpbWyJhdWRpZW5jZS5zcG90aWZ5LnRvdGFsIix7Im1tIjoiIn1dXX0%3D",
+    "italy-dance-electronic": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiSVQiLCJmdHNnIjoiZWxlY3Ryb3xlZG0iLCJmcmQiOiJMVF82In0sIm1pIjpbWyJhdWRpZW5jZS5zcG90aWZ5LnRvdGFsIix7Im1tIjoiIn1dXX0%3D",
+}
+
+ITALY_CHART_PRESET_GENRES = {
+    "italy-pop": "pop",
+    "italy-hip-hop": "hip-hop",
+    "italy-rock": "rock",
+    "italy-rb-soul": "rb-soul",
+    # The legacy country label points to the supplied Italy metal filter.
+    "italy-country": "metal",
+    "italy-metal": "metal",
+    "italy-dance-electronic": "dance-electronic",
+}
 
 
 def resolve_chart_preset(preset: str) -> tuple[str, str]:
@@ -139,9 +159,15 @@ def resolve_chart_preset(preset: str) -> tuple[str, str]:
     try:
         if normalized.startswith("france-"):
             return FRANCE_CHART_PRESET_URLS[normalized], FRANCE_CHART_PRESET_GENRES[normalized]
+        if normalized.startswith("italy-"):
+            return ITALY_CHART_PRESET_URLS[normalized], ITALY_CHART_PRESET_GENRES[normalized]
         return CHART_PRESET_URLS[normalized], CHART_PRESET_GENRES[normalized]
     except KeyError as error:
-        supported = ", ".join(sorted({*CHART_PRESET_URLS, *FRANCE_CHART_PRESET_URLS}))
+        supported = ", ".join(sorted({
+            *CHART_PRESET_URLS,
+            *FRANCE_CHART_PRESET_URLS,
+            *ITALY_CHART_PRESET_URLS,
+        }))
         raise ScraperError(
             f"Unknown chart preset {preset!r}. Choose one of: {supported}."
         ) from error
@@ -1324,8 +1350,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--genre", help="Song genres filter value")
     parser.add_argument(
         "--preset",
-        choices=sorted({*CHART_PRESET_URLS, *FRANCE_CHART_PRESET_URLS}),
-        help="Use one of the immutable Germany or France Soundcharts chart presets",
+        choices=sorted({
+            *CHART_PRESET_URLS,
+            *FRANCE_CHART_PRESET_URLS,
+            *ITALY_CHART_PRESET_URLS,
+        }),
+        help="Use one of the immutable Germany, France, or Italy Soundcharts chart presets",
     )
     parser.add_argument("--chart-url", help="Chart page URL; overrides the default Pop URL")
     parser.add_argument("--output-dir", help="Directory for screenshots and chart-data.json")
