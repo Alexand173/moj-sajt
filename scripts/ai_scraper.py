@@ -262,6 +262,66 @@ POLAND_CHART_PRESET_GENRES = {
 
 }
 
+NORDIC_CHART_PRESET_URLS = {
+    "nordic-pop": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiREt8Rkl8SVN8Tk98U0UiLCJmdHNnIjoicG9wIiwiZnJkIjoiTFRfNiIsImZhcmciOiJwb3AifSwibWkiOltbImF1ZGllbmNlLnNwb3RpZnkudG90YWwiLHsibW0iOiIifV1dfQ%3D%3D",
+    "nordic-hip-hop": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiREt8Rkl8SVN8Tk98U0UiLCJmdHNnIjoiaGlwIGhvcCIsImZyZCI6IkxUXzYiLCJmYXJnIjoiaGlwIGhvcCJ9LCJtaSI6W1siYXVkaWVuY2Uuc3BvdGlmeS50b3RhbCIseyJtbSI6IiJ9XV19",
+    "nordic-rock": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiREt8Rkl8SVN8Tk98U0UiLCJmdHNnIjoicm9jayIsImZyZCI6IkxUXzYiLCJmYXJnIjoicm9jayJ9LCJtaSI6W1siYXVkaWVuY2Uuc3BvdGlmeS50b3RhbCIseyJtbSI6IiJ9XV19",
+    "nordic-rb-soul": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiREt8Rkl8SVN8Tk98U0UiLCJmdHNnIjoiciZifHNvdWwiLCJmcmQiOiJMVF82IiwiZmFyZyI6InImYnxzb3VsIn0sIm1pIjpbWyJhdWRpZW5jZS5zcG90aWZ5LnRvdGFsIix7Im1tIjoiIn1dXX0%3D",
+  #  "nordic-country": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiRlIiLCJmdHNnIjoibWV0YWwiLCJmcmQiOiJMVF82In0sIm1pIjpbWyJhdWRpZW5jZS5zcG90aWZ5LnRvdGFsIix7Im1tIjoiIn1dXX0%3D",
+    "nordic-metal": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiREt8Rkl8SVN8Tk98U0UiLCJmdHNnIjoibWV0YWwiLCJmcmQiOiJMVF82IiwiZmFyZyI6Im1ldGFsIn0sIm1pIjpbWyJhdWRpZW5jZS5zcG90aWZ5LnRvdGFsIix7Im1tIjoiIn1dXX0%3D",
+    "nordic-dance-electronic": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiREt8Rkl8SVN8Tk98U0UiLCJmdHNnIjoiZWRtfGVsZWN0cm8iLCJmcmQiOiJMVF82IiwiZmFyZyI6ImVkbXxlbGVjdHJvIn0sIm1pIjpbWyJhdWRpZW5jZS5zcG90aWZ5LnRvdGFsIix7Im1tIjoiIn1dXX0%3D",
+}
+
+NORDIC_CHART_PRESET_GENRES = {
+    "nordic-pop": "pop",
+    "nordic-hip-hop": "hip-hop",
+    "nordic-rock": "rock",
+    "nordic-rb-soul": "rb-soul",
+   # "nordic-country": "metal",
+    "nordic-metal": "metal",
+    "nordic-dance-electronic": "dance-electronic",
+
+}
+BALTIC_CHART_PRESET_URLS = {
+    "baltic-pop": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiUEwiLCJmdHNnIjoicG9wIiwiZnJkIjoiTFRfNiIsImRzdHI6OmluIjpbIkFMTCJdLCJmYXJnIjoicG9wIn0sIm1pIjpbWyJhdWRpZW5jZS5zcG90aWZ5LnRvdGFsIix7Im1tIjoiIn1dXX0%3D",
+    "baltic-hip-hop": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiUEwiLCJmdHNnIjoiaGlwIGhvcCIsImZyZCI6IkxUXzYiLCJkc3RyOjppbiI6WyJBTEwiXSwiZmFyZyI6ImhpcCBob3AifSwibWkiOltbImF1ZGllbmNlLnNwb3RpZnkudG90YWwiLHsibW0iOiIifV1dfQ%3D%3D",
+    "baltic-rock": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiUEwiLCJmdHNnIjoicm9jayIsImZyZCI6IkxUXzYiLCJkc3RyOjppbiI6WyJBTEwiXSwiZmFyZyI6InJvY2sifSwibWkiOltbImF1ZGllbmNlLnNwb3RpZnkudG90YWwiLHsibW0iOiIifV1dfQ%3D%3D",
+    "baltic-rb-soul": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiUEwiLCJmdHNnIjoiciZifHNvdWwiLCJmcmQiOiJMVF82IiwiZHN0cjo6aW4iOlsiQUxMIl19LCJtaSI6W1siYXVkaWVuY2Uuc3BvdGlmeS50b3RhbCIseyJtbSI6IiJ9XV19",
+  #  "baltic-country": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiRlIiLCJmdHNnIjoibWV0YWwiLCJmcmQiOiJMVF82In0sIm1pIjpbWyJhdWRpZW5jZS5zcG90aWZ5LnRvdGFsIix7Im1tIjoiIn1dXX0%3D",
+    "baltic-metal": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiUEwiLCJmdHNnIjoibWV0YWwiLCJmcmQiOiJMVF82IiwiZHN0cjo6aW4iOlsiQUxMIl0sImZhcmciOiJtZXRhbCJ9LCJtaSI6W1siYXVkaWVuY2Uuc3BvdGlmeS50b3RhbCIseyJtbSI6IiJ9XV19",
+    "baltic-dance-electronic": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiUEwiLCJmdHNnIjoiZWxlY3Ryb3xlZG0iLCJmcmQiOiJMVF82IiwiZHN0cjo6aW4iOlsiQUxMIl0sImZhcmciOiJlbGVjdHJvfGVkbSJ9LCJtaSI6W1siYXVkaWVuY2Uuc3BvdGlmeS50b3RhbCIseyJtbSI6IiJ9XV19",
+}
+
+BALTIC_CHART_PRESET_GENRES = {
+    "baltic-pop": "pop",
+    "baltic-hip-hop": "hip-hop",
+    "baltic-rock": "rock",
+    "baltic-rb-soul": "rb-soul",
+   # "baltic-country": "metal",
+    "baltic-metal": "metal",
+    "baltic-dance-electronic": "dance-electronic",
+
+}
+BALKAN_CHART_PRESET_URLS = {
+    "balkan-pop": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiUEwiLCJmdHNnIjoicG9wIiwiZnJkIjoiTFRfNiIsImRzdHI6OmluIjpbIkFMTCJdLCJmYXJnIjoicG9wIn0sIm1pIjpbWyJhdWRpZW5jZS5zcG90aWZ5LnRvdGFsIix7Im1tIjoiIn1dXX0%3D",
+    "balkan-hip-hop": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiUEwiLCJmdHNnIjoiaGlwIGhvcCIsImZyZCI6IkxUXzYiLCJkc3RyOjppbiI6WyJBTEwiXSwiZmFyZyI6ImhpcCBob3AifSwibWkiOltbImF1ZGllbmNlLnNwb3RpZnkudG90YWwiLHsibW0iOiIifV1dfQ%3D%3D",
+    "balkan-rock": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiUEwiLCJmdHNnIjoicm9jayIsImZyZCI6IkxUXzYiLCJkc3RyOjppbiI6WyJBTEwiXSwiZmFyZyI6InJvY2sifSwibWkiOltbImF1ZGllbmNlLnNwb3RpZnkudG90YWwiLHsibW0iOiIifV1dfQ%3D%3D",
+    "balkan-rb-soul": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiUEwiLCJmdHNnIjoiciZifHNvdWwiLCJmcmQiOiJMVF82IiwiZHN0cjo6aW4iOlsiQUxMIl19LCJtaSI6W1siYXVkaWVuY2Uuc3BvdGlmeS50b3RhbCIseyJtbSI6IiJ9XV19",
+  #  "balkan-country": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiRlIiLCJmdHNnIjoibWV0YWwiLCJmcmQiOiJMVF82In0sIm1pIjpbWyJhdWRpZW5jZS5zcG90aWZ5LnRvdGFsIix7Im1tIjoiIn1dXX0%3D",
+    "balkan-metal": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiUEwiLCJmdHNnIjoibWV0YWwiLCJmcmQiOiJMVF82IiwiZHN0cjo6aW4iOlsiQUxMIl0sImZhcmciOiJtZXRhbCJ9LCJtaSI6W1siYXVkaWVuY2Uuc3BvdGlmeS50b3RhbCIseyJtbSI6IiJ9XV19",
+    "balkan-dance-electronic": "https://app.soundcharts.com/app/market/tracks?filters=eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7ImZjIjoiQkF8SFJ8Qkd8TUt8UlN8U0l8TUUiLCJmdHNnIjoiZWRtfGVsZWN0cm8iLCJmcmQiOiJMVF82IiwiZmFyZyI6ImVkbXxlbGVjdHJvIn0sIm1pIjpbWyJhdWRpZW5jZS5zcG90aWZ5LnRvdGFsIix7Im1tIjoiIn1dXX0%3D",
+}
+
+BALKAN_CHART_PRESET_GENRES = {
+    "balkan-pop": "pop",
+    "balkan-hip-hop": "hip-hop",
+    "balkan-rock": "rock",
+    "balkan-rb-soul": "rb-soul",
+   # "balkan-country": "metal",
+    "balkan-metal": "metal",
+    "balkan-dance-electronic": "dance-electronic",
+
+}
 class ScraperError(RuntimeError):
     """Raised when the local chart capture cannot continue safely."""
 
@@ -694,57 +754,121 @@ def _http_json_request(
 
 
 
+YOUTUBE_FALLBACK_QUERY_LIMIT = 4
+YOUTUBE_SEARCH_RESULT_LIMIT = 10
+YOUTUBE_SEARCH_TIMEOUT_SECONDS = 20
+YOUTUBE_MIN_MATCH_SCORE = 2
+
+
+def _youtube_search_queries(artist_name: str, title: str) -> list[str]:
+    """Build a bounded set of public-search queries for noisy chart metadata."""
+    artist = re.sub(r"\s+", " ", artist_name).strip()
+    track = re.sub(r"\s+", " ", title).strip()
+    candidates = (
+        f"{artist} {track} official",
+        f"{artist} {track} official audio",
+        f"{artist} {track} official music video",
+        f"{track} {artist}",
+        f"{artist} official",
+    )
+    return list(dict.fromkeys(query for query in candidates if query.strip()))[:YOUTUBE_FALLBACK_QUERY_LIMIT]
+
+
+
+def _youtube_match_score(
+    *,
+    artist_name: str,
+    title: str,
+    video_title: Any,
+    channel: Any,
+) -> int:
+    """Score a candidate without accepting unrelated search results."""
+    artist_tokens = [token for token in re.findall(r"[a-z0-9]+", artist_name.lower()) if len(token) > 2]
+    title_tokens = [token for token in re.findall(r"[a-z0-9]+", title.lower()) if len(token) > 2]
+    haystack = f"{_normalize_label(video_title)} {_normalize_label(channel)}".lower()
+    score = sum(token in haystack for token in artist_tokens)
+    score += sum(token in haystack for token in title_tokens)
+    score += 3 if "official" in haystack else 0
+    score += 2 if "vevo" in haystack or "topic" in haystack else 0
+    score -= 4 if any(word in haystack for word in ("reaction", "karaoke", "cover")) else 0
+    return score
+
+
+
 def _resolve_official_youtube_with_ytdlp(artist_name: str, title: str) -> tuple[str, str]:
-    """Resolve a video through public YouTube search when Data API quota is exhausted."""
+    """Resolve a likely video through bounded public YouTube searches."""
     if yt_dlp is None:
         raise ScraperError(
             "The YouTube Data API quota is exhausted and yt-dlp is not installed. "
             "Install scripts/requirements-ai-scraper.txt."
         )
 
-    query = f"ytsearch10:{artist_name} {title} official"
     options = {
         "quiet": True,
         "no_warnings": True,
         "skip_download": True,
         "extract_flat": "in_playlist",
         "noplaylist": True,
+        "socket_timeout": YOUTUBE_SEARCH_TIMEOUT_SECONDS,
+        "retries": 1,
+        "extractor_retries": 1,
     }
-    try:
-        with yt_dlp.YoutubeDL(options) as downloader:
-            data = downloader.extract_info(query, download=False)
-    except Exception as error:
-        raise ScraperError(f"Public YouTube search failed: {error}") from error
+    best_match: tuple[int, dict[str, Any], str] | None = None
+    failures: list[str] = []
+    queries = _youtube_search_queries(artist_name, title)
 
-    entries = data.get("entries", []) if isinstance(data, dict) else []
-    artist_tokens = [token for token in re.findall(r"[a-z0-9]+", artist_name.lower()) if len(token) > 2]
-    title_tokens = [token for token in re.findall(r"[a-z0-9]+", title.lower()) if len(token) > 2]
-    scored_entries: list[tuple[int, dict[str, Any]]] = []
-    for entry in entries:
-        if not isinstance(entry, dict) or not entry.get("id"):
+    for query_text in queries:
+        query = f"ytsearch{YOUTUBE_SEARCH_RESULT_LIMIT}:{query_text}"
+        try:
+            with yt_dlp.YoutubeDL(options) as downloader:
+                data = downloader.extract_info(query, download=False)
+        except Exception as error:
+            failures.append(f"{query_text}: {str(error)[:160]}")
             continue
-        video_title = _normalize_label(entry.get("title"))
-        channel = _normalize_label(entry.get("channel") or entry.get("uploader"))
-        haystack = f"{video_title} {channel}".lower()
-        score = sum(token in haystack for token in artist_tokens)
-        score += sum(token in haystack for token in title_tokens)
-        score += 3 if "official" in haystack else 0
-        score += 2 if "vevo" in haystack or "topic" in haystack else 0
-        score -= 4 if any(word in haystack for word in ("reaction", "karaoke", "cover")) else 0
-        scored_entries.append((score, entry))
 
-    if not scored_entries:
-        raise ScraperError(f"No public YouTube result found for {artist_name} - {title}.")
+        entries = data.get("entries", []) if isinstance(data, dict) else []
+        for entry in entries:
+            if not isinstance(entry, dict) or not entry.get("id"):
+                continue
+            score = _youtube_match_score(
+                artist_name=artist_name,
+                title=title,
+                video_title=entry.get("title"),
+                channel=entry.get("channel") or entry.get("uploader"),
+            )
+            if score < YOUTUBE_MIN_MATCH_SCORE:
+                continue
+            if best_match is None or score > best_match[0]:
+                best_match = (score, entry, query_text)
 
-    _, selected = max(scored_entries, key=lambda item: item[0])
+        if best_match is not None and best_match[0] >= 5:
+            break
+
+    if best_match is None:
+        detail = failures[-1] if failures else "all query variants returned no relevant video"
+        raise ScraperError(
+            f"No public YouTube result found for {artist_name} - {title} ({detail})."
+        )
+
+    score, selected, query_text = best_match
     video_id = str(selected["id"])
-    thumbnail = (
-        selected.get("thumbnail")
-        or (selected.get("thumbnails") or [{}])[-1].get("url")
-        or f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
+    thumbnails = selected.get("thumbnails")
+    thumbnail = selected.get("thumbnail")
+    if not thumbnail and isinstance(thumbnails, list):
+        thumbnail = next(
+            (
+                item.get("url")
+                for item in reversed(thumbnails)
+                if isinstance(item, dict) and item.get("url")
+            ),
+            None,
+        )
+    thumbnail = thumbnail or f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
+    print(
+        f"[AI Agent] YouTube public-search fallback used: {artist_name} - {title} "
+        f"(score={score}, query={query_text!r})"
     )
-    print(f"[AI Agent] YouTube public-search fallback used: {artist_name} - {title}")
-    return video_id, thumbnail
+    return video_id, str(thumbnail)
 
 
 
@@ -782,27 +906,26 @@ def resolve_official_youtube(
     items = data.get("items", []) if isinstance(data, dict) else []
     if not items:
         return _resolve_official_youtube_with_ytdlp(artist_name, title)
-    if not items:
-        raise ScraperError(f"No YouTube result found for {artist_name} - {title}.")
 
-    artist_tokens = [token for token in re.findall(r"[a-z0-9]+", artist_name.lower()) if len(token) > 2]
-    title_tokens = [token for token in re.findall(r"[a-z0-9]+", title.lower()) if len(token) > 2]
     scored_items: list[tuple[int, dict[str, Any]]] = []
     for item in items:
         item_id = item.get("id", {}).get("videoId")
         snippet = item.get("snippet", {})
-        video_title = _normalize_label(snippet.get("title"))
-        haystack = f"{video_title} {_normalize_label(snippet.get('channelTitle'))}".lower()
-        score = sum(token in haystack for token in artist_tokens)
-        score += sum(token in haystack for token in title_tokens)
-        score += 3 if "official" in haystack else 0
-        score += 2 if "vevo" in haystack or "topic" in haystack else 0
-        score -= 4 if any(word in haystack for word in ("reaction", "karaoke", "cover")) else 0
-        if item_id:
+        score = _youtube_match_score(
+            artist_name=artist_name,
+            title=title,
+            video_title=snippet.get("title"),
+            channel=snippet.get("channelTitle"),
+        )
+        if item_id and score >= YOUTUBE_MIN_MATCH_SCORE:
             scored_items.append((score, item))
 
     if not scored_items:
-        raise ScraperError(f"YouTube returned no valid video ID for {artist_name} - {title}.")
+        print(
+            f"[AI Agent] YouTube API returned no relevant result for {artist_name} - {title}; "
+            "trying public-search fallback."
+        )
+        return _resolve_official_youtube_with_ytdlp(artist_name, title)
 
     _, selected = max(scored_items, key=lambda item: item[0])
     video_id = selected["id"]["videoId"]
@@ -890,7 +1013,7 @@ def validate_uploaded_chart_records(
 
 
 def enrich_song_records_with_youtube(records: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Resolve embeds sequentially to avoid exhausting the YouTube API quota."""
+    """Resolve embeds while retaining unresolved ranked rows for diagnostics."""
     enriched: list[dict[str, Any]] = []
     for record in records:
         try:
@@ -899,7 +1022,20 @@ def enrich_song_records_with_youtube(records: Sequence[dict[str, Any]]) -> list[
                 record["title"],
             )
         except ScraperError as error:
-            print(f"[AI Agent] Skipping {record['artist_name']} - {record['title']}: {error}", file=sys.stderr)
+            print(
+                f"[AI Agent] YouTube unresolved for {record['artist_name']} - "
+                f"{record['title']}: {error}",
+                file=sys.stderr,
+            )
+            enriched.append(
+                {
+                    **record,
+                    "youtube_id": "",
+                    "youtube_embed_url": None,
+                    "youtube_resolution": "unresolved",
+                    "youtube_error": str(error),
+                }
+            )
             continue
 
         enriched.append(
@@ -908,6 +1044,7 @@ def enrich_song_records_with_youtube(records: Sequence[dict[str, Any]]) -> list[
                 "youtube_id": video_id,
                 "slika_url": record.get("slika_url") or thumbnail,
                 "youtube_embed_url": f"https://www.youtube.com/embed/{video_id}",
+                "youtube_resolution": "resolved",
             }
         )
         print(f"[AI Agent] YouTube embed found: {record['artist_name']} - {record['title']}")
@@ -1379,8 +1516,6 @@ def fetch_chartmetric_data(
     country_options = _artist_country_options(normalized_region, country)
     if upload and not resolve_youtube:
         raise ScraperError("Upload requires official YouTube resolution; remove --no-youtube.")
-    if resolve_youtube and not os.getenv("YOUTUBE_API_KEY", "").strip():
-        raise ScraperError("YOUTUBE_API_KEY is required to resolve official embeds.")
 
     config = config or ScraperConfig()
     client = create_openai_client()
@@ -1461,31 +1596,37 @@ def fetch_chartmetric_data(
 
     uploaded = 0
     pruned_stale_rows = 0
-    if upload:
-        validate_uploaded_chart_records(chart_records, target_rows=target_rows)
-        uploaded = upsert_songs_to_supabase(chart_records, year=(today or date.today()).year)
-        if replace_chart:
-            pruned_stale_rows = prune_stale_chart_rows(chart_records)
-
     soundcharts_filters = decode_soundcharts_filters(chart_url)
     result_path = output_path / "chart-data.json"
-    result_path.write_text(
-        json.dumps(
-            {
-                "region": normalized_region,
-                "filter_interaction": "applied_by_scraper" if apply_filters else "skipped_existing_url_filters",
-                "filters": soundcharts_filters,
-                "source_url": chart_url,
-                "captured_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                "rows": chart_records,
-                "uploaded_to_supabase": uploaded,
-                "pruned_stale_rows": pruned_stale_rows,
-            },
-            ensure_ascii=False,
-            indent=2,
-        ),
-        encoding="utf-8",
-    )
+    artifact = {
+        "region": normalized_region,
+        "filter_interaction": "applied_by_scraper" if apply_filters else "skipped_existing_url_filters",
+        "filters": soundcharts_filters,
+        "source_url": chart_url,
+        "captured_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "rows": chart_records,
+        "uploaded_to_supabase": uploaded,
+        "pruned_stale_rows": pruned_stale_rows,
+    }
+
+    def write_artifact() -> None:
+        artifact["uploaded_to_supabase"] = uploaded
+        artifact["pruned_stale_rows"] = pruned_stale_rows
+        result_path.write_text(
+            json.dumps(artifact, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+    try:
+        if upload:
+            validate_uploaded_chart_records(chart_records, target_rows=target_rows)
+            uploaded = upsert_songs_to_supabase(chart_records, year=(today or date.today()).year)
+            if replace_chart:
+                pruned_stale_rows = prune_stale_chart_rows(chart_records)
+    finally:
+        # Keep the full ranked capture available even when strict upload validation fails.
+        write_artifact()
+
     print(
         f"[AI Agent] Extracted {len(chart_records)} chart rows -> {result_path} "
         f"(uploaded: {uploaded})"
