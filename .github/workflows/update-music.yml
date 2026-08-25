@@ -69,17 +69,20 @@ jobs:
             throw 'Chrome was not found on the self-hosted runner.'
           }
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+      - name: Validate runner Python
+        shell: pwsh
+        run: |
+          python --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pip --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Install AI scraper dependencies
         shell: pwsh
         run: |
-          python -m pip install --upgrade pip
+          python -m pip install --user --upgrade pip
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -m pip install -r scripts/requirements-ai-scraper.txt
+          python -m pip install --user -r scripts/requirements-ai-scraper.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Validate interactive desktop
