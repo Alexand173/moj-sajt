@@ -95,6 +95,23 @@ class AiScraperFallbackTests(unittest.TestCase):
         self.assertEqual(video_id, "fallback-video")
         self.assertEqual(len(FakeYoutubeDL.calls), 1)
 
+    def test_numbered_placeholder_titles_require_the_exact_track_pair(self) -> None:
+        wrong_score = scraper._youtube_match_score(
+            artist_name="Die Toten Hosen",
+            title="Track 2-9",
+            video_title="Die Toten Hosen - Track 2-5 (Official Audio)",
+            channel="Die Toten Hosen",
+        )
+        right_score = scraper._youtube_match_score(
+            artist_name="Die Toten Hosen",
+            title="Track 2-9",
+            video_title="Die Toten Hosen - Track 2-9 (Official Audio)",
+            channel="Die Toten Hosen",
+        )
+
+        self.assertLess(wrong_score, scraper.YOUTUBE_MIN_MATCH_SCORE)
+        self.assertGreaterEqual(right_score, scraper.YOUTUBE_MIN_MATCH_SCORE)
+
     def test_unresolved_rows_are_retained_but_upload_validation_rejects_them(self) -> None:
         def resolve(artist_name: str, title: str) -> tuple[str, str]:
             if title == "Missing Track":

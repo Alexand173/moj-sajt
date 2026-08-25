@@ -785,6 +785,18 @@ def _youtube_match_score(
     """Score a candidate without accepting unrelated search results."""
     artist_tokens = [token for token in re.findall(r"[a-z0-9]+", artist_name.lower()) if len(token) > 2]
     title_tokens = [token for token in re.findall(r"[a-z0-9]+", title.lower()) if len(token) > 2]
+    normalized_title = re.sub(r"[^a-z0-9]+", " ", title.lower()).strip()
+    normalized_video_title = re.sub(
+        r"[^a-z0-9]+",
+        " ",
+        _normalize_label(video_title).lower(),
+    ).strip()
+    requested_track = re.search(r"\btrack\s+(\d+)\s+(\d+)\b", normalized_title)
+    if requested_track:
+        candidate_track = re.search(r"\btrack\s+(\d+)\s+(\d+)\b", normalized_video_title)
+        if not candidate_track or candidate_track.groups() != requested_track.groups():
+            return -100
+
     haystack = f"{_normalize_label(video_title)} {_normalize_label(channel)}".lower()
     score = sum(token in haystack for token in artist_tokens)
     score += sum(token in haystack for token in title_tokens)
