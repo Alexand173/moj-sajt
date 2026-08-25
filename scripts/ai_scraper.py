@@ -840,6 +840,55 @@ def deduplicate_chart_records(records: Sequence[dict[str, Any]]) -> list[dict[st
 
 
 
+def validate_uploaded_chart_records(
+    records: Sequence[dict[str, Any]],
+    *,
+    target_rows: int,
+) -> None:
+    """Refuse to write a partial chart to Supabase."""
+    if target_rows < 1:
+        raise ScraperError("target_rows must be greater than zero.")
+
+    expected_ranks = set(range(1, target_rows + 1))
+    ranks: list[int] = []
+    rank_counts: dict[int, int] = {}
+    invalid_ranks: list[int] = []
+    rows_without_youtube = 0
+
+    for record in records:
+        try:
+            rank = int(record.get("rank"))
+        except (TypeError, ValueError):
+            invalid_ranks.append(-1)
+            continue
+
+        ranks.append(rank)
+        rank_counts[rank] = rank_counts.get(rank, 0) + 1
+        if rank not in expected_ranks:
+            invalid_ranks.append(rank)
+        if not str(record.get("youtube_id") or "").strip():
+            rows_without_youtube += 1
+
+    missing_ranks = sorted(expected_ranks - set(ranks))
+    duplicate_ranks = sorted(rank for rank, count in rank_counts.items() if count > 1)
+    invalid_ranks = sorted(set(invalid_ranks))
+
+    if (
+        len(records) != target_rows
+        or missing_ranks
+        or duplicate_ranks
+        or invalid_ranks
+        or rows_without_youtube
+    ):
+        raise ScraperError(
+            "Refusing Supabase upload for incomplete chart: "
+            f"expected {target_rows} rows, got {len(records)}; "
+            f"missing ranks={missing_ranks}, duplicate ranks={duplicate_ranks}, "
+            f"invalid ranks={invalid_ranks}, rows without YouTube ID={rows_without_youtube}."
+        )
+
+
+
 def enrich_song_records_with_youtube(records: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
     """Resolve embeds sequentially to avoid exhausting the YouTube API quota."""
     enriched: list[dict[str, Any]] = []
@@ -923,6 +972,80 @@ def upsert_songs_to_supabase(
         uploaded += len(chunk)
         print(f"[AI Agent] Supabase songs upserted: {uploaded}/{len(payloads)}")
     return uploaded
+
+
+
+def prune_stale_chart_rows(records: Sequence[dict[str, Any]]) -> int:
+    """Remove rows that fell out of one successfully captured chart partition."""
+    if not records:
+        raise ScraperError("Cannot prune a chart partition without records.")
+
+    region = _normalize_label(records[0].get("region")).upper()
+    try:
+        genre_id = int(records[0].get("genre_id"))
+    except (TypeError, ValueError) as error:
+        raise ScraperError("Cannot prune a chart partition without a genre ID.") from error
+
+    expected_keys = {
+        (
+            _normalize_label(record.get("title")).casefold(),
+            _normalize_label(record.get("artist_name")).casefold(),
+        )
+        for record in records
+    }
+    if any(
+        _normalize_label(record.get("region")).upper() != region
+        or int(record.get("genre_id")) != genre_id
+        for record in records
+    ):
+        raise ScraperError("Cannot prune a mixed region or genre chart partition.")
+
+    supabase_url = (os.getenv("SUPABASE_URL") or os.getenv("NEXT_PUBLIC_SUPABASE_URL") or "").strip().rstrip("/")
+    service_role_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+    if not supabase_url or not service_role_key:
+        raise ScraperError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required for pruning.")
+
+    headers = {
+        "apikey": service_role_key,
+        "Authorization": f"Bearer {service_role_key}",
+        "Prefer": "return=minimal",
+    }
+    select_query = urlencode({
+        "select": "id,title,artist_name",
+        "region": f"eq.{region}",
+        "genre_id": f"eq.{genre_id}",
+        "limit": "1000",
+    })
+    existing = _http_json_request(
+        f"{supabase_url}/rest/v1/songs?{select_query}",
+        headers=headers,
+        timeout=45,
+    )
+    if not isinstance(existing, list):
+        raise ScraperError("Supabase returned an invalid chart partition while pruning.")
+
+    stale_ids = [
+        row.get("id")
+        for row in existing
+        if isinstance(row, dict)
+        and (
+            _normalize_label(row.get("title")).casefold(),
+            _normalize_label(row.get("artist_name")).casefold(),
+        ) not in expected_keys
+        and row.get("id")
+    ]
+    for stale_id in stale_ids:
+        delete_query = urlencode({"id": f"eq.{stale_id}"})
+        _http_json_request(
+            f"{supabase_url}/rest/v1/songs?{delete_query}",
+            method="DELETE",
+            headers=headers,
+            timeout=45,
+        )
+
+    if stale_ids:
+        print(f"[AI Agent] Removed {len(stale_ids)} stale rows from {region} genre_id={genre_id}.")
+    return len(stale_ids)
 
 
 
@@ -1229,6 +1352,7 @@ def fetch_chartmetric_data(
     today: date | None = None,
     resolve_youtube: bool = True,
     upload: bool = False,
+    replace_chart: bool = False,
     apply_filters: bool = False,
     force_default_genre: bool = False,
 ) -> list[dict[str, Any]]:
@@ -1336,8 +1460,12 @@ def fetch_chartmetric_data(
         chart_records = enrich_song_records_with_youtube(chart_records)
 
     uploaded = 0
+    pruned_stale_rows = 0
     if upload:
+        validate_uploaded_chart_records(chart_records, target_rows=target_rows)
         uploaded = upsert_songs_to_supabase(chart_records, year=(today or date.today()).year)
+        if replace_chart:
+            pruned_stale_rows = prune_stale_chart_rows(chart_records)
 
     soundcharts_filters = decode_soundcharts_filters(chart_url)
     result_path = output_path / "chart-data.json"
@@ -1351,6 +1479,7 @@ def fetch_chartmetric_data(
                 "captured_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                 "rows": chart_records,
                 "uploaded_to_supabase": uploaded,
+                "pruned_stale_rows": pruned_stale_rows,
             },
             ensure_ascii=False,
             indent=2,
@@ -1383,6 +1512,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--chart-url", help="Chart page URL; overrides the default Pop URL")
     parser.add_argument("--output-dir", help="Directory for screenshots and chart-data.json")
     parser.add_argument("--upload", action="store_true", help="Upsert resolved rows into Supabase songs")
+    parser.add_argument(
+        "--replace-chart",
+        action="store_true",
+        help="After a complete upload, remove rows that fell out of this region/genre chart",
+    )
     parser.add_argument(
         "--apply-filters",
         action="store_true",
@@ -1427,6 +1561,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             output_dir=args.output_dir,
             resolve_youtube=not args.no_youtube,
             upload=args.upload,
+            replace_chart=args.replace_chart,
             apply_filters=args.apply_filters,
             force_default_genre=bool(args.preset),
             config=ScraperConfig(
