@@ -34,7 +34,7 @@ jobs:
       AI_SCRAPER_MAX_ROWS: 50
       AI_SCRAPER_WAIT_SECONDS: 15
       AI_SCRAPER_ATTEMPTS: 2
-      AI_SCRAPER_OUTPUT_ROOT: ${{ runner.temp }}\musictop-ai-scraper\${{ github.run_id }}
+      AI_SCRAPER_OUTPUT_ROOT: ${{ github.workspace }}\.tmp\musictop-ai-scraper\${{ github.run_id }}
 
     steps:
       - name: Checkout repository
@@ -94,8 +94,8 @@ jobs:
         with:
           name: weekly-ai-music-chart-update-${{ github.run_id }}
           path: |
-            ${{ runner.temp }}/musictop-ai-scraper/${{ github.run_id }}/run-summary.json
-            ${{ runner.temp }}/musictop-ai-scraper/${{ github.run_id }}/**/chart-data.json
-            ${{ runner.temp }}/musictop-ai-scraper/${{ github.run_id }}/**/run.log
+            ${{ github.workspace }}/.tmp/musictop-ai-scraper/${{ github.run_id }}/run-summary.json
+            ${{ github.workspace }}/.tmp/musictop-ai-scraper/${{ github.run_id }}/**/chart-data.json
+            ${{ github.workspace }}/.tmp/musictop-ai-scraper/${{ github.run_id }}/**/run.log
           if-no-files-found: warn
           retention-days: 14
