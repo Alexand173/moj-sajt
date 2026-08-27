@@ -2,6 +2,8 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { CalendarDays, MapPin } from 'lucide-react';
+import StructuredData from '@/components/StructuredData';
+import { createBreadcrumbListSchema, createMusicEventSchema, createVideoObjectSchema } from '@/lib/seo-schema';
 import { getPublicSupabaseClient } from '@/lib/supabase-public';
 
 export async function generateMetadata({
@@ -32,6 +34,8 @@ type FestivalRecord = {
   description: string | null;
   lineup: string[] | null;
   image_url: string[] | null;
+  date_start: string | null;
+  date_end?: string | null;
   video_id: string | null;
   tickets_url: string;
 };
@@ -55,8 +59,39 @@ export default async function FestivalDetailPage({
 
   if (!fest) notFound();
 
+  const pageUrl = `/festivals/${encodeURIComponent(regionName)}/${encodeURIComponent(id)}`;
+  const breadcrumbSchema = createBreadcrumbListSchema([
+    { name: 'Home', url: '/' },
+    { name: `${regionName.toUpperCase()} Festivals`, url: `/festivals/${encodeURIComponent(regionName)}` },
+    { name: fest.name, url: pageUrl },
+  ]);
+  const festivalEventSchema = fest.date_start
+    ? createMusicEventSchema({
+        name: fest.name,
+        description: fest.description,
+        startDate: fest.date_start,
+        endDate: fest.date_end,
+        location: fest.location,
+        url: pageUrl,
+        image: fest.image_url || undefined,
+        lineup: fest.lineup,
+        ticketsUrl: fest.tickets_url,
+      })
+    : null;
+  const festivalVideoSchema = fest.video_id
+    ? createVideoObjectSchema({
+        name: `${fest.name} festival video`,
+        description: fest.description,
+        videoId: fest.video_id,
+        pageUrl,
+      })
+    : null;
+
   return (
     <div className="mt-page mt-page--paper pt-10 pb-20 font-sans">
+      <StructuredData data={breadcrumbSchema} />
+      {festivalEventSchema && <StructuredData data={festivalEventSchema} />}
+      {festivalVideoSchema && <StructuredData data={festivalVideoSchema} />}
       <div className="mt-container">
         <Link href={`/festivals/${regionName}`} className="mb-12 inline-flex items-center gap-2 border-b border-ink pb-2 text-[10px] font-black tracking-[0.25em] text-ink uppercase transition-colors hover:border-accent-red hover:text-accent-red">
           ← Back to {regionName.toUpperCase()} calendar
@@ -77,6 +112,7 @@ export default async function FestivalDetailPage({
                   title={`${fest.name} festival video`}
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   referrerPolicy="strict-origin-when-cross-origin"
+                  loading="lazy"
                   allowFullScreen
                   className="h-full w-full grayscale transition-all duration-700 hover:grayscale-0"
                 />
@@ -101,7 +137,7 @@ export default async function FestivalDetailPage({
               <section>
                 <h2 className="mb-8 text-xs font-black tracking-[0.3em] text-ink uppercase">Festival gallery</h2>
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                  {fest.image_url.map((image, index) => <div key={`${image}-${index}`} className="group aspect-[16/10] overflow-hidden bg-ink"><img src={image} alt={`${fest.name} festival image ${index + 1}`} className="h-full w-full object-cover grayscale transition-all duration-700 group-hover:scale-105 group-hover:grayscale-0" /></div>)}
+                  {fest.image_url.map((image, index) => <div key={`${image}-${index}`} className="group aspect-[16/10] overflow-hidden bg-ink"><img src={image} alt={`${fest.name} festival image ${index + 1}`} loading="lazy" decoding="async" className="h-full w-full object-cover grayscale transition-all duration-700 group-hover:scale-105 group-hover:grayscale-0" /></div>)}
                 </div>
               </section>
             )}

@@ -85,6 +85,7 @@ export default function SongCard({ song, rank, variant = 'standard' }: SongCardP
               title={`${song.title} preview`}
               className="absolute inset-0 h-full w-full scale-125 object-cover"
               allow="autoplay; encrypted-media"
+              loading="lazy"
             />
           </div>
         </div>

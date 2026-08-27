@@ -183,7 +183,7 @@ export default function ConcertsList({ dataZaPrikaz }: ConcertsListProps) {
             {filteredData.map((group) => (
               <article key={group.artist_name} ref={(element) => { concertRefs.current[group.artist_name] = element; }} className="group flex min-w-0 flex-col overflow-hidden border border-line bg-white transition-colors hover:border-ink">
                 <div className="relative h-52 overflow-hidden bg-ink">
-                  {group.image_url && <img src={group.image_url} alt={group.artist_name} onError={(event) => { event.currentTarget.style.display = 'none'; }} className="h-full w-full object-cover grayscale transition-all duration-700 group-hover:scale-105 group-hover:grayscale-0" />}
+                  {group.image_url && <img src={group.image_url} alt={group.artist_name} loading="lazy" decoding="async" onError={(event) => { event.currentTarget.style.display = 'none'; }} className="h-full w-full object-cover grayscale transition-all duration-700 group-hover:scale-105 group-hover:grayscale-0" />}
                   <div className="mt-image-overlay absolute inset-0" />
                   <div className="absolute inset-x-0 bottom-0 p-5"><p className="mt-meta text-white/60">Official tour</p><h3 className="mt-1.5 line-clamp-2 text-2xl font-black leading-[0.95] tracking-[-0.04em] text-white">{group.artist_name}</h3></div>
                   <span className="absolute right-4 top-4 bg-accent-red px-2.5 py-1 text-[9px] font-black tracking-[0.12em] text-white uppercase">{group.events.length} dates</span>

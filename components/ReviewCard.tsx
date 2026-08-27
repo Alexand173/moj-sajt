@@ -27,7 +27,7 @@ function CardContent({ review, featured }: ReviewCardProps) {
     <>
       {review.image && (
         <div className={`relative overflow-hidden bg-ink ${featured ? 'h-72 sm:h-96' : 'h-52'}`}>
-          <img src={review.image} alt={review.title} className="h-full w-full object-cover grayscale transition-all duration-700 group-hover:scale-105 group-hover:grayscale-0" />
+          <img src={review.image} alt={review.title} loading={featured ? 'eager' : 'lazy'} fetchPriority={featured ? 'high' : 'auto'} decoding="async" className="h-full w-full object-cover grayscale transition-all duration-700 group-hover:scale-105 group-hover:grayscale-0" />
           <div className="mt-image-overlay absolute inset-0" />
           <div className="absolute left-4 top-4 flex items-center gap-2"><span className="bg-white px-2.5 py-1 text-[9px] font-black tracking-[0.2em] text-ink uppercase">{review.category || 'Official'}</span><span className="inline-flex items-center gap-1 bg-ink/80 px-2.5 py-1 text-[9px] font-black tracking-widest text-white"><Star aria-hidden="true" className="size-2.5 fill-accent-red text-accent-red" />{featured ? '4.5' : 'Latest'}</span></div>
         </div>

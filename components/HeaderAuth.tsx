@@ -117,7 +117,7 @@ export default function HeaderAuth() {
     return (
       <div className="flex items-center gap-2">
         <div className="hidden items-center gap-1.5 sm:flex">
-          <img src={avatar} alt={`${displayName} avatar`} className="size-5 rounded-full border border-white/25 object-cover" />
+          <img src={avatar} alt={`${displayName} avatar`} loading="eager" decoding="async" className="size-5 rounded-full border border-white/25 object-cover" />
           <span className="max-w-24 truncate text-[9px] font-black tracking-[0.12em] text-white/60">@{displayName}</span>
         </div>
         <button

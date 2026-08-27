@@ -49,6 +49,8 @@ export default function AlbumGallery({ images, albumName }: AlbumGalleryProps) {
             <img 
               src={url} 
               alt={`${albumName} - slika ${idx + 1}`} 
+              loading="lazy"
+              decoding="async"
               className="w-full h-full object-cover group-hover:brightness-110 transition-all"
             />
           </div>
@@ -87,6 +89,8 @@ export default function AlbumGallery({ images, albumName }: AlbumGalleryProps) {
             <img 
               src={images[activeIdx]} 
               alt="Full size" 
+              loading="eager"
+              decoding="async"
               className="max-w-full max-h-[80vh] object-contain border-4 border-white rounded-3xl shadow-[0_0_50px_0_rgba(147,51,234,0.3)]"
             />
             

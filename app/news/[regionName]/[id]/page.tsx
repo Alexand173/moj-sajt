@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import StructuredData from '@/components/StructuredData';
 import { getNewsSourceName } from '@/lib/ai-news';
+import { createBreadcrumbListSchema } from '@/lib/seo-schema';
 import { getPublicSupabaseClient } from '@/lib/supabase-public';
 
 export const revalidate = 0;
@@ -22,6 +23,16 @@ interface NewsArticleRecord {
   ai_similarity_score: number | null;
   ai_generated: boolean | null;
   ai_status: string | null;
+}
+
+const MIN_INDEXABLE_ARTICLE_WORDS = 200;
+
+function countWords(value: string): number {
+  return value.trim() ? value.trim().split(/\s+/).length : 0;
+}
+
+function hasValidatedAiContent(article: Pick<NewsArticleRecord, 'ai_content' | 'ai_generated' | 'ai_status'>): boolean {
+  return article.ai_generated === true && article.ai_status === 'generated' && countWords(article.ai_content?.trim() || '') >= MIN_INDEXABLE_ARTICLE_WORDS;
 }
 
 function getSafeSourceUrl(value: string | null | undefined): string | null {
@@ -78,6 +89,7 @@ export async function generateMetadata({
   const description = `Source-attributed MusicTop reporting based on reporting by ${sourceName}. ${article.excerpt || 'Read the source-attributed music news report.'}`.slice(0, 180);
   const imageUrl = getSafeSourceUrl(article.image);
   const sourceUrl = getSafeSourceUrl(resolvedSource.sourceUrl);
+  const isIndexable = hasValidatedAiContent(article);
 
   return {
     title: `${article.title} | ${sourceName}`,
@@ -97,6 +109,7 @@ export async function generateMetadata({
       images: imageUrl ? [{ url: imageUrl, alt: article.title }] : undefined,
     },
     twitter: { card: 'summary_large_image', title: article.title, description, images: imageUrl ? [imageUrl] : undefined },
+    robots: isIndexable ? undefined : { index: false, follow: true },
     other: {
       'article:source': sourceName,
       ...(sourceUrl ? { 'article:source_url': sourceUrl } : {}),
@@ -118,22 +131,23 @@ export default async function SingleNewsPage({
   const resolvedSource = await getResolvedSource(article);
   const sourceName = resolvedSource.sourceName;
   const isLatestNews = article.category === 'LATEST';
-  const aiArticle = article.ai_content?.trim()
+  const hasValidatedRewrite = hasValidatedAiContent(article);
+  const aiArticle = hasValidatedRewrite
     ? {
         seoTitle: article.title,
         seoDescription: article.excerpt || 'Read the source-attributed music news report.',
-        articleContent: article.ai_content,
-        isAiGenerated: article.ai_generated === true,
+        articleContent: article.ai_content!.trim(),
+        isAiGenerated: true,
         similarityScore: article.ai_similarity_score || 0,
-        similarityCheckPassed: article.ai_status === 'generated',
+        similarityCheckPassed: true,
         retryCount: 0,
       }
     : {
         seoTitle: article.title,
         seoDescription: isLatestNews ? `MusicTop is reporting on a music story published by ${sourceName}.` : `Official source link from ${sourceName}.`,
-        articleContent: article.content || `Open the original report from ${sourceName}.`,
+        articleContent: `MusicTop could not complete an independent editorial rewrite of this report from ${sourceName}.\n\nThe original publisher's report is available through the source link below. This page does not reproduce that article while the editorial rewrite is unavailable.`,
         isAiGenerated: false,
-        similarityScore: 0,
+        similarityScore: article.ai_similarity_score || 0,
         similarityCheckPassed: false,
         retryCount: 0,
       };
@@ -141,6 +155,11 @@ export default async function SingleNewsPage({
   const articleParagraphs = aiArticle.articleContent.split(/\n\s*\n/).map((paragraph) => paragraph.trim()).filter(Boolean);
   const sourceUrl = getSafeSourceUrl(resolvedSource.sourceUrl);
   const pageUrl = getArticlePageUrl(regionName, id);
+  const breadcrumbSchema = createBreadcrumbListSchema([
+    { name: 'Home', url: '/' },
+    { name: `${regionName.toUpperCase()} News`, url: `/news/${encodeURIComponent(regionName)}` },
+    { name: article.title, url: pageUrl },
+  ]);
   const articleStructuredData = {
     '@context': 'https://schema.org',
     '@type': 'NewsArticle',
@@ -156,11 +175,14 @@ export default async function SingleNewsPage({
     citation: sourceUrl || undefined,
     isBasedOn: sourceUrl || undefined,
     sourceOrganization: { '@type': 'Organization', name: sourceName, ...(sourceUrl ? { url: sourceUrl } : {}) },
+    articleBody: hasValidatedRewrite ? aiArticle.articleContent : undefined,
+    wordCount: hasValidatedRewrite ? countWords(aiArticle.articleContent) : undefined,
   };
 
   return (
     <div className="mt-page mt-page--paper pb-20 pt-10">
-      <StructuredData data={articleStructuredData} />
+      {hasValidatedRewrite && <StructuredData data={articleStructuredData} />}
+      <StructuredData data={breadcrumbSchema} />
       <article className="mt-container">
         <Link href={`/news/${regionName}`} className="mb-12 inline-flex items-center gap-2 border-b border-ink pb-2 text-[10px] font-black tracking-[0.22em] text-ink uppercase transition-colors hover:border-accent-red hover:text-accent-red">← Back to {regionName} news feed</Link>
 
@@ -170,7 +192,7 @@ export default async function SingleNewsPage({
           <p className="mt-6 max-w-2xl text-sm leading-relaxed text-muted sm:text-base">Published {article.created_at ? new Date(article.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'recently'} · {regionName.toUpperCase()}</p>
         </header>
 
-        {article.image && <div className="mt-10 aspect-[16/8] overflow-hidden bg-ink"><img src={article.image} alt={article.title} className="h-full w-full object-cover grayscale transition-all duration-700 hover:grayscale-0" /></div>}
+        {article.image && <div className="mt-10 aspect-[16/8] overflow-hidden bg-ink"><img src={article.image} alt={article.title} loading="eager" fetchPriority="high" decoding="async" className="h-full w-full object-cover grayscale transition-all duration-700 hover:grayscale-0" /></div>}
 
         <div className="mx-auto mt-12 grid max-w-6xl grid-cols-1 gap-12 lg:grid-cols-[minmax(0,1fr)_16rem] lg:gap-16">
           <div>

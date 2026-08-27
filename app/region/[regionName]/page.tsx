@@ -1,4 +1,6 @@
 import RegionalClientContent, { type RegionalSong } from '@/components/RegionalClientContent';
+import StructuredData from '@/components/StructuredData';
+import { createVideoObjectSchema } from '@/lib/seo-schema';
 import { getPublicSupabaseClient } from '@/lib/supabase-public';
 
 export default async function RegionalPage({ params }: { params: Promise<{ regionName: string }> }) {
@@ -23,5 +25,20 @@ export default async function RegionalPage({ params }: { params: Promise<{ regio
     }
   }
 
-  return <RegionalClientContent initialSongs={songs || []} region={region} />;
+  const videoSchemas = (songs || [])
+    .filter((song) => song.youtube_id)
+    .slice(0, 3)
+    .map((song) => createVideoObjectSchema({
+      name: `${song.title} by ${song.artist_name}`,
+      description: `Official music video for ${song.title} by ${song.artist_name}.`,
+      videoId: song.youtube_id!,
+      pageUrl: `/region/${encodeURIComponent(regionName.toLowerCase())}`,
+    }));
+
+  return (
+    <>
+      {videoSchemas.map((schema, index) => <StructuredData key={`video-schema-${index}`} data={schema} />)}
+      <RegionalClientContent initialSongs={songs || []} region={region} />
+    </>
+  );
 }

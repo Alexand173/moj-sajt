@@ -85,6 +85,8 @@ useEffect(() => {
         <img 
           src={avatar} 
           alt="Avatar" 
+          loading="lazy"
+          decoding="async"
           className="w-8 h-8 rounded-full border-2 border-purple-500 object-cover"
         />
         <span className="text-xs font-black tracking-widest text-zinc-400">

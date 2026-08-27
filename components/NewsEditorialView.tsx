@@ -79,7 +79,7 @@ function EditorialHero({ region, article }: { region: string; article?: NewsEdit
   return (
     <section className="relative min-h-[36rem] overflow-hidden border-b-4 border-accent-red bg-ink sm:min-h-[42rem] lg:min-h-[calc(78vh-8rem)]">
       {article.image && (
-        <img src={article.image} alt={article.title || `${region} featured story`} className="absolute inset-0 h-full w-full object-cover grayscale transition-all duration-700 hover:grayscale-0" />
+        <img src={article.image} alt={article.title || `${region} featured story`} loading="eager" fetchPriority="high" decoding="async" className="absolute inset-0 h-full w-full object-cover grayscale transition-all duration-700 hover:grayscale-0" />
       )}
       <div className="mt-image-overlay absolute inset-0" />
       <div className="relative z-10 flex min-h-[36rem] items-end sm:min-h-[42rem] lg:min-h-[calc(78vh-8rem)]">
@@ -172,7 +172,7 @@ function StoryGrid({ region, items }: { region: string; items: NewsEditorialItem
         <div className="grid grid-cols-1 gap-px bg-line sm:grid-cols-2 lg:grid-cols-3">
           {items.slice(0, 6).map((item, index) => (
             <Link key={item.id} href={`/news/${region}/${item.id}`} className={`group relative min-h-[16rem] overflow-hidden bg-ink ${index === 0 ? 'sm:col-span-2 lg:min-h-[24rem]' : index === 3 ? 'sm:col-span-2' : ''}`}>
-              {item.image && <img src={item.image} alt={item.title || 'MusicTop story'} className="absolute inset-0 h-full w-full object-cover grayscale transition-all duration-700 group-hover:scale-105 group-hover:grayscale-0" />}
+              {item.image && <img src={item.image} alt={item.title || 'MusicTop story'} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover grayscale transition-all duration-700 group-hover:scale-105 group-hover:grayscale-0" />}
               <div className="mt-image-overlay absolute inset-0" />
               <div className="relative z-10 flex min-h-[16rem] flex-col justify-end p-5 sm:min-h-[18rem] lg:p-7">
                 <div className="mb-3 flex items-center gap-3">
@@ -210,7 +210,7 @@ function CommunitySidebar({ region, communityPosts, discussions, concertAlbums }
               const author = profile?.first_name || 'Anonymous';
               return (
                 <Link key={post.id} href={`/news/${region}?blogId=${post.id}`} className="group flex gap-3 border-b border-line pb-4">
-                  {post.post_image ? <img src={post.post_image} alt="" className="size-14 shrink-0 object-cover grayscale transition-all group-hover:grayscale-0" /> : <span className="flex size-14 shrink-0 items-center justify-center bg-paper-muted text-xs font-black text-muted">N/A</span>}
+                  {post.post_image ? <img src={post.post_image} alt="" loading="lazy" decoding="async" className="size-14 shrink-0 object-cover grayscale transition-all group-hover:grayscale-0" /> : <span className="flex size-14 shrink-0 items-center justify-center bg-paper-muted text-xs font-black text-muted">N/A</span>}
                   <span className="min-w-0">
                     <span className="block line-clamp-2 text-xs font-black leading-snug text-ink transition-colors group-hover:text-accent-blue">{post.title}</span>
                     <span className="mt-1 block text-[9px] font-bold tracking-[0.12em] text-muted uppercase">@{author}</span>
@@ -242,7 +242,7 @@ function CommunitySidebar({ region, communityPosts, discussions, concertAlbums }
         <div className="grid grid-cols-2 gap-2">
           {concertAlbums.map((album) => (
             <Link key={album.id} href={`/news/${region}?albumId=${album.id}`} className="group aspect-square overflow-hidden bg-paper-muted">
-              {album.images?.[0] ? <img src={album.images[0]} alt={album.album_name || 'Concert album'} className="h-full w-full object-cover grayscale transition-all duration-500 group-hover:scale-105 group-hover:grayscale-0" /> : <span className="flex h-full w-full items-center justify-center text-[9px] font-black tracking-[0.12em] text-muted uppercase">No image</span>}
+              {album.images?.[0] ? <img src={album.images[0]} alt={album.album_name || 'Concert album'} loading="lazy" decoding="async" className="h-full w-full object-cover grayscale transition-all duration-500 group-hover:scale-105 group-hover:grayscale-0" /> : <span className="flex h-full w-full items-center justify-center text-[9px] font-black tracking-[0.12em] text-muted uppercase">No image</span>}
             </Link>
           ))}
         </div>
@@ -281,7 +281,7 @@ export default function NewsEditorialView({
             <p className="mt-kicker">Reader&apos;s blog</p>
             <h1 className="mt-5 text-3xl font-black tracking-[-0.06em] text-ink uppercase sm:text-5xl">{activeBlog.title}</h1>
             <div className="mt-7 flex flex-col gap-6 sm:flex-row">
-              {activeBlog.post_image && <img src={activeBlog.post_image} alt={activeBlog.title || 'Reader post'} className="size-32 object-cover grayscale" />}
+              {activeBlog.post_image && <img src={activeBlog.post_image} alt={activeBlog.title || 'Reader post'} loading="lazy" decoding="async" className="size-32 object-cover grayscale" />}
               <p className="max-w-2xl whitespace-pre-line text-base leading-relaxed text-muted">{activeBlog.content}</p>
             </div>
           </section>
