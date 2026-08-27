@@ -1,9 +1,12 @@
+const DEFAULT_SITE_ORIGIN = 'https://musictop.net';
+
 export const getOAuthRedirect = () => {
-  // Keep local OAuth on the exact dev host and port. Production keeps the
-  // existing www callback that must be allow-listed in Supabase Auth.
-  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-    return `${window.location.origin}/auth/callback`;
+  if (typeof window === 'undefined') {
+    return `${DEFAULT_SITE_ORIGIN}/auth/callback`;
   }
 
-  return 'https://www.musictop.net/auth/callback';
+  // Keep the callback on the exact origin the user is currently visiting.
+  // This avoids losing the authorization code when www.musictop.net is
+  // canonicalized to musictop.net before the callback can exchange it.
+  return `${window.location.origin}/auth/callback`;
 };

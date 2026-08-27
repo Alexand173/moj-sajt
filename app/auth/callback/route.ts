@@ -8,12 +8,19 @@ export const runtime = 'nodejs';
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get('code');
-  const redirectUrl = new URL('/', requestUrl.origin);
+  const providerError = requestUrl.searchParams.get('error');
+  const providerErrorDescription = requestUrl.searchParams.get('error_description');
 
-  if (!code) {
-    return NextResponse.redirect(redirectUrl);
+  if (providerError || !code) {
+    const loginUrl = new URL('/login', requestUrl.origin);
+    loginUrl.searchParams.set(
+      'error',
+      providerErrorDescription || providerError || 'OAuth sign-in did not return an authorization code.',
+    );
+    return NextResponse.redirect(loginUrl);
   }
 
+  const redirectUrl = new URL('/', requestUrl.origin);
   const response = NextResponse.redirect(redirectUrl);
 
   try {

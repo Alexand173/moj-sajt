@@ -1,42 +1,59 @@
 'use client';
 
-import { useState } from 'react';
-import { supabase } from '@/lib/supabase'; // Uvozimo tvoj supabase klijent
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
 import { getOAuthRedirect } from '@/lib/oauth';
 import { syncCurrentUserProfile } from '@/lib/profile-sync-client';
 
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
+type SocialProvider = 'google' | 'facebook' | 'custom:instagram' | 'custom:tiktok';
+
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [socialProvider, setSocialProvider] = useState<SocialProvider | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const router = useRouter();
 
+  useEffect(() => {
+    const oauthError = new URLSearchParams(window.location.search).get('error');
+    if (oauthError) setErrorMsg(`ERROR: ${oauthError.toUpperCase()}`);
+  }, []);
+
   // Social login is completed by /auth/callback, where the profile is
   // synchronized server-side before the user is redirected home.
-  const handleSocialLogin = async (providerName: 'google' | 'facebook' | 'custom:instagram' | 'custom:tiktok') => {
+  const handleSocialLogin = async (providerName: SocialProvider) => {
+    if (socialProvider) return;
+
+    setSocialProvider(providerName);
     setErrorMsg('');
 
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: providerName,
-      options: {
-        redirectTo: getOAuthRedirect(),
-        queryParams: providerName === 'google' ? {
-          access_type: 'offline',
-          prompt: 'consent',
-        } : undefined,
-      },
-    });
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: providerName,
+        options: {
+          redirectTo: getOAuthRedirect(),
+          queryParams: providerName === 'google' ? {
+            access_type: 'offline',
+            prompt: 'consent',
+          } : undefined,
+        },
+      });
 
-    if (error) {
-      setErrorMsg(`ERROR: ${error.message.toUpperCase()}`);
+      if (error) {
+        setErrorMsg(`ERROR: ${error.message.toUpperCase()}`);
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Social sign-in could not be started.';
+      setErrorMsg(`ERROR: ${message.toUpperCase()}`);
+    } finally {
+      setSocialProvider(null);
     }
   };
 
-  // Tvoja funkcija za ručni login sa emailom i lozinkom
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -69,51 +86,56 @@ export default function LoginPage() {
         </h2>
 
         {errorMsg && (
-          <div className="p-3 border-2 border-red-500 bg-red-950/50 text-red-300 text-xs font-bold mb-6 normal-case">
+          <div role="alert" className="p-3 border-2 border-red-500 bg-red-950/50 text-red-300 text-xs font-bold mb-6 normal-case">
             {errorMsg}
           </div>
         )}
 
-        {/* --- NOVO: SEKCIJA ZA BRZU PRIJAVU (GOOGLE & FACEBOOK) --- */}
         <div className="grid grid-cols-2 gap-3 mb-6">
           <button
             onClick={() => handleSocialLogin('google')}
+            disabled={loading || socialProvider !== null}
+            aria-busy={socialProvider === 'google'}
             type="button"
-            className="py-2.5 border-2 border-zinc-800 bg-zinc-900 hover:border-white hover:bg-zinc-800 transition text-xs font-bold tracking-tight text-center text-white cursor-pointer"
+            className="py-2.5 border-2 border-zinc-800 bg-zinc-900 hover:border-white hover:bg-zinc-800 transition text-xs font-bold tracking-tight text-center text-white cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            GOOGLE
+            {socialProvider === 'google' ? 'OPENING...' : 'GOOGLE'}
           </button>
           <button
             onClick={() => handleSocialLogin('facebook')}
+            disabled={loading || socialProvider !== null}
+            aria-busy={socialProvider === 'facebook'}
             type="button"
-            className="py-2.5 border-2 border-zinc-800 bg-zinc-900 hover:border-white hover:bg-zinc-800 transition text-xs font-bold tracking-tight text-center text-white cursor-pointer"
+            className="py-2.5 border-2 border-zinc-800 bg-zinc-900 hover:border-white hover:bg-zinc-800 transition text-xs font-bold tracking-tight text-center text-white cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            FACEBOOK
+            {socialProvider === 'facebook' ? 'OPENING...' : 'FACEBOOK'}
           </button>
           <button
             onClick={() => handleSocialLogin('custom:instagram')}
+            disabled={loading || socialProvider !== null}
+            aria-busy={socialProvider === 'custom:instagram'}
             type="button"
-            className="py-2.5 border-2 border-zinc-800 bg-zinc-900 hover:border-white hover:bg-zinc-800 transition text-xs font-bold tracking-tight text-center text-white cursor-pointer"
+            className="py-2.5 border-2 border-zinc-800 bg-zinc-900 hover:border-white hover:bg-zinc-800 transition text-xs font-bold tracking-tight text-center text-white cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            INSTAGRAM
+            {socialProvider === 'custom:instagram' ? 'OPENING...' : 'INSTAGRAM'}
           </button>
           <button
             onClick={() => handleSocialLogin('custom:tiktok')}
+            disabled={loading || socialProvider !== null}
+            aria-busy={socialProvider === 'custom:tiktok'}
             type="button"
-            className="py-2.5 border-2 border-zinc-800 bg-zinc-900 hover:border-white hover:bg-zinc-800 transition text-xs font-bold tracking-tight text-center text-white cursor-pointer"
+            className="py-2.5 border-2 border-zinc-800 bg-zinc-900 hover:border-white hover:bg-zinc-800 transition text-xs font-bold tracking-tight text-center text-white cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            TIKTOK
+            {socialProvider === 'custom:tiktok' ? 'OPENING...' : 'TIKTOK'}
           </button>
         </div>
 
-        {/* --- LINIJA RAZDELNIK --- */}
         <div className="flex items-center text-center text-zinc-500 text-[10px] tracking-widest mb-6">
           <div className="flex-1 h-[2px] bg-zinc-800"></div>
           <span className="px-3 font-bold">OR LOGIN MANUALLY</span>
           <div className="flex-1 h-[2px] bg-zinc-800"></div>
         </div>
 
-        {/* --- RUČNA FORMA --- */}
         <form onSubmit={handleLogin} className="space-y-4 text-left">
           <div>
             <label className="block text-xs font-bold mb-1 text-zinc-400">EMAIL ADDRESS</label>
@@ -139,8 +161,8 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={loading}
-            className="w-full py-3 bg-white text-black border-2 border-white hover:bg-purple-600 hover:text-white transition duration-300 font-bold cursor-pointer"
+            disabled={loading || socialProvider !== null}
+            className="w-full py-3 bg-white text-black border-2 border-white hover:bg-purple-600 hover:text-white transition duration-300 font-bold cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'LOGGING IN...' : 'LOG IN'}
           </button>

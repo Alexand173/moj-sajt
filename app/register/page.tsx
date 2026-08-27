@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { getOAuthRedirect } from '@/lib/oauth';
 import { syncCurrentUserProfile } from '@/lib/profile-sync-client';
 
+type SocialProvider = 'google' | 'facebook' | 'custom:instagram' | 'custom:tiktok';
+
 export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -13,59 +15,35 @@ export default function RegisterPage() {
   const [lastName, setLastName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [loading, setLoading] = useState(false);
+  const [socialProvider, setSocialProvider] = useState<SocialProvider | null>(null);
   const [message, setMessage] = useState('');
 
-  // The callback creates/repairs the profile after Google returns.
-  const handleGoogleRegister = async () => {
-    if (typeof window === 'undefined') return;
+  const handleSocialRegister = async (providerName: SocialProvider) => {
+    if (typeof window === 'undefined' || socialProvider) return;
 
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: getOAuthRedirect(),
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'select_account',
+    setSocialProvider(providerName);
+    setMessage('');
+
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: providerName,
+        options: {
+          redirectTo: getOAuthRedirect(),
+          queryParams: providerName === 'google' ? {
+            access_type: 'offline',
+            prompt: 'select_account',
+          } : undefined,
         },
-      },
-    });
+      });
 
-    if (error) {
-      setMessage(`ERROR: ${error.message.toUpperCase()}`);
-    }
-  };
-
-  // The callback creates/repairs the profile after Facebook returns.
-  const handleFacebookRegister = async () => {
-    if (typeof window === 'undefined') return;
-
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'facebook',
-      options: {
-        redirectTo: getOAuthRedirect(),
-      },
-    });
-
-    if (error) {
-      setMessage(`ERROR: ${error.message.toUpperCase()}`);
-    }
-  };
-
-  const handleCustomSocialRegister = async (
-    providerName: 'custom:instagram' | 'custom:tiktok',
-    providerLabel: 'INSTAGRAM' | 'TIKTOK',
-  ) => {
-    if (typeof window === 'undefined') return;
-
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: providerName,
-      options: {
-        redirectTo: getOAuthRedirect(),
-      },
-    });
-
-    if (error) {
-      console.error(`REGISTER ${providerLabel} ERROR: ${error.message.toUpperCase()}`);
+      if (error) {
+        setMessage(`ERROR: ${error.message.toUpperCase()}`);
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Social registration could not be started.';
+      setMessage(`ERROR: ${message.toUpperCase()}`);
+    } finally {
+      setSocialProvider(null);
     }
   };
 
@@ -119,44 +97,47 @@ export default function RegisterPage() {
         </h2>
 
         {message && (
-          <div className="p-3 border-2 border-purple-500 bg-purple-950/50 text-purple-300 text-xs font-bold mb-6 normal-case">
+          <div role="alert" className="p-3 border-2 border-purple-500 bg-purple-950/50 text-purple-300 text-xs font-bold mb-6 normal-case">
             {message}
           </div>
         )}
 
-        {/* Ovde su dugmići koji sada pozivaju te dve tačne funkcije */}
         <div className="grid grid-cols-2 gap-3 mb-6">
           <button
-            onClick={handleGoogleRegister}
-            disabled={loading}
+            onClick={() => handleSocialRegister('google')}
+            disabled={loading || socialProvider !== null}
+            aria-busy={socialProvider === 'google'}
             type="button"
             className="py-2.5 border-2 border-zinc-800 bg-zinc-900 hover:border-white hover:bg-zinc-800 transition text-xs font-bold tracking-tight text-center text-white disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            GOOGLE
+            {socialProvider === 'google' ? 'OPENING...' : 'GOOGLE'}
           </button>
           <button
-            onClick={handleFacebookRegister}
-            disabled={loading}
+            onClick={() => handleSocialRegister('facebook')}
+            disabled={loading || socialProvider !== null}
+            aria-busy={socialProvider === 'facebook'}
             type="button"
             className="py-2.5 border-2 border-zinc-800 bg-zinc-900 hover:border-white hover:bg-zinc-800 transition text-xs font-bold tracking-tight text-center text-white disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            FACEBOOK
+            {socialProvider === 'facebook' ? 'OPENING...' : 'FACEBOOK'}
           </button>
           <button
-            onClick={() => handleCustomSocialRegister('custom:instagram', 'INSTAGRAM')}
-            disabled={loading}
+            onClick={() => handleSocialRegister('custom:instagram')}
+            disabled={loading || socialProvider !== null}
+            aria-busy={socialProvider === 'custom:instagram'}
             type="button"
             className="py-2.5 border-2 border-zinc-800 bg-zinc-900 hover:border-white hover:bg-zinc-800 transition text-xs font-bold tracking-tight text-center text-white disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            INSTAGRAM
+            {socialProvider === 'custom:instagram' ? 'OPENING...' : 'INSTAGRAM'}
           </button>
           <button
-            onClick={() => handleCustomSocialRegister('custom:tiktok', 'TIKTOK')}
-            disabled={loading}
+            onClick={() => handleSocialRegister('custom:tiktok')}
+            disabled={loading || socialProvider !== null}
+            aria-busy={socialProvider === 'custom:tiktok'}
             type="button"
             className="py-2.5 border-2 border-zinc-800 bg-zinc-900 hover:border-white hover:bg-zinc-800 transition text-xs font-bold tracking-tight text-center text-white disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            TIKTOK
+            {socialProvider === 'custom:tiktok' ? 'OPENING...' : 'TIKTOK'}
           </button>
         </div>
 
@@ -219,7 +200,7 @@ export default function RegisterPage() {
           </div>
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || socialProvider !== null}
             className="w-full py-3 bg-purple-600 text-white border-2 border-white hover:bg-white hover:text-black transition duration-300 font-bold disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'CREATING ACCOUNT...' : 'REGISTER'}
