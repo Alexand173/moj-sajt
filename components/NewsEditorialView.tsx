@@ -88,7 +88,7 @@ function EditorialHero({ region, article }: { region: string; article?: NewsEdit
             <span className="bg-accent-red px-2.5 py-1 text-[9px] font-black tracking-[0.22em] text-white uppercase">{article.category || 'Featured'}</span>
             <span className="mt-meta text-white/55">Long read · {formatDate(article.created_at)}</span>
           </div>
-          <h1 className="mt-5 max-w-5xl text-balance text-[clamp(3rem,8vw,7.5rem)] font-black leading-[0.88] tracking-[-0.08em] text-white uppercase">{article.title}</h1>
+          <h1 className="mt-5 max-w-5xl text-balance text-[clamp(2.5rem,8vw,7.5rem)] font-black leading-[0.88] tracking-[-0.08em] text-white uppercase sm:text-[clamp(3rem,8vw,7.5rem)]">{article.title}</h1>
           {article.excerpt && <p className="mt-5 max-w-2xl text-sm leading-relaxed text-white/70 sm:text-base">{article.excerpt}</p>}
           <div className="mt-7 flex flex-wrap items-center gap-4">
             <Link href={`/news/${region}/${article.id}`} className="group inline-flex items-center gap-2 bg-white px-5 py-3 text-[10px] font-black tracking-[0.2em] text-ink uppercase transition-colors hover:bg-accent-red hover:text-white">
@@ -287,15 +287,15 @@ export default function NewsEditorialView({
           </section>
         ) : (
           <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:gap-12">
-            <div className="lg:col-span-4 xl:col-span-3"><LiveFeed items={officialNews} /></div>
-            <div className="space-y-8 lg:col-span-8 xl:col-span-9">
-              <section className="flex items-center justify-between gap-4 bg-ink px-5 py-5 text-white sm:px-6">
+            <div className="order-2 lg:order-1 lg:col-span-4 xl:col-span-3"><LiveFeed items={officialNews} /></div>
+            <div className="contents lg:order-2 lg:col-span-8 lg:flex lg:flex-col lg:gap-8 xl:col-span-9">
+              <div className="order-1 lg:order-2"><MostReadList items={latestNews} /></div>
+              <section className="order-3 flex items-center justify-between gap-4 bg-ink px-5 py-5 text-white sm:px-6 lg:order-1">
                 <span><span className="block text-[9px] font-bold tracking-[0.22em] text-white/45 uppercase">Contributor</span><span className="mt-1 block text-sm font-black tracking-[0.12em] uppercase">Publish a new post</span></span>
                 <Plus aria-hidden="true" className="size-5 text-white" />
                 <AddPostTrigger region={region} />
               </section>
-              <MostReadList items={latestNews} />
-              <CommunitySidebar region={region} communityPosts={communityPosts} discussions={discussions} concertAlbums={concertAlbums} />
+              <div className="order-4 lg:order-3"><CommunitySidebar region={region} communityPosts={communityPosts} discussions={discussions} concertAlbums={concertAlbums} /></div>
             </div>
           </div>
         )}
