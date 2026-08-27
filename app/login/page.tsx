@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase'; // Uvozimo tvoj supabase klijent
 import { getOAuthRedirect } from '@/lib/oauth';
-import GoogleSignInButton from '@/components/GoogleSignInButton';
+import { syncCurrentUserProfile } from '@/lib/profile-sync-client';
 
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -15,23 +15,15 @@ export default function LoginPage() {
   const [errorMsg, setErrorMsg] = useState('');
   const router = useRouter();
 
-  // Funkcija za brzu prijavu preko Google-a i Facebook-a
- // Funkcija za brzu prijavu preko Google-a i Facebook-a
+  // Social login is completed by /auth/callback, where the profile is
+  // synchronized server-side before the user is redirected home.
   const handleSocialLogin = async (providerName: 'google' | 'facebook' | 'custom:instagram' | 'custom:tiktok') => {
     setErrorMsg('');
-    
-    // 🔥 SIGURNA PROVERA OKRUŽENJA: Next.js prepoznaje produkciju čak i unutar modala
-    const isProduction = process.env.NODE_ENV === 'production';
-    
-    // Prisilno šaljemo korisnika na apsolutnu callback rutu
-    const targetRedirect = isProduction 
-      ? 'https://www.musictop.net/auth/callback' 
-      : 'http://localhost:3000/auth/callback';
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: providerName,
       options: {
-        redirectTo: targetRedirect, // 🔥 Zakucana putanja uništava pogrešan /region/us/rock redirect
+        redirectTo: getOAuthRedirect(),
         queryParams: providerName === 'google' ? {
           access_type: 'offline',
           prompt: 'consent',
@@ -59,8 +51,13 @@ export default function LoginPage() {
       setErrorMsg(`ERROR: ${error.message.toUpperCase()}`);
       setLoading(false);
     } else {
-      router.refresh(); 
-      router.push('/'); 
+      try {
+        await syncCurrentUserProfile();
+      } catch (profileError) {
+        console.error('PROFILE_SYNC_AFTER_LOGIN_ERROR:', profileError);
+      }
+      router.refresh();
+      router.push('/');
     }
   };
 
@@ -150,7 +147,7 @@ export default function LoginPage() {
         </form>
 
         <p className="text-center text-xs mt-6 text-zinc-400">
-          DON'T HAVE AN ACCOUNT?{' '}
+          DON&apos;T HAVE AN ACCOUNT?{' '}
           <Link href="/register" className="underline hover:text-purple-500 text-white">
             SIGN UP
           </Link>

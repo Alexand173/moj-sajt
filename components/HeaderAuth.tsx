@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import type { User } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
+import { syncCurrentUserProfile } from '@/lib/profile-sync-client';
 
 interface UserProfile {
   first_name?: string;
@@ -37,13 +38,29 @@ export default function HeaderAuth() {
 
         if (session?.user) {
           setUser(session.user);
-          const { data: profileData } = await supabase
+          const { data: profileData, error: profileError } = await supabase
             .from('profiles')
             .select('first_name, avatar_url')
             .eq('id', session.user.id)
-            .single();
+            .maybeSingle();
 
-          if (isMounted && profileData) setProfile(profileData);
+          if (isMounted && profileData) {
+            setProfile(profileData);
+          } else if (isMounted && !profileError) {
+            // Repair legacy OAuth accounts that exist in Auth but have no
+            // public profile row yet. The API verifies the session server-side.
+            try {
+              await syncCurrentUserProfile();
+              const { data: repairedProfile } = await supabase
+                .from('profiles')
+                .select('first_name, avatar_url')
+                .eq('id', session.user.id)
+                .maybeSingle();
+              if (isMounted && repairedProfile) setProfile(repairedProfile);
+            } catch (profileSyncError) {
+              console.error('PROFILE_SYNC_ON_SESSION_ERROR:', profileSyncError);
+            }
+          }
         } else {
           setUser(null);
           setProfile(null);

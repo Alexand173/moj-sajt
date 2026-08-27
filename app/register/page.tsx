@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import { getOAuthRedirect } from '@/lib/oauth';
+import { syncCurrentUserProfile } from '@/lib/profile-sync-client';
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('');
@@ -14,47 +15,39 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
-  // 🟢 1. FUNKCIJA ZA GOOGLE REGISTRACIJU
+  // The callback creates/repairs the profile after Google returns.
   const handleGoogleRegister = async () => {
     if (typeof window === 'undefined') return;
-    
-    const isProduction = process.env.NODE_ENV === 'production';
-    const baseUrl = isProduction ? 'https://www.musictop.net' : 'http://localhost:3000';
-    const targetRedirect = `${baseUrl}/auth/callback`;
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: targetRedirect,
+        redirectTo: getOAuthRedirect(),
         queryParams: {
           access_type: 'offline',
-          prompt: 'select_account', // Promenjeno na select_account da lakše biraš nalog
+          prompt: 'select_account',
         },
       },
     });
 
     if (error) {
-      console.error(`REGISTER GOOGLE ERROR: ${error.message.toUpperCase()}`);
+      setMessage(`ERROR: ${error.message.toUpperCase()}`);
     }
   };
 
-  // 🔵 2. FUNKCIJA ZA FACEBOOK REGISTRACIJU
+  // The callback creates/repairs the profile after Facebook returns.
   const handleFacebookRegister = async () => {
     if (typeof window === 'undefined') return;
-
-    const isProduction = process.env.NODE_ENV === 'production';
-    const baseUrl = isProduction ? 'https://www.musictop.net' : 'http://localhost:3000';
-    const targetRedirect = `${baseUrl}/auth/callback`;
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'facebook',
       options: {
-        redirectTo: targetRedirect,
+        redirectTo: getOAuthRedirect(),
       },
     });
 
-  if (error) {
-      console.error(`REGISTER FACEBOOK ERROR: ${error.message.toUpperCase()}`);
+    if (error) {
+      setMessage(`ERROR: ${error.message.toUpperCase()}`);
     }
   };
 
@@ -83,7 +76,7 @@ export default function RegisterPage() {
 
     const redirectTo = getOAuthRedirect();
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -95,6 +88,14 @@ export default function RegisterPage() {
         emailRedirectTo: redirectTo,
       },
     });
+
+    if (!error && data.session) {
+      try {
+        await syncCurrentUserProfile();
+      } catch (profileError) {
+        console.error('PROFILE_SYNC_AFTER_REGISTER_ERROR:', profileError);
+      }
+    }
 
     setLoading(false);
 
