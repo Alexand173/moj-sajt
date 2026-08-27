@@ -1,125 +1,239 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --mt-ink: #08090a;
+  --mt-ink-elevated: #121212;
+  --mt-ink-soft: #1a1c20;
+  --mt-paper: #fbfcfe;
+  --mt-paper-muted: #f1f5f9;
+  --mt-paper-hover: #f8fafc;
+  --mt-white: #ffffff;
+  --mt-line: #e2e8f0;
+  --mt-line-strong: #cbd5e1;
+  --mt-muted: #64748b;
+  --mt-placeholder: #94a3b8;
+  --mt-accent-red: #e63946;
+  --mt-accent-blue: #2563eb;
+  --mt-awards-gold: #ffc107;
+  --mt-container-wide: 1600px;
+  --mt-container-awards: 1200px;
+  --mt-gutter: clamp(1.5rem, 4vw, 4rem);
+  --mt-radius-pill: 999px;
+  --mt-radius-editorial: 0px;
+  --mt-shadow-red-glow: 0 0 40px -8px rgb(230 57 70 / 0.5);
+  --mt-shadow-gold-glow: 0 0 50px -12px rgb(255 193 7 / 0.45);
+  --mt-font-body: Inter, Arial, Helvetica, sans-serif;
+  --mt-font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-ink: var(--mt-ink);
+  --color-ink-elevated: var(--mt-ink-elevated);
+  --color-ink-soft: var(--mt-ink-soft);
+  --color-paper: var(--mt-paper);
+  --color-paper-muted: var(--mt-paper-muted);
+  --color-paper-hover: var(--mt-paper-hover);
+  --color-line: var(--mt-line);
+  --color-line-strong: var(--mt-line-strong);
+  --color-muted: var(--mt-muted);
+  --color-placeholder: var(--mt-placeholder);
+  --color-accent-red: var(--mt-accent-red);
+  --color-accent-blue: var(--mt-accent-blue);
+  --color-awards-gold: var(--mt-awards-gold);
+  --font-sans: var(--mt-font-body);
+  --font-mono: var(--mt-font-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    min-width: 320px;
+    background: var(--mt-ink);
+  }
+
+  body {
+    min-width: 320px;
+    margin: 0;
+    background: var(--mt-ink);
+    color: var(--mt-white);
+    font-family: var(--mt-font-body);
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: var(--mt-accent-red);
+    color: var(--mt-white);
+  }
+
+  button,
+  a,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline: 2px solid var(--mt-accent-red);
+    outline-offset: 4px;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
-@keyframes aurora {
-  from { transform: translate(-50%, -50%) rotate(0deg); }
-  to { transform: translate(-50%, -50%) rotate(360deg); }
+@layer components {
+  .mt-container {
+    width: min(100% - (2 * var(--mt-gutter)), var(--mt-container-wide));
+    margin-inline: auto;
+  }
+
+  .mt-container--awards {
+    width: min(100% - (2 * var(--mt-gutter)), var(--mt-container-awards));
+    margin-inline: auto;
+  }
+
+  .mt-page {
+    min-height: 100vh;
+    overflow-x: hidden;
+    background: var(--mt-ink);
+    color: var(--mt-white);
+  }
+
+  .mt-page--paper {
+    background: var(--mt-paper);
+    color: var(--mt-ink);
+  }
+
+  .mt-kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: var(--mt-accent-red);
+    font-size: 0.625rem;
+    font-weight: 800;
+    letter-spacing: 0.3em;
+    line-height: 1.2;
+    text-transform: uppercase;
+  }
+
+  .mt-kicker::before {
+    width: 2.5rem;
+    height: 1px;
+    background: currentColor;
+    content: "";
+  }
+
+  .mt-display {
+    font-weight: 900;
+    letter-spacing: -0.075em;
+    line-height: 0.85;
+    text-transform: uppercase;
+  }
+
+  .mt-meta {
+    color: var(--mt-muted);
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    line-height: 1.4;
+    text-transform: uppercase;
+  }
+
+  .mt-editorial-rule {
+    border-color: var(--mt-line);
+    border-style: solid;
+    border-width: 1px 0 0;
+  }
+
+  .mt-image-overlay {
+    background:
+      linear-gradient(to top, rgb(8 9 10 / 0.96), rgb(8 9 10 / 0.3) 58%, transparent),
+      linear-gradient(to right, rgb(8 9 10 / 0.55), transparent 65%);
+  }
+
+  .mt-status-dot {
+    position: relative;
+    display: inline-flex;
+    width: 0.375rem;
+    height: 0.375rem;
+    flex: 0 0 auto;
+    border-radius: 999px;
+    background: var(--mt-accent-red);
+  }
+
+  .mt-status-dot::after {
+    position: absolute;
+    inset: -0.2rem;
+    border: 1px solid var(--mt-accent-red);
+    border-radius: inherit;
+    content: "";
+    opacity: 0.45;
+  }
 }
 
-.aurora-bg {
-  position: fixed;
-  top: 0; left: 0; width: 100%; height: 100%;
-  background: radial-gradient(circle at 50% 50%, #1a0b2e 0%, #050505 100%);
-  z-index: -1;
-  overflow: hidden;
-}
-
-.aurora-blob {
-  position: absolute;
-  width: 800px; height: 800px;
-  background: radial-gradient(circle, rgba(168, 85, 247, 0.15) 0%, transparent 70%);
-  filter: blur(80px);
-  animation: aurora 20s linear infinite;
-  top: -10%; left: -10%;
-}
-@keyframes marquee {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
-}
-.animate-marquee { animation: marquee 30s linear infinite; }
 @layer utilities {
-  @media (max-width: 767px) {
-    .news-feed-image {
-      filter: none !important;
-    }
-  }
-
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
+
   .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-}
-.tour-list-wrapper {
-  @apply flex flex-col gap-4 w-full max-w-5xl mx-auto py-10 px-4;
+
+  .vertical-text {
+    writing-mode: vertical-rl;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .animate-marquee {
+    animation: mt-marquee 30s linear infinite;
+  }
+
+  .animate-mt-reveal {
+    animation: mt-reveal 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
 }
 
-.tour-card-premium {
-  /* Izbačen 'group' odavde jer on ide u HTML */
-  @apply flex items-center bg-[#0a0a0a]/60 backdrop-blur-md border border-neutral-800 
-         rounded-[24px] p-6 transition-all duration-300 hover:border-yellow-500/50 
-         hover:bg-[#111];
+@keyframes mt-marquee {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
+  }
 }
 
-/* Datum kvadrat */
-.tour-date-box {
-  @apply bg-white text-black rounded-xl p-4 flex flex-col items-center 
-         justify-center min-w-[90px] h-[90px] mr-8;
+@keyframes mt-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(1.5rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.tour-date-month {
-  @apply text-xs font-black uppercase tracking-tighter;
-}
-
-.tour-date-day {
-  @apply text-3xl font-black leading-none;
-}
-
-/* Informacije o izvođaču */
-.tour-artist-content {
-  @apply flex-1;
-}
-
-.tour-artist-name {
-  @apply text-white text-3xl font-black uppercase tracking-tighter;
-}
-
-.tour-location {
-  @apply text-neutral-500 text-sm font-bold uppercase mt-1;
-}
-
-/* Desna strana: Cena i Dugme */
-.tour-action-area {
-  @apply flex flex-col items-end gap-2;
-}
-
-.tour-price-label {
-  @apply text-neutral-600 text-[10px] font-black uppercase tracking-widest;
-}
-
-.tour-buy-btn {
-  @apply bg-yellow-500 text-black px-10 py-3 rounded-full text-sm font-black 
-         uppercase tracking-tight transition-all duration-300 
-         hover:bg-white hover:scale-105 shadow-[0_0_20px_rgba(234,179,8,0.2)];
-}
-
-/* Tagovi poput "LOW STOCK" ili "TICKETS" */
-.tour-status-tag {
-  @apply text-[10px] font-black px-2 py-1 border border-emerald-500/50 
-         text-emerald-500 rounded-md uppercase tracking-tighter mb-2;
+@media (max-width: 767px) {
+  .news-feed-image {
+    filter: none !important;
+  }
 }

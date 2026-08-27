@@ -22,6 +22,7 @@
     "cheerio": "^1.2.0",
     "google-auth-library": "^10.6.2",
     "googleapis": "^171.4.0",
+    "lucide-react": "^0.577.0",
     "next": "16.2.2",
     "openai": "^6.49.0",
     "pg": "^8.20.0",

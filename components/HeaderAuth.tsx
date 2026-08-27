@@ -25,7 +25,6 @@ export default function HeaderAuth() {
   useEffect(() => {
     let isMounted = true;
 
-    // Glavna i jedina sigurna funkcija za proveru korisnika i profila
     const checkAuth = async () => {
       if (!supabase) {
         if (isMounted) setIsAuthenticating(false);
@@ -33,42 +32,31 @@ export default function HeaderAuth() {
       }
 
       try {
-        // Tražimo sesiju preko zvaničnog SDK-a koji sam čita sve tipove kolačića
         const { data: { session } } = await supabase.auth.getSession();
-        
         if (!isMounted) return;
 
         if (session?.user) {
           setUser(session.user);
-          
-          // Ako imamo korisnika, bezbedno povlačimo profil iz baze
           const { data: profileData } = await supabase
             .from('profiles')
             .select('first_name, avatar_url')
             .eq('id', session.user.id)
             .single();
 
-          if (isMounted && profileData) {
-            setProfile(profileData);
-          }
+          if (isMounted && profileData) setProfile(profileData);
         } else {
           setUser(null);
           setProfile(null);
         }
       } catch (error) {
-        console.error("Greška pri autentifikaciji:", error);
+        console.error('Greška pri autentifikaciji:', error);
       } finally {
-        // 🚨 KLJUČNI SPAS: Loading SE GASI pod obavezno, bio korisnik ulogovan ili ne!
-        if (isMounted) {
-          setIsAuthenticating(false);
-        }
+        if (isMounted) setIsAuthenticating(false);
       }
     };
 
-    // Pokreni proveru odmah
     checkAuth();
 
-    // Prati promene stanja (npr. kada klikne na Login ili Logout)
     if (!supabase) {
       return () => {
         isMounted = false;
@@ -77,7 +65,7 @@ export default function HeaderAuth() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!isMounted) return;
-      
+
       if (event === 'SIGNED_IN' && session?.user) {
         setUser(session.user);
         setIsAuthenticating(false);
@@ -99,7 +87,6 @@ export default function HeaderAuth() {
   const handleLogout = async () => {
     try {
       if (!supabase) return;
-
       setIsAuthenticating(true);
       await supabase.auth.signOut();
       if (typeof window !== 'undefined') {
@@ -107,69 +94,58 @@ export default function HeaderAuth() {
         sessionStorage.clear();
         window.location.href = '/';
       }
-    } catch (e) {
-      console.error("Greška pri odjavi:", e);
+    } catch (error) {
+      console.error('Greška pri odjavi:', error);
       setIsAuthenticating(false);
     }
   };
 
-  // ⏳ 1. KRATKOTRAJNI LOADER (Sada se gasi čim stigne bilo kakav odgovor iz SDK-a)
   if (isAuthenticating) {
     return (
-      <div className="flex items-center shrink-0 relative z-[9999] pointer-events-auto">
-        <span className="text-[10px] tracking-widest text-purple-500 font-black animate-pulse">
-          LOADING...
-        </span>
-      </div>
+      <span className="whitespace-nowrap text-[9px] font-black tracking-[0.16em] text-accent-red uppercase" aria-live="polite">
+        Loading...
+      </span>
     );
   }
 
-  // 🟢 2. KORISNIK JE USPEŠNO PRONAĐEN I ULOGOVAN
   if (user) {
-    const displayName = profile?.first_name 
-      ? `${profile.first_name}`.toUpperCase() 
+    const displayName = profile?.first_name
+      ? profile.first_name.toUpperCase()
       : user.email?.split('@')[0].toUpperCase() || 'KORISNIK';
-
     const avatar = profile?.avatar_url || 'https://images.unsplash.com/photo-153713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150';
 
     return (
-      <div className="flex items-center gap-3 shrink-0 relative z-[9999] pointer-events-auto">
-        <div className="flex items-center gap-1.5 shrink-0">
-          <img 
-            src={avatar} 
-            alt="Avatar" 
-            className="w-5 h-5 rounded-full border border-white/20 object-cover shrink-0" 
-          />
-          <span className="text-[10px] tracking-wider text-zinc-400 font-black whitespace-nowrap">@{displayName}</span>
+      <div className="flex items-center gap-2">
+        <div className="hidden items-center gap-1.5 sm:flex">
+          <img src={avatar} alt={`${displayName} avatar`} className="size-5 rounded-full border border-white/25 object-cover" />
+          <span className="max-w-24 truncate text-[9px] font-black tracking-[0.12em] text-white/60">@{displayName}</span>
         </div>
-        
-        <button 
+        <button
           type="button"
           onClick={handleLogout}
-          className="px-2.5 py-1 bg-white text-black hover:bg-purple-600 hover:text-white text-[10px] font-black border border-black transition-colors duration-200 cursor-pointer shrink-0 relative z-[10000] pointer-events-auto"
+          className="border border-white/30 px-3 py-2 text-[9px] font-black tracking-[0.16em] text-white transition-colors hover:border-accent-red hover:bg-accent-red"
         >
-          LOGOUT
+          Logout
         </button>
       </div>
     );
   }
 
-  // 🔴 3. GOST (Ako nema sesije, prikazujemo normalna dugmad umesto loadinga)
   return (
-    <div className="flex items-center gap-2 shrink-0 relative z-[9999] pointer-events-auto">
-      <button 
+    <div className="flex items-center gap-2">
+      <button
         type="button"
         onClick={() => router.push('/login')}
-        className="px-2.5 py-1 bg-white text-black hover:bg-purple-600 hover:text-white border border-black text-[10px] font-black cursor-pointer transition-colors shrink-0"
+        className="hidden border border-white/35 px-3 py-2 text-[9px] font-black tracking-[0.16em] text-white transition-colors hover:border-white hover:bg-white hover:text-ink sm:inline-flex"
       >
-        LOGIN
+        Login
       </button>
-      <button 
+      <button
         type="button"
         onClick={() => router.push('/register')}
-        className="px-2.5 py-1 bg-black text-white hover:bg-purple-600 border border-white/20 text-[10px] font-black cursor-pointer transition-colors shrink-0"
+        className="border border-white bg-white px-3 py-2 text-[9px] font-black tracking-[0.16em] text-ink transition-colors hover:border-accent-red hover:bg-accent-red hover:text-white"
       >
-        REGISTER
+        Register
       </button>
     </div>
   );

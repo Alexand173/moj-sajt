@@ -1,4 +1,4 @@
-import RegionalClientContent from '@/components/RegionalClientContent';
+import RegionalClientContent, { type RegionalSong } from '@/components/RegionalClientContent';
 import { getPublicSupabaseClient } from '@/lib/supabase-public';
 
 export default async function RegionalPage({ params }: { params: Promise<{ regionName: string }> }) {
@@ -7,7 +7,7 @@ export default async function RegionalPage({ params }: { params: Promise<{ regio
 
   // Supabase klijent sa procesnim varijablama
   const supabase = getPublicSupabaseClient();
-  let songs: Array<Record<string, unknown>> | null = null;
+  let songs: RegionalSong[] | null = null;
 
   if (supabase) {
     try {
@@ -17,7 +17,7 @@ export default async function RegionalPage({ params }: { params: Promise<{ regio
         .eq('region', region)
         .order('viewers', { ascending: false })
         .limit(200);
-      songs = data;
+      songs = (data || []) as RegionalSong[];
     } catch (error) {
       console.warn(`Could not load the ${region} regional chart:`, error);
     }

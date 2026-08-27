@@ -3,7 +3,8 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { Analytics } from '@vercel/analytics/react';
+import TickerSpine from "@/components/TickerSpine";
+import { Analytics } from '@vercel/analytics/next';
 import { GoogleAnalytics } from '@next/third-parties/google';
 import StructuredData from "@/components/StructuredData";
 
@@ -94,11 +95,12 @@ export default function RootLayout({
         <StructuredData data={organizationSchema} />
         <meta name='impact-site-verification' content='e731ab44-d92b-4034-9fa2-f684ac52903b' />
       </head>
-      <body 
-        className={`${inter.className} bg-black text-white flex flex-col min-h-screen`} 
+      <body
+        className={`${inter.className} flex min-h-screen flex-col bg-ink text-white`}
       >
         <Header />
-        <main className="pt-32 flex-grow">
+        <TickerSpine />
+        <main className="flex-grow pt-32">
           {children}
         </main>
         <Footer />

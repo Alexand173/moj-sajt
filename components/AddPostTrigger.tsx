@@ -21,15 +21,11 @@ export default function CommunityPage({ region }: { region: string }) {
       {!showForm && (
 
         <button
-
+          type="button"
           onClick={() => setShowForm(true)}
-
-          className="bg-black text-white px-6 py-3 font-bold uppercase"
-
+          className="inline-flex items-center border border-white/20 px-4 py-2 text-[9px] font-black tracking-[0.16em] text-white uppercase transition-colors hover:border-accent-red hover:bg-accent-red"
         >
-
-          publish a new post
-
+          Publish a new post
         </button>
 
       )}

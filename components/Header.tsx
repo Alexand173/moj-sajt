@@ -1,12 +1,24 @@
 'use client';
+
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { Eye, LayoutGrid, Menu, Trophy, X } from 'lucide-react';
 import HeaderAuth from '@/components/HeaderAuth';
 import { EUROPA_SUBREGIONS } from '@/lib/region-navigation';
 
-
 export default function Header() {
   const pathname = usePathname();
+  const [isImmersive, setIsImmersive] = useState(true);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const [currentTime, setCurrentTime] = useState('');
+
+  useEffect(() => {
+    const updateTime = () => setCurrentTime(new Date().toLocaleTimeString('en-GB', { hour12: false }));
+    updateTime();
+    const timer = window.setInterval(updateTime, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const pathSegments = pathname.split('/').filter(Boolean);
   const currentRegion = pathSegments[1] || 'us';
@@ -16,16 +28,14 @@ export default function Header() {
     : null;
   const currentGenre = currentEuropaSubregion ? pathSegments[3] : pathSegments[2];
 
-  // 1. Definicije stranica
   const isHome = pathname === '/';
   const isNewsPage = pathname.startsWith('/news');
-  const isReviewsPage = pathname.startsWith('/reviews'); 
+  const isReviewsPage = pathname.startsWith('/reviews');
   const isToursPage = pathname.startsWith('/tours');
   const isFestivalsPage = pathname.startsWith('/festivals');
   const isAwardsPage = pathname.startsWith('/awards');
   const isRegionPage = pathname.startsWith('/region');
 
-  // 2. Podaci za navigaciju
   const pages = [
     { name: 'NEWS', href: '/news/us' },
     { name: 'TOURS', href: '/tours/us' },
@@ -37,12 +47,12 @@ export default function Header() {
   const regions = [
     { name: 'US', slug: 'us' },
     { name: 'UK', slug: 'uk' },
-    { name: 'EUROPA', slug: 'europa' }, 
+    { name: 'EUROPA', slug: 'europa' },
     { name: 'LATINO', slug: 'latino' },
     { name: 'ASIA', slug: 'asia' },
     { name: 'WORLD', slug: 'world' },
     { name: 'JAZZ', slug: 'jazz' },
-    { name: 'CLASSICAL', slug: 'classical' }
+    { name: 'CLASSICAL', slug: 'classical' },
   ];
 
   const globalGenres = [
@@ -54,7 +64,6 @@ export default function Header() {
     { name: 'DANCE', slug: 'dance-electronic' },
   ];
 
-  // Europa uses Metal instead of Country in its genre navigation.
   const europaGenres = [
     { name: 'ROCK', slug: 'rock' },
     { name: 'POP', slug: 'pop' },
@@ -73,131 +82,180 @@ export default function Header() {
     { name: 'OTHER', slug: 'other' },
   ];
 
-  // 3. Pomoćne funkcije za dinamiku
   const getBasePath = () => {
     if (pathname.includes('/news')) return 'news';
     if (pathname.includes('/tours')) return 'tours';
-    if (pathname.includes('/festivals')) return 'festivals'; 
-    return 'region'; 
+    if (pathname.includes('/festivals')) return 'festivals';
+    return 'region';
   };
 
-  const showRegions = isHome || isNewsPage || isToursPage || isFestivalsPage || isRegionPage;
-  const showGenres = isHome || isRegionPage;
+  const showRegions = isHome || isNewsPage || isToursPage || isFestivalsPage || isRegionPage || isReviewsPage || isAwardsPage;
+  const showGenres = isRegionPage && pathSegments.length < 3;
   const showEuropaSubregions = isRegionPage && currentRegion === 'europa';
   const isAsia = currentRegion === 'asia';
   const isEuropa = currentRegion === 'europa';
+  const activeGenres = isAsia ? asiaGenres : isEuropa ? europaGenres : globalGenres;
+
+  const logoIsActive = isHome || (pathname.startsWith('/region/')
+    && !pathname.includes('/news')
+    && !pathname.includes('/reviews')
+    && !pathname.includes('/festivals')
+    && !pathname.includes('/tours'));
 
   return (
-    <header className="fixed top-0 left-0 w-full z-[100] bg-black border-b border-white/10">
-      
-{/* RED 1: LOGO, GLAVNI MENI I AUTH (Potpuno bezbedan za klikove i centriran) */}
-<div className="w-full border-b border-white/5 bg-black relative z-[50]">
-  <div className="max-w-[1400px] mx-auto px-4 py-3 flex flex-wrap md:flex-nowrap items-center justify-center gap-x-6 gap-y-2 relative z-[60]">
-    
-    {/* ZAJEDNIČKI CENTRIRANI NIZ - SADA DOZVOLJAVA PROLAZ KLIKOVA */}
-    <div className="flex flex-wrap md:flex-nowrap items-center justify-center gap-x-5 gap-y-2 min-w-0 pointer-events-auto relative z-[70]">
-      
-      {/* 1. LOGO */}
-      <Link href="/" className="text-xl md:text-2xl font-black italic tracking-tighter uppercase transition-colors shrink-0 relative z-[80]">
-        <span className={
-          pathname === "/" || (pathname.startsWith("/region/") && !pathname.includes("/news") && !pathname.includes("/reviews") && !pathname.includes("/festivals") && !pathname.includes("/tours")) 
-          ? "text-white" 
-          : "text-zinc-400"
-        }>
-          MUSIC
-        </span>
-        <span className={
-          pathname === "/" || (pathname.startsWith("/region/") && !pathname.includes("/news") && !pathname.includes("/reviews") && !pathname.includes("/festivals") && !pathname.includes("/tours")) 
-          ? "text-purple-600" 
-          : "text-white"
-        }>
-          TOP
-        </span>
-      </Link>
+    <header className="fixed inset-x-0 top-0 z-[100] bg-ink text-white shadow-[0_1px_0_rgb(255_255_255_/_0.08)]">
+      <div className="mt-container">
+        <div className="flex min-h-7 items-center justify-between border-b border-white/10 text-[9px] font-bold tracking-[0.25em] text-white/45 uppercase">
+          <span className="flex items-center gap-2">
+            <span className="mt-status-dot" aria-hidden="true" />
+            Live · <span className="tabular-nums">{currentTime || '--:--:--'} UTC</span>
+          </span>
+          <div className="hidden items-center gap-6 md:flex">
+            <span>Issue Nº 0842</span>
+            <span>Wed · 26.08.2026</span>
+          </div>
+        </div>
 
-      {/* 2. NAVIGACIJA */}
-      <nav className="flex items-center gap-3 md:gap-5 overflow-x-auto no-scrollbar py-1 shrink min-w-0 relative z-[80]">
-        {pages.map((p) => {
-          const isActive = pathname.startsWith(`/${p.href.split('/')[1]}`);
-          return (
-            <Link 
-              key={p.name} 
-              href={p.href} 
-              className={`text-[10px] font-black tracking-tighter whitespace-nowrap transition-all ${
-                isActive ? 'text-purple-500' : 'text-zinc-500 hover:text-white'
-              }`}
-            >
-              {p.name === 'MTA' && "🏆 "}
-              {p.name}
-            </Link>
-          );
-        })}
-      </nav>
+        <div className="flex min-h-[4.75rem] items-center gap-4 py-3 lg:gap-8">
+          <Link
+            href="/"
+            aria-label="MUSIC TOP home"
+            className={`shrink-0 text-[1.65rem] font-black leading-none tracking-[-0.09em] transition-opacity hover:opacity-80 sm:text-3xl ${logoIsActive ? 'text-white' : 'text-white/85'}`}
+          >
+            MUSIC<span className="text-accent-red">TOP</span>
+          </Link>
 
-      {/* 3. AUTH DEO - IZVUČEN NA NAJVIŠI SLOJ DA BI KLIK RADEO 100% */}
-      <div className="shrink-0 border-l border-white/10 pl-4 md:pl-5 relative z-[999] pointer-events-auto">
-        <HeaderAuth />
-      </div>
-
-    </div>
-
-  </div>
-</div>
-
-      {/* 2. RED: REGIONI */}
-      {showRegions && (
-        <div className="bg-zinc-900/50 border-t border-white/5 py-2 overflow-x-auto">
-          <div className="flex justify-center gap-4 md:gap-8 px-6 min-w-max">
-            {regions.map((r) => {
-              const isActive = pathname.includes(`/${r.slug}`);
-              const base = getBasePath();
-              
-              let finalHref = '';
-
-              if (base === 'festivals') {
-                finalHref = `/festivals/${r.slug}`;
-               } else if (base === 'region') {
-                 const defaultGenre = r.slug === 'asia' ? 'j-pop' : 'rock';
-                 finalHref = r.slug === 'europa'
-                   ? `/region/europa/germany/${defaultGenre}`
-                   : `/region/${r.slug}/${defaultGenre}`;
-               } else {
-                finalHref = `/${base}/${r.slug}`;
-              }
-
+          <nav aria-label="Primary navigation" className="hidden min-w-0 flex-1 items-center justify-center gap-5 lg:flex xl:gap-8">
+            {pages.map((page) => {
+              const isActive = pathname.startsWith(`/${page.href.split('/')[1]}`);
               return (
-                <Link 
-                  key={r.slug} 
-                  href={finalHref}
-                  className={`text-[10px] font-bold tracking-widest px-3 py-1 transition-all ${
-                    isActive ? 'text-white border-b-2 border-purple-500' : 'text-zinc-600 hover:text-zinc-300'
-                  }`}
+                <Link
+                  key={page.name}
+                  href={page.href}
+                  className={`group relative inline-flex items-center gap-1.5 whitespace-nowrap py-3 text-[10px] font-black tracking-[0.2em] transition-colors ${isActive ? 'text-white' : 'text-white/55 hover:text-white'}`}
                 >
-                  {r.name}
+                  {page.name}
+                  {page.name === 'MTA' && <Trophy aria-hidden="true" className="size-3 text-accent-red" />}
+                  <span className={`absolute inset-x-0 bottom-0 h-px bg-accent-red transition-transform duration-300 ${isActive ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-100'}`} />
                 </Link>
               );
             })}
+          </nav>
+
+          <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
+            <div className="hidden items-center gap-1 rounded-full border border-white/15 p-0.5 md:flex">
+              <button
+                type="button"
+                aria-pressed={!isImmersive}
+                onClick={() => setIsImmersive(false)}
+                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[9px] font-black tracking-[0.15em] transition-colors ${!isImmersive ? 'bg-white text-ink' : 'text-white/50 hover:text-white'}`}
+              >
+                <LayoutGrid aria-hidden="true" className="size-3" />
+                Scan
+              </button>
+              <button
+                type="button"
+                aria-pressed={isImmersive}
+                onClick={() => setIsImmersive(true)}
+                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[9px] font-black tracking-[0.15em] transition-colors ${isImmersive ? 'bg-accent-red text-white' : 'text-white/50 hover:text-white'}`}
+              >
+                <Eye aria-hidden="true" className="size-3" />
+                Immersive
+              </button>
+            </div>
+
+            <div className="shrink-0">
+              <HeaderAuth />
+            </div>
+
+            <button
+              type="button"
+              aria-label={isMobileNavOpen ? 'Close navigation menu' : 'Open navigation menu'}
+              aria-expanded={isMobileNavOpen}
+              aria-controls="mobile-primary-navigation"
+              onClick={() => setIsMobileNavOpen((open) => !open)}
+              className="inline-flex size-9 items-center justify-center border border-white/20 text-white transition-colors hover:border-accent-red hover:text-accent-red lg:hidden"
+            >
+              {isMobileNavOpen ? <X aria-hidden="true" className="size-4" /> : <Menu aria-hidden="true" className="size-4" />}
+            </button>
+          </div>
+        </div>
+
+        {isMobileNavOpen && (
+          <nav id="mobile-primary-navigation" aria-label="Mobile primary navigation" className="border-t border-white/10 py-3 lg:hidden">
+            <div className="grid grid-cols-2 gap-1 sm:grid-cols-5">
+              {pages.map((page) => {
+                const isActive = pathname.startsWith(`/${page.href.split('/')[1]}`);
+                return (
+                  <Link
+                    key={page.name}
+                    href={page.href}
+                    onClick={() => setIsMobileNavOpen(false)}
+                    className={`border border-white/10 px-3 py-3 text-center text-[10px] font-black tracking-[0.18em] transition-colors ${isActive ? 'border-accent-red bg-accent-red text-white' : 'text-white/65 hover:border-white/40 hover:text-white'}`}
+                  >
+                    {page.name}
+                  </Link>
+                );
+              })}
+            </div>
+          </nav>
+        )}
+      </div>
+
+      {showRegions && (
+        <div className="border-t border-line bg-paper text-ink">
+          <div className="mt-container flex min-w-0 items-center gap-3 overflow-x-auto py-2 no-scrollbar">
+            <nav aria-label="Regions" className="flex min-w-max items-center gap-1 sm:gap-2">
+              {regions.map((region) => {
+                const isActive = pathname.includes(`/${region.slug}`);
+                const base = getBasePath();
+                let finalHref = '';
+
+                if (base === 'festivals') {
+                  finalHref = `/festivals/${region.slug}`;
+                } else if (base === 'region') {
+                  const defaultGenre = region.slug === 'asia' ? 'j-pop' : 'rock';
+                  finalHref = region.slug === 'europa'
+                    ? `/region/europa/germany/${defaultGenre}`
+                    : `/region/${region.slug}/${defaultGenre}`;
+                } else {
+                  finalHref = `/${base}/${region.slug}`;
+                }
+
+                return (
+                  <Link
+                    key={region.slug}
+                    href={finalHref}
+                    className={`relative whitespace-nowrap px-3 py-1.5 text-[9px] font-black tracking-[0.2em] transition-colors ${isActive ? 'text-ink' : 'text-muted hover:text-ink'}`}
+                  >
+                    {region.name}
+                    <span className={`absolute inset-x-3 bottom-0 h-0.5 bg-accent-red transition-transform duration-300 ${isActive ? 'scale-x-100' : 'scale-x-0'}`} />
+                  </Link>
+                );
+              })}
+            </nav>
+            <span className="ml-auto hidden shrink-0 items-center gap-2 border-l border-line pl-4 text-[9px] font-bold tracking-[0.2em] text-muted uppercase md:flex">
+              <span className="size-1.5 rounded-full bg-accent-blue" aria-hidden="true" />
+              12 Stories Streaming
+            </span>
           </div>
         </div>
       )}
 
-      {/* EUROPA PODREGIONI: samo na muzičkim chart stranicama */}
       {showEuropaSubregions && (
-        <div className="bg-zinc-950 border-t border-white/5 py-2 overflow-x-auto">
-          <nav aria-label="Europa subregions" className="flex justify-center gap-4 md:gap-7 px-6 min-w-max">
+        <div className="border-t border-line-strong bg-paper-muted text-ink">
+          <nav aria-label="Europa subregions" className="mt-container flex min-w-max items-center justify-center gap-1 overflow-x-auto py-2 no-scrollbar sm:gap-3">
             {EUROPA_SUBREGIONS.map((subregion) => {
               const activeGenre = currentGenre || 'rock';
               const isActive = currentEuropaSubregion === subregion.slug;
-
               return (
                 <Link
                   key={subregion.slug}
                   href={`/region/europa/${subregion.slug}/${activeGenre}`}
-                  className={`text-[9px] font-bold tracking-widest px-3 py-1 transition-all ${
-                    isActive ? 'text-white border-b-2 border-purple-500' : 'text-zinc-600 hover:text-zinc-300'
-                  }`}
+                  className={`relative whitespace-nowrap px-2 py-1 text-[9px] font-black tracking-[0.16em] transition-colors ${isActive ? 'text-ink' : 'text-muted hover:text-ink'}`}
                 >
                   {subregion.name}
+                  <span className={`absolute inset-x-2 bottom-0 h-0.5 bg-accent-red transition-transform duration-300 ${isActive ? 'scale-x-100' : 'scale-x-0'}`} />
                 </Link>
               );
             })}
@@ -205,31 +263,26 @@ export default function Header() {
         </div>
       )}
 
-      {/* RED 3: ŽANROVI */}
       {showGenres && (
-        <div className="bg-black border-t border-white/5 py-3">
-          <div className="flex flex-wrap justify-center gap-4 px-4">
-            {(isAsia ? asiaGenres : isEuropa ? europaGenres : globalGenres).map((g) => {
-              const isActive = pathname.includes(g.slug) || (isHome && g.slug === 'rock');
+        <div className="border-t border-white/10 bg-ink text-white">
+          <nav aria-label="Genres" className="mt-container flex min-w-max items-center justify-center gap-2 overflow-x-auto py-2.5 no-scrollbar sm:gap-3">
+            {activeGenres.map((genre) => {
+              const isActive = pathname.includes(genre.slug) || (isHome && genre.slug === 'rock');
               const genreHref = currentEuropaSubregion
-                ? `/region/europa/${currentEuropaSubregion}/${g.slug}`
-                : `/region/${currentRegion}/${g.slug}`;
-              
+                ? `/region/europa/${currentEuropaSubregion}/${genre.slug}`
+                : `/region/${currentRegion}/${genre.slug}`;
+
               return (
-                <Link 
-                  key={g.slug} 
+                <Link
+                  key={genre.slug}
                   href={genreHref}
-                  className={`text-[9px] font-bold border px-4 py-1 transition-all uppercase ${
-                    isActive 
-                      ? 'border-purple-500 text-white bg-purple-500/10' 
-                      : 'border-zinc-800 text-zinc-500 hover:border-zinc-600'
-                  }`}
+                  className={`whitespace-nowrap rounded-full border px-3 py-1 text-[9px] font-black tracking-[0.14em] transition-colors ${isActive ? 'border-accent-red bg-accent-red text-white' : 'border-white/15 text-white/50 hover:border-white/45 hover:text-white'}`}
                 >
-                  {g.name}
+                  {genre.name}
                 </Link>
               );
             })}
-          </div>
+          </nav>
         </div>
       )}
     </header>

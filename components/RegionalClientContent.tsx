@@ -1,137 +1,89 @@
 'use client';
 
-import { useState } from 'react';
-import SongCard from '@/components/SongCard';
+import { useEffect, useState } from 'react';
+import { Play, X } from 'lucide-react';
 import SuggestionForm from '@/components/SuggestionForm';
 
+export interface RegionalSong {
+  id: string;
+  title: string;
+  artist_name: string;
+  slika_url?: string | null;
+  youtube_id?: string | null;
+  votes?: number | null;
+  genre?: string | null;
+}
+
 interface RegionalClientContentProps {
-  
-  initialSongs: any[];
+  initialSongs: RegionalSong[];
   region: string;
 }
 
 export default function RegionalClientContent({ initialSongs, region }: RegionalClientContentProps) {
   const [songs] = useState(initialSongs);
-  const [selectedSong, setSelectedSong] = useState<any>(null);
+  const [selectedSong, setSelectedSong] = useState<RegionalSong | null>(null);
 
-  const getVideoSrc = (id: string) => {
-    if (!id) return null;
-    return `https://www.youtube.com/embed/${id}`;
-  };
+  useEffect(() => {
+    if (!selectedSong) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setSelectedSong(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedSong]);
+
+  const getVideoSrc = (id?: string | null) => id ? `https://www.youtube.com/embed/${id}` : null;
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white pt-32 pb-20 px-4 md:px-10">
-      <div className="max-w-7xl mx-auto">
-        
-        {/* NASLOV STRANICE */}
-        <div className="mb-12 border-l-4 border-red-600 pl-6">
-          <h1 className="text-6xl font-black italic tracking-tighter uppercase">{region} TOP 100</h1>
-          <p className="text-zinc-500 tracking-[0.5em] text-[10px] font-bold uppercase">Official {region} Chart</p>
+    <div className="mt-page mt-page--paper pb-20">
+      <section className="border-b border-line">
+        <div className="mt-container py-14 lg:py-20">
+          <p className="mt-kicker">{region} regional chart</p>
+          <h1 className="mt-display mt-5 text-[clamp(3.75rem,11vw,9rem)] text-ink">{region} top 100</h1>
+          <p className="mt-6 max-w-xl text-sm leading-relaxed text-muted">The official {region} chart, ranked by audience engagement and updated from the MUSIC TOP database.</p>
         </div>
+      </section>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* BROJ 1 */}
-          {songs[0] && (
-            <div className="md:col-span-2 group bg-zinc-900/40 rounded-[3rem] overflow-hidden border border-white/10 hover:border-red-600/50 transition-all shadow-2xl">
-              <div className="aspect-video w-full bg-black">
-                <iframe src={getVideoSrc(songs[0].youtube_id) || ''} className="w-full h-full" allowFullScreen />
-              </div>
-              <div className="p-8 flex justify-between items-center bg-gradient-to-t from-black to-transparent">
-                <div>
-                  <span className="text-red-600 font-black italic text-5xl mr-4">#01</span>
-                  <h2 className="inline text-4xl md:text-5xl font-black uppercase tracking-tighter">{songs[0].title}</h2>
-                  <p className="text-zinc-400 text-lg mt-1 font-medium">{songs[0].artist_name}</p>
+      <main className="mt-container py-10 lg:py-14">
+        {songs.length > 0 ? (
+          <>
+            {songs[0] && (
+              <article className="group overflow-hidden border border-accent-red bg-ink shadow-[0_0_40px_-8px_rgb(230_57_70_/_0.45)]">
+                <div className="aspect-video w-full bg-ink">
+                  {getVideoSrc(songs[0].youtube_id) ? <iframe src={getVideoSrc(songs[0].youtube_id) || ''} title={`${songs[0].title} preview`} className="h-full w-full" allow="autoplay; encrypted-media" allowFullScreen /> : <div className="flex h-full items-center justify-center text-xs font-bold tracking-[0.16em] text-white/45 uppercase">Video unavailable</div>}
                 </div>
-                <button onClick={() => setSelectedSong(songs[0])} className="bg-white text-black px-10 py-4 rounded-full font-black hover:bg-red-600 hover:text-white transition-all shadow-lg">
-                  VIEW DETAILS
-                </button>
-              </div>
+                <div className="flex flex-col gap-6 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-7"><div className="min-w-0"><div className="mb-2 flex items-center gap-3"><span className="text-5xl font-black italic leading-none text-accent-red">01</span><span className="mt-meta text-white/45">Featured entry</span></div><h2 className="truncate text-3xl font-black leading-none tracking-[-0.05em] text-white uppercase sm:text-5xl">{songs[0].title}</h2><p className="mt-2 text-sm font-bold tracking-[0.12em] text-white/55 uppercase">{songs[0].artist_name}</p></div><button type="button" onClick={() => setSelectedSong(songs[0])} className="shrink-0 border border-white/30 px-5 py-3 text-[10px] font-black tracking-[0.18em] text-white uppercase transition-colors hover:border-accent-red hover:bg-accent-red">View details</button></div>
+              </article>
+            )}
+
+            <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+              {songs.slice(1, 3).map((song, index) => (
+                <article key={song.id} className="group overflow-hidden border border-line bg-ink transition-colors hover:border-accent-red">
+                  <div className="aspect-video bg-ink">{getVideoSrc(song.youtube_id) ? <iframe src={getVideoSrc(song.youtube_id) || ''} title={`${song.title} preview`} className="h-full w-full" allowFullScreen /> : <div className="flex h-full items-center justify-center text-xs text-white/45">Video unavailable</div>}</div>
+                  <div className="flex items-center justify-between gap-4 p-5"><div className="min-w-0"><span className="text-3xl font-black italic text-white/25">{String(index + 2).padStart(2, '0')}</span><h2 className="mt-2 truncate text-xl font-black leading-none tracking-[-0.04em] text-white uppercase">{song.title}</h2><p className="mt-1 truncate text-[10px] font-bold tracking-[0.12em] text-white/50 uppercase">{song.artist_name}</p></div><button type="button" onClick={() => setSelectedSong(song)} className="shrink-0 border border-white/20 px-3 py-2 text-[9px] font-black tracking-[0.14em] text-white uppercase transition-colors hover:border-accent-red hover:bg-accent-red">Info</button></div>
+                </article>
+              ))}
             </div>
-          )}
 
-          {/* BROJ 2 I 3 */}
-          {songs.slice(1, 3).map((song, i) => (
-            <div key={song.id} className="bg-zinc-900/30 rounded-[2.5rem] overflow-hidden border border-white/5 hover:border-zinc-500 transition-all shadow-xl">
-              <div className="aspect-video bg-black">
-                <iframe src={getVideoSrc(song.youtube_id) || ''} className="w-full h-full" allowFullScreen />
+            <section className="mt-12 border-t border-line pt-7" aria-labelledby="regional-song-list">
+              <div className="mb-3 flex items-center justify-between px-2"><h2 id="regional-song-list" className="mt-meta text-muted">Rank & artist</h2><span className="mt-meta text-muted">MTA points</span></div>
+              <div className="space-y-1">
+                {songs.slice(3).map((song, index) => <button key={song.id} type="button" onClick={() => setSelectedSong(song)} className="group flex w-full items-center justify-between gap-4 border-b border-line bg-white px-4 py-4 text-left transition-colors hover:bg-paper-hover sm:px-5"><span className="flex min-w-0 items-center gap-4 sm:gap-7"><span className="w-7 shrink-0 text-lg font-black italic text-line-strong tabular-nums">{String(index + 4).padStart(2, '0')}</span><span className="min-w-0"><span className="block truncate text-sm font-black tracking-[-0.02em] text-ink uppercase transition-colors group-hover:text-accent-red">{song.title}</span><span className="mt-1 block truncate text-[10px] font-bold tracking-[0.1em] text-muted uppercase">{song.artist_name}</span></span></span><span className="flex shrink-0 items-center gap-3"><span className="hidden rounded-full bg-paper-muted px-2.5 py-1 text-[9px] font-black tracking-[0.1em] text-muted uppercase sm:inline">{song.genre || 'Music'}</span><span className="text-sm font-black tabular-nums text-ink">{(song.votes || 0).toLocaleString()}</span><span className="flex size-8 items-center justify-center rounded-full border border-line text-accent-red transition-colors group-hover:border-accent-red group-hover:bg-accent-red group-hover:text-white"><Play aria-hidden="true" className="size-3 fill-current" /></span></span></button>)}
               </div>
-              <div className="p-6 flex justify-between items-center">
-                <div>
-                  <span className="text-zinc-600 font-black italic text-3xl mr-3">#0{i + 2}</span>
-                  <h3 className="inline text-xl font-bold uppercase tracking-tight">{song.title}</h3>
-                  <p className="text-zinc-500 text-xs mt-1">{song.artist_name}</p>
-                </div>
-                <button onClick={() => setSelectedSong(song)} className="text-[10px] font-black border border-white/20 px-5 py-2 rounded-full hover:bg-white hover:text-black transition-all">
-                  INFO
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+            </section>
+          </>
+        ) : (
+          <div className="border border-line bg-paper-muted px-6 py-24 text-center text-sm font-bold tracking-[0.14em] text-muted uppercase">No tracks found for this region yet.</div>
+        )}
 
-        {/* LISTA */}
-        <div className="mt-16 space-y-3">
-          <div className="px-8 py-2 text-[10px] font-bold text-zinc-600 tracking-[0.3em] flex justify-between uppercase">
-            <span>Rank & Artist</span>
-            <span>MTA Points</span>
-          </div>
-
-          {songs.slice(3).map((song, i) => {
-            const trenutnaPozicija = i + 4;
-            return (
-              <div key={song.id}>
-                <div onClick={() => setSelectedSong(song)} className="flex items-center justify-between p-5 bg-white/[0.02] border border-white/5 rounded-2xl hover:bg-zinc-900 transition-all cursor-pointer group">
-                  <div className="flex items-center gap-8">
-                    <span className="text-zinc-800 font-black italic text-lg w-8">{trenutnaPozicija.toString().padStart(2, '0')}</span>
-                    <div>
-                      <h4 className="font-bold uppercase group-hover:text-red-500 transition-colors tracking-tight">{song.title}</h4>
-                      <p className="text-[10px] text-zinc-500 uppercase font-medium">{song.artist_name}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-10">
-                    <span className="text-[10px] font-bold text-zinc-700 bg-white/5 px-3 py-1 rounded-md uppercase">{song.genre}</span>
-                    <span className="text-lg font-mono font-black text-zinc-400 group-hover:text-white">{song.votes.toLocaleString()}</span>
-                    <div className="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center group-hover:bg-red-600 group-hover:border-red-600 transition-all">
-                      <span className="text-[10px]">▶</span>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="mt-24 grid grid-cols-1 lg:grid-cols-3 gap-12 border-t border-white/5 pt-16">
-          <div className="lg:col-span-1">
-            <h2 className="text-3xl font-black italic uppercase tracking-tight mb-4">Predloži pesmu</h2>
-            <p className="text-zinc-500 text-sm mb-8">Is your favorite song missing? Suggest it now!</p>
-          </div>
-          <div className="lg:col-span-2">
-            <SuggestionForm region={region} />
-          </div>
-        </div>
-      </div>
+        <section className="mt-16 grid grid-cols-1 gap-8 border-t border-line pt-12 lg:grid-cols-3 lg:gap-12"><div><h2 className="text-3xl font-black tracking-[-0.06em] text-ink uppercase">Suggest a song</h2><p className="mt-3 text-sm leading-relaxed text-muted">Is your favorite song missing? Suggest it now.</p></div><div className="lg:col-span-2"><SuggestionForm region={region} /></div></section>
+      </main>
 
       {selectedSong && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-10 bg-black/95 backdrop-blur-md">
-          <div className="bg-[#0a0a0a] border border-white/10 p-8 md:p-12 rounded-[3rem] max-w-4xl w-full relative overflow-y-auto max-h-[90vh]">
-            <button onClick={() => setSelectedSong(null)} className="absolute top-8 right-10 text-4xl font-light text-zinc-500 hover:text-white transition-colors">×</button>
-            <div className="grid md:grid-cols-2 gap-10 items-center">
-              <div className="aspect-video md:aspect-square rounded-3xl overflow-hidden border border-white/5 shadow-2xl">
-                <iframe src={`${getVideoSrc(selectedSong.youtube_id)}?autoplay=1`} className="w-full h-full" allow="autoplay" allowFullScreen />
-              </div>
-              <div className="text-left">
-                <span className="text-red-600 font-black tracking-widest text-xs uppercase bg-red-600/10 px-3 py-1 rounded-full">Official Entry</span>
-                <h2 className="text-5xl font-black uppercase mt-4 leading-none tracking-tighter">{selectedSong.title}</h2>
-                <p className="text-2xl text-zinc-400 font-medium mt-2 mb-8">{selectedSong.artist_name}</p>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 bg-white/5 rounded-2xl"><p className="text-[10px] text-zinc-500 font-bold uppercase mb-1">Genre</p><p className="font-bold text-white uppercase">{selectedSong.genre}</p></div>
-                  <div className="p-4 bg-white/5 rounded-2xl"><p className="text-[10px] text-zinc-500 font-bold uppercase mb-1">MTA Points</p><p className="text-2xl font-black text-yellow-500">{selectedSong.votes}</p></div>
-                </div>
-                <button className="w-full mt-8 bg-white text-black font-black py-4 rounded-2xl hover:bg-red-600 hover:text-white transition-all uppercase tracking-widest">Vote for this artist</button>
-              </div>
-            </div>
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-ink/95 p-4 backdrop-blur-md sm:p-8" role="dialog" aria-modal="true" aria-labelledby="selected-song-title" onClick={() => setSelectedSong(null)}>
+          <div className="relative max-h-[90vh] w-full max-w-4xl overflow-y-auto border border-white/15 bg-ink-elevated p-5 sm:p-8" onClick={(event) => event.stopPropagation()}>
+            <button type="button" aria-label="Close song details" onClick={() => setSelectedSong(null)} className="absolute right-4 top-4 flex size-9 items-center justify-center border border-white/20 text-white transition-colors hover:border-accent-red hover:bg-accent-red sm:right-6 sm:top-6"><X aria-hidden="true" className="size-4" /></button>
+            <div className="grid gap-8 pt-8 md:grid-cols-2 md:items-center"><div className="aspect-video overflow-hidden bg-black">{getVideoSrc(selectedSong.youtube_id) ? <iframe src={`${getVideoSrc(selectedSong.youtube_id)}?autoplay=1`} title={`${selectedSong.title} player`} className="h-full w-full" allow="autoplay; encrypted-media" allowFullScreen /> : <div className="flex h-full items-center justify-center text-xs text-white/45">Video unavailable</div>}</div><div><p className="mt-meta text-accent-red">Official entry · {selectedSong.genre || 'Music'}</p><h2 id="selected-song-title" className="mt-4 text-4xl font-black leading-[0.9] tracking-[-0.06em] text-white uppercase sm:text-5xl">{selectedSong.title}</h2><p className="mt-2 text-lg text-white/55">{selectedSong.artist_name}</p><div className="mt-7 grid grid-cols-2 gap-3"><div className="border border-white/10 bg-white/5 p-4"><span className="mt-meta text-white/45">Genre</span><strong className="mt-2 block text-sm font-black text-white uppercase">{selectedSong.genre || 'Music'}</strong></div><div className="border border-white/10 bg-white/5 p-4"><span className="mt-meta text-white/45">MTA points</span><strong className="mt-2 block text-2xl font-black text-accent-red">{(selectedSong.votes || 0).toLocaleString()}</strong></div></div><button type="button" onClick={() => setSelectedSong(null)} className="mt-7 w-full bg-white px-5 py-3 text-[10px] font-black tracking-[0.18em] text-ink uppercase transition-colors hover:bg-accent-red hover:text-white">Close details</button></div></div>
           </div>
         </div>
       )}

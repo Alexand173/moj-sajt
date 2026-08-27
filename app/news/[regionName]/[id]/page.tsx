@@ -4,7 +4,7 @@ import Link from 'next/link';
 import StructuredData from '@/components/StructuredData';
 import { getNewsSourceName } from '@/lib/ai-news';
 import { getPublicSupabaseClient } from '@/lib/supabase-public';
-// Keep article pages dynamic, but never let an external provider block HTML rendering.
+
 export const revalidate = 0;
 
 const getSupabase = () => getPublicSupabaseClient();
@@ -26,7 +26,6 @@ interface NewsArticleRecord {
 
 function getSafeSourceUrl(value: string | null | undefined): string | null {
   if (!value?.trim()) return null;
-
   try {
     const parsed = new URL(value);
     return ['http:', 'https:'].includes(parsed.protocol) ? parsed.toString() : null;
@@ -44,12 +43,7 @@ const getNewsArticle = cache(async (id: string): Promise<NewsArticleRecord | nul
   if (!supabase) return null;
 
   try {
-    const { data, error } = await supabase
-      .from('news')
-      .select('*')
-      .eq('id', id)
-      .single();
-
+    const { data, error } = await supabase.from('news').select('*').eq('id', id).single();
     if (error || !data) return null;
     return data as NewsArticleRecord;
   } catch (error) {
@@ -58,13 +52,8 @@ const getNewsArticle = cache(async (id: string): Promise<NewsArticleRecord | nul
   }
 });
 
-/**
- * Article rendering uses only stored fields. Source scraping and AI generation
- * belong in the background enrichment job, not in a crawler-facing request.
- */
 const getResolvedSource = cache(async (article: NewsArticleRecord) => {
   const sourceUrl = getSafeSourceUrl(article.url);
-
   return {
     sourceUrl,
     sourceName: getNewsSourceName(sourceUrl),
@@ -82,12 +71,7 @@ export async function generateMetadata({
   const pageUrl = getArticlePageUrl(regionName, id);
   const article = await getNewsArticle(id);
 
-  if (!article) {
-    return {
-      title: 'Article not found | MusicTop',
-      alternates: { canonical: pageUrl },
-    };
-  }
+  if (!article) return { title: 'Article not found | MusicTop', alternates: { canonical: pageUrl } };
 
   const resolvedSource = await getResolvedSource(article);
   const sourceName = resolvedSource.sourceName;
@@ -112,37 +96,26 @@ export async function generateMetadata({
       authors: ['MusicTop Editorial'],
       images: imageUrl ? [{ url: imageUrl, alt: article.title }] : undefined,
     },
-    twitter: {
-      card: 'summary_large_image',
-      title: article.title,
-      description,
-      images: imageUrl ? [imageUrl] : undefined,
-    },
+    twitter: { card: 'summary_large_image', title: article.title, description, images: imageUrl ? [imageUrl] : undefined },
     other: {
       'article:source': sourceName,
       ...(sourceUrl ? { 'article:source_url': sourceUrl } : {}),
-      'article:content_origin': article.category === 'LATEST'
-        ? 'AI-synthesized report based on source reporting'
-        : 'Official publisher link',
+      'article:content_origin': article.category === 'LATEST' ? 'AI-synthesized report based on source reporting' : 'Official publisher link',
     },
   };
 }
 
 export default async function SingleNewsPage({
-  params
+  params,
 }: {
-  params: Promise<{ regionName: string, id: string }>
+  params: Promise<{ regionName: string; id: string }>;
 }) {
   const { id, regionName } = await params;
-
   const article = await getNewsArticle(id);
 
-  if (!article) {
-    return <div className="pt-60 text-center uppercase font-black">Article not found.</div>;
-  }
+  if (!article) return <div className="mt-page mt-page--paper px-6 py-32 text-center text-xs font-black tracking-[0.16em] text-accent-red uppercase">Article not found.</div>;
 
   const resolvedSource = await getResolvedSource(article);
-
   const sourceName = resolvedSource.sourceName;
   const isLatestNews = article.category === 'LATEST';
   const aiArticle = article.ai_content?.trim()
@@ -157,9 +130,7 @@ export default async function SingleNewsPage({
       }
     : {
         seoTitle: article.title,
-        seoDescription: isLatestNews
-          ? `MusicTop is reporting on a music story published by ${sourceName}.`
-          : `Official source link from ${sourceName}.`,
+        seoDescription: isLatestNews ? `MusicTop is reporting on a music story published by ${sourceName}.` : `Official source link from ${sourceName}.`,
         articleContent: article.content || `Open the original report from ${sourceName}.`,
         isAiGenerated: false,
         similarityScore: 0,
@@ -167,10 +138,7 @@ export default async function SingleNewsPage({
         retryCount: 0,
       };
 
-  const articleParagraphs = aiArticle.articleContent
-    .split(/\n\s*\n/)
-    .map((paragraph: string) => paragraph.trim())
-    .filter(Boolean);
+  const articleParagraphs = aiArticle.articleContent.split(/\n\s*\n/).map((paragraph) => paragraph.trim()).filter(Boolean);
   const sourceUrl = getSafeSourceUrl(resolvedSource.sourceUrl);
   const pageUrl = getArticlePageUrl(regionName, id);
   const articleStructuredData = {
@@ -182,112 +150,42 @@ export default async function SingleNewsPage({
     datePublished: article.created_at || undefined,
     dateModified: article.created_at || undefined,
     articleSection: article.category || 'Music News',
-    author: {
-      '@type': 'Organization',
-      name: 'MusicTop Editorial',
-      url: 'https://musictop.net',
-    },
-    publisher: {
-      '@type': 'Organization',
-      name: 'MusicTop',
-      url: 'https://musictop.net',
-    },
-    mainEntityOfPage: {
-      '@type': 'WebPage',
-      '@id': pageUrl,
-    },
+    author: { '@type': 'Organization', name: 'MusicTop Editorial', url: 'https://musictop.net' },
+    publisher: { '@type': 'Organization', name: 'MusicTop', url: 'https://musictop.net' },
+    mainEntityOfPage: { '@type': 'WebPage', '@id': pageUrl },
     citation: sourceUrl || undefined,
     isBasedOn: sourceUrl || undefined,
-    sourceOrganization: {
-      '@type': 'Organization',
-      name: sourceName,
-      ...(sourceUrl ? { url: sourceUrl } : {}),
-    },
+    sourceOrganization: { '@type': 'Organization', name: sourceName, ...(sourceUrl ? { url: sourceUrl } : {}) },
   };
 
   return (
-    <div className="min-h-screen bg-white text-black pt-40 pb-20 font-sans">
+    <div className="mt-page mt-page--paper pb-20 pt-10">
       <StructuredData data={articleStructuredData} />
-      <div className="max-w-[900px] mx-auto px-6">
-        
-        {/* NAVIGACIJA NAZAD */}
-        <Link 
-          href={`/news/${regionName}`} 
-          className="text-[10px] font-black uppercase tracking-[0.3em] hover:text-purple-600 mb-12 block transition-colors"
-        >
-          ← Back to {regionName} News Feed
-        </Link>
+      <article className="mt-container">
+        <Link href={`/news/${regionName}`} className="mb-12 inline-flex items-center gap-2 border-b border-ink pb-2 text-[10px] font-black tracking-[0.22em] text-ink uppercase transition-colors hover:border-accent-red hover:text-accent-red">← Back to {regionName} news feed</Link>
 
-        {/* CATEGORY & TITLE */}
-        <div className="flex flex-wrap items-center gap-3 mb-6">
-          <span className="text-purple-600 font-black text-xs tracking-[0.4em] uppercase">
-            {article.category || 'MUSIC INDUSTRY'}
-          </span>
-          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">
-            SOURCE: {sourceName}
-          </span>
-        </div>
-        <h1 className="text-5xl md:text-8xl font-black leading-[0.9] uppercase tracking-tighter mb-12">
-          {aiArticle.seoTitle}
-        </h1>
+        <header className="border-b border-line pb-10">
+          <div className="flex flex-wrap items-center gap-3"><span className="bg-accent-red px-2.5 py-1 text-[9px] font-black tracking-[0.2em] text-white uppercase">{article.category || 'Music industry'}</span><span className="mt-meta text-muted">Source: {sourceName}</span></div>
+          <h1 className="mt-6 max-w-6xl text-balance text-[clamp(3.25rem,8vw,8rem)] font-black leading-[0.85] tracking-[-0.08em] text-ink uppercase">{aiArticle.seoTitle}</h1>
+          <p className="mt-6 max-w-2xl text-sm leading-relaxed text-muted sm:text-base">Published {article.created_at ? new Date(article.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'recently'} · {regionName.toUpperCase()}</p>
+        </header>
 
-        {/* MAIN IMAGE */}
-        <div className="aspect-[16/9] mb-16 overflow-hidden bg-zinc-100 shadow-2xl">
-          <img 
-            src={article.image || `https://images.unsplash.com/photo-1470225620780-dba8ba36b745`} 
-            className="w-full h-full object-cover transition-all duration-1000"
-            alt={article.title} 
-          />
-        </div>
+        {article.image && <div className="mt-10 aspect-[16/8] overflow-hidden bg-ink"><img src={article.image} alt={article.title} className="h-full w-full object-cover grayscale transition-all duration-700 hover:grayscale-0" /></div>}
 
-        {/* ARTICLE CONTENT */}
-        <div className="max-w-[700px] mx-auto">
-          {/* EXCERPT / LEAD PARAGRAPH */}
-          <p className="text-2xl md:text-3xl font-bold leading-tight mb-12 border-l-8 border-black pl-8 italic uppercase tracking-tight">
-            {aiArticle.seoDescription}
-          </p>
+        <div className="mx-auto mt-12 grid max-w-6xl grid-cols-1 gap-12 lg:grid-cols-[minmax(0,1fr)_16rem] lg:gap-16">
+          <div>
+            <p className="border-l-4 border-accent-red pl-6 text-2xl font-black leading-[0.98] tracking-[-0.04em] text-muted sm:text-3xl">{aiArticle.seoDescription}</p>
+            <div className="mt-10 border-t border-line pt-5"><p className="mt-meta text-accent-red">{aiArticle.isAiGenerated ? 'AI-synthesized editorial report' : 'Editorial source report'} · {sourceName}</p><div className="mt-7 space-y-6 text-base leading-relaxed text-ink sm:text-lg">{articleParagraphs.map((paragraph, index) => <p key={`${article.id}-paragraph-${index}`}>{paragraph}</p>)}</div></div>
 
-          {/* MAIN TEXT */}
-          <div className="text-lg md:text-xl text-zinc-800 leading-relaxed uppercase font-medium space-y-8 whitespace-pre-line">
-            <p className="text-[10px] not-italic tracking-[0.2em] text-purple-600 font-black uppercase">
-              {aiArticle.isAiGenerated ? 'AI-SYNTHESIZED EDITORIAL REPORT' : 'EDITORIAL REWRITE UNAVAILABLE'} · SOURCE: {sourceName}
-            </p>
-            <div className="space-y-6 normal-case font-normal leading-relaxed">
-              {articleParagraphs.map((paragraph: string, index: number) => (
-                <p key={`${article.id}-paragraph-${index}`}>{paragraph}</p>
-              ))}
-            </div>
+            <section className="mt-16 border-t-8 border-ink bg-paper-muted p-6 sm:p-10">
+              <h2 className="text-xl font-black tracking-[-0.04em] text-ink uppercase sm:text-2xl">Full story & global impact</h2>
+              <p className="mt-4 text-sm leading-relaxed text-muted">{aiArticle.isAiGenerated ? `This article was synthesized and rewritten by MusicTop Editorial from reporting published by ${sourceName}. Read the publisher&apos;s report for the complete source context.` : `The independent rewrite is temporarily unavailable. The publisher&apos;s article is linked below and is not reproduced on this page.`}</p>
+              {sourceUrl ? <a href={sourceUrl} target="_blank" rel="noopener noreferrer" aria-label={`Read the original source from ${sourceName}`} className="mt-7 flex min-h-14 items-center justify-center gap-2 bg-ink px-4 py-4 text-center text-[10px] font-black tracking-[0.16em] text-white uppercase transition-colors hover:bg-accent-red focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent-red">Read original source: {sourceName} <span aria-hidden="true">↗</span></a> : <p className="mt-7 bg-line px-4 py-4 text-center text-[10px] font-black tracking-[0.16em] text-muted uppercase">Original source link unavailable · Source: {sourceName}</p>}
+            </section>
           </div>
-
-          {/* DUGME ZA ORIGINALNI IZVOR (Call to Action) */}
-          <div className="mt-20 w-full border-t-[12px] border-black bg-zinc-50 p-6 text-center sm:p-8 md:p-12">
-            <h3 className="mb-5 text-sm font-black uppercase tracking-[0.12em] sm:mb-6 sm:tracking-widest">
-              Full Story & Global Impact
-            </h3>
-            <p className="mb-7 text-[10px] font-bold uppercase leading-relaxed text-zinc-500 sm:mb-8 sm:px-4">
-              {aiArticle.isAiGenerated
-                ? `This article was synthesized and rewritten by MusicTop Editorial from reporting published by ${sourceName}. Read the publisher\'s report for the complete source context.`
-                : `The independent rewrite is temporarily unavailable. The publisher\'s article is linked below and is not reproduced on this page.`}
-            </p>
-            {sourceUrl ? (
-              <a
-                href={sourceUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={`Read the original source from ${sourceName}`}
-                className="flex min-h-14 w-full items-center justify-center break-words bg-black px-4 py-4 text-[10px] font-black uppercase leading-relaxed tracking-[0.12em] text-white shadow-xl transition-all duration-500 hover:bg-purple-600 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-purple-600 sm:py-5 sm:text-xs sm:tracking-[0.2em] md:py-6 md:tracking-[0.3em]"
-              >
-                Read Original Source: {sourceName}
-              </a>
-            ) : (
-              <p className="flex min-h-14 w-full items-center justify-center break-words bg-zinc-200 px-4 py-4 text-[10px] font-black uppercase leading-relaxed tracking-[0.12em] text-zinc-500 sm:py-5 sm:text-xs sm:tracking-[0.2em] md:py-6 md:tracking-[0.3em]">
-                Original source link unavailable · Source: {sourceName}
-              </p>
-            )}
-          </div>
+          <aside className="border-t border-line pt-5 lg:border-l lg:border-t-0 lg:pl-6"><p className="mt-meta text-muted">Filed under</p><p className="mt-3 text-xl font-black tracking-[-0.04em] text-ink uppercase">{article.category || 'Music news'}</p><div className="mt-8 border-t border-line pt-5"><p className="mt-meta text-muted">Region</p><p className="mt-3 text-sm font-black tracking-[0.14em] text-ink uppercase">{regionName}</p></div></aside>
         </div>
-
-      </div>
+      </article>
     </div>
   );
 }
