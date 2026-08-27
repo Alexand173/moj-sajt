@@ -95,17 +95,15 @@ export default function Footer() {
             <p className="mt-5 max-w-xs text-sm leading-relaxed text-white/50">
               The kinetic chronicle of global music journalism — raw, urgent, unfiltered. Built for readers who treat every headline as a monument.
             </p>
-            <div className="mt-6 flex max-w-md items-center gap-2">
-              <label htmlFor="footer-email" className="sr-only">Email address</label>
-              <input
-                id="footer-email"
-                type="email"
-                placeholder="YOUR EMAIL"
-                className="min-w-0 flex-1 border border-white/20 bg-transparent px-4 py-3 text-[10px] font-bold tracking-[0.16em] text-white placeholder:text-white/30 focus:border-accent-red focus:outline-none"
-              />
-              <button type="button" className="shrink-0 bg-accent-red px-5 py-3 text-[10px] font-black tracking-[0.2em] text-white transition-colors hover:bg-white hover:text-ink">
-                JOIN
-              </button>
+            <div className="mt-6 max-w-md">
+              <p className="mb-3 text-[9px] font-bold tracking-[0.16em] text-white/40 uppercase">Weekly new music, news, and live signals</p>
+              <Link
+                href="/newsletter"
+                className="group inline-flex min-h-12 w-full items-center justify-between gap-3 bg-accent-red px-5 py-3 text-[10px] font-black tracking-[0.2em] text-white uppercase transition-colors hover:bg-white hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent-red"
+              >
+                Join the newsletter
+                <ArrowUpRight aria-hidden="true" className="size-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+              </Link>
             </div>
           </div>
 

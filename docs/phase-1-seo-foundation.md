@@ -45,14 +45,20 @@ Cloudflare is not configured by repository code in this pass. In the Cloudflare 
 
 The existing news fetch and AI enrichment workers remain unchanged. A daily article cadence still requires an editorial queue, source review, and monitoring of the existing worker output. Production automation should not publish unvalidated fallback text as an original article.
 
-## Newsletter handoff
+## Newsletter foundation and handoff
 
-The current footer form remains a visual placeholder because no Beehiiv publication or public subscription endpoint was supplied. To connect it safely:
+- `/newsletter` is now a dedicated, crawlable landing page for the email-list value proposition.
+- The footer links to that page instead of presenting a form that cannot submit anywhere.
+- Set `NEXT_PUBLIC_NEWSLETTER_URL` to the provider's public signup URL in local and Vercel environments. The page validates the URL and accepts only `http` or `https` destinations.
+- Until that variable is configured, the page shows a clear contact fallback and does not collect an email address.
+- No subscriber PII is stored in Supabase by this implementation.
 
-1. Create or select the Beehiiv publication.
-2. Copy the public subscribe/form URL or configure a server-side API integration with its secret stored in Vercel environment variables.
-3. Add consent copy and a link to `/privacy` before collecting addresses.
-4. Confirm double opt-in, unsubscribe behavior, rate limiting, and error states in production.
-5. Test the form on mobile and desktop before promoting the “Weekly New Music Digest” or “Concert Alert Newsletter” lead magnet.
+To launch the list safely:
+
+1. Create or select the Beehiiv publication (or another compliant provider).
+2. Copy its public subscribe/form URL into `NEXT_PUBLIC_NEWSLETTER_URL` in Vercel and redeploy.
+3. Confirm the provider's consent copy, double opt-in, unsubscribe behavior, retention policy, and regional compliance settings.
+4. Test the external signup flow on mobile and desktop, including invalid or unavailable provider links.
+5. Promote the newsletter only after the provider and `/privacy` copy have been reviewed together.
 
 No Search Console, Cloudflare, Beehiiv, or credential changes are performed by this document.

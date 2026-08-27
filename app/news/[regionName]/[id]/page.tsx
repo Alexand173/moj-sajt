@@ -1,8 +1,10 @@
 import { cache } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import StructuredData from '@/components/StructuredData';
 import { getNewsSourceName } from '@/lib/ai-news';
+import { countWords, hasValidatedAiContent } from '@/lib/news-indexability';
 import { createBreadcrumbListSchema } from '@/lib/seo-schema';
 import { getPublicSupabaseClient } from '@/lib/supabase-public';
 
@@ -23,16 +25,6 @@ interface NewsArticleRecord {
   ai_similarity_score: number | null;
   ai_generated: boolean | null;
   ai_status: string | null;
-}
-
-const MIN_INDEXABLE_ARTICLE_WORDS = 200;
-
-function countWords(value: string): number {
-  return value.trim() ? value.trim().split(/\s+/).length : 0;
-}
-
-function hasValidatedAiContent(article: Pick<NewsArticleRecord, 'ai_content' | 'ai_generated' | 'ai_status'>): boolean {
-  return article.ai_generated === true && article.ai_status === 'generated' && countWords(article.ai_content?.trim() || '') >= MIN_INDEXABLE_ARTICLE_WORDS;
 }
 
 function getSafeSourceUrl(value: string | null | undefined): string | null {
@@ -82,7 +74,7 @@ export async function generateMetadata({
   const pageUrl = getArticlePageUrl(regionName, id);
   const article = await getNewsArticle(id);
 
-  if (!article) return { title: 'Article not found | MusicTop', alternates: { canonical: pageUrl } };
+  if (!article) notFound();
 
   const resolvedSource = await getResolvedSource(article);
   const sourceName = resolvedSource.sourceName;
@@ -126,7 +118,7 @@ export default async function SingleNewsPage({
   const { id, regionName } = await params;
   const article = await getNewsArticle(id);
 
-  if (!article) return <div className="mt-page mt-page--paper px-6 py-32 text-center text-xs font-black tracking-[0.16em] text-accent-red uppercase">Article not found.</div>;
+  if (!article) notFound();
 
   const resolvedSource = await getResolvedSource(article);
   const sourceName = resolvedSource.sourceName;
@@ -201,7 +193,7 @@ export default async function SingleNewsPage({
 
             <section className="mt-16 border-t-8 border-ink bg-paper-muted p-6 sm:p-10">
               <h2 className="text-xl font-black tracking-[-0.04em] text-ink uppercase sm:text-2xl">Full story & global impact</h2>
-              <p className="mt-4 text-sm leading-relaxed text-muted">{aiArticle.isAiGenerated ? `This article was synthesized and rewritten by MusicTop Editorial from reporting published by ${sourceName}. Read the publisher&apos;s report for the complete source context.` : `The independent rewrite is temporarily unavailable. The publisher&apos;s article is linked below and is not reproduced on this page.`}</p>
+              <p className="mt-4 text-sm leading-relaxed text-muted">{aiArticle.isAiGenerated ? `This article was synthesized and rewritten by MusicTop Editorial from reporting published by ${sourceName}. Read the publisher's report for the complete source context.` : `The independent rewrite is temporarily unavailable. The publisher's article is linked below and is not reproduced on this page.`}</p>
               {sourceUrl ? <a href={sourceUrl} target="_blank" rel="noopener noreferrer" aria-label={`Read the original source from ${sourceName}`} className="mt-7 flex min-h-14 items-center justify-center gap-2 bg-ink px-4 py-4 text-center text-[10px] font-black tracking-[0.16em] text-white uppercase transition-colors hover:bg-accent-red focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent-red">Read original source: {sourceName} <span aria-hidden="true">↗</span></a> : <p className="mt-7 bg-line px-4 py-4 text-center text-[10px] font-black tracking-[0.16em] text-muted uppercase">Original source link unavailable · Source: {sourceName}</p>}
             </section>
           </div>

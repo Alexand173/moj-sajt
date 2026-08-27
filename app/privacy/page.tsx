@@ -13,7 +13,7 @@ export default function PrivacyPage() {
       eyebrow="MusicTop / Legal"
       title="Privacy Policy"
       intro="This policy explains what information MusicTop collects, why we use it, and the choices available to visitors and registered members."
-      updatedAt="July 26, 2026"
+      updatedAt="August 27, 2026"
     >
       <section>
         <h2>Information we collect</h2>
@@ -48,6 +48,13 @@ export default function PrivacyPage() {
         <h2>Third-party services and links</h2>
         <p>
           MusicTop may use Supabase for account and application data, Vercel for hosting and analytics, and external services such as YouTube, Spotify, Ticketmaster, Apple, or news publishers for media and event information. External websites have their own privacy policies, and we are not responsible for their practices.
+        </p>
+      </section>
+
+      <section>
+        <h2>Newsletter signups</h2>
+        <p>
+          If you choose to join the MusicTop newsletter, signup takes place on the external newsletter provider configured for the service. That provider collects and processes your email under its own privacy notice, consent controls, and unsubscribe process. MusicTop does not store newsletter subscriber data in its Supabase database through the website signup flow.
         </p>
       </section>
 
