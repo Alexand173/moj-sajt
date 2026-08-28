@@ -156,17 +156,36 @@ export async function savePost(formData: FormData) {
 
 // 4. SAVE COMMUNITY NEWS
 export async function saveCommunityNews(formData: FormData) {
-  const file = formData.get('post_image') as File | null;
-  const region = formData.get('region') as string;
-  const title = formData.get('title') as string;
-  const authorId = formData.get('author_id') as string;
-  const content = formData.get('content') as string;
+  const fileValue = formData.get('post_image');
+  const regionValue = formData.get('region');
+  const titleValue = formData.get('title');
+  const authorIdValue = formData.get('author_id');
+  const contentValue = formData.get('content');
+
+  if (
+    typeof regionValue !== 'string'
+    || typeof titleValue !== 'string'
+    || typeof authorIdValue !== 'string'
+    || typeof contentValue !== 'string'
+  ) {
+    return { error: 'Please complete all required news fields.' };
+  }
+
+  const region = regionValue.trim().toLowerCase();
+  const title = titleValue.trim();
+  const authorId = authorIdValue.trim();
+  const content = contentValue.trim();
+  const file = typeof fileValue === 'string' ? null : fileValue;
+
+  if (!region || !title || !authorId || !content) {
+    return { error: 'Please complete all required news fields.' };
+  }
 
   if (content.length > 1000) {
     return { error: 'Content must not exceed 1000 characters.' };
   }
 
-  const wordCount = content.trim().split(/\s+/).length;
+  const wordCount = content.split(/\s+/).length;
   if (wordCount > 200) {
     return { error: 'The maximum number of words is 200.' };
   }
@@ -175,43 +194,55 @@ export async function saveCommunityNews(formData: FormData) {
     return { error: 'Please select an image for your news.' };
   }
 
-  const arrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
-  const resizedBuffer = await sharp(buffer)
-    .resize({ width: 800 })
-    .jpeg({ quality: 80 })
-    .toBuffer();
-  const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const resizedBuffer = await sharp(buffer)
+      .resize({ width: 800 })
+      .jpeg({ quality: 80 })
+      .toBuffer();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
 
-  const { error: uploadError } = await supabase.storage
-    .from('blog-images')
-    .upload(fileName, resizedBuffer, { contentType: 'image/jpeg' });
+    const { error: uploadError } = await supabase.storage
+      .from('blog-images')
+      .upload(fileName, resizedBuffer, { contentType: 'image/jpeg' });
 
-  if (uploadError) {
-    console.error('Greška pri uploadu community news slike:', uploadError);
-    return { error: 'The news image could not be uploaded.' };
+    if (uploadError) {
+      console.error('Greška pri uploadu community news slike:', uploadError);
+      return { error: 'The news image could not be uploaded.' };
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from('blog-images')
+      .getPublicUrl(fileName);
+
+    const { error: dbError } = await supabase.from('community_news').insert([{
+      region,
+      title,
+      author_id: authorId,
+      content,
+      post_image: publicUrlData.publicUrl,
+      password_check: 'moj_koment_202!',
+    }]);
+
+    if (dbError) {
+      console.error('Greška pri upisu community news u bazu:', dbError);
+      return { error: 'The news could not be published.' };
+    }
+
+    try {
+      revalidatePath(`/news/${region}`);
+    } catch (error) {
+      // A successful insert should not be reported as a failed publication if
+      // cache invalidation is unavailable outside a request/action context.
+      console.error('Greška pri osvežavanju community news stranice:', error);
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Greška pri obradi community news:', error);
+    return { error: 'The news could not be published. Please try again.' };
   }
-
-  const { data: publicUrlData } = supabase.storage
-    .from('blog-images')
-    .getPublicUrl(fileName);
-
-  const { error: dbError } = await supabase.from('community_news').insert([{
-    region,
-    title,
-    author_id: authorId,
-    content,
-    post_image: publicUrlData.publicUrl,
-    password_check: 'moj_koment_202!',
-  }]);
-
-  if (dbError) {
-    console.error('Greška pri upisu community news u bazu:', dbError);
-    return { error: 'The news could not be published.' };
-  }
-
-  revalidatePath(`/news/${region}`);
-  return { success: true };
 }
 
 // 5. SAVE COMMENT

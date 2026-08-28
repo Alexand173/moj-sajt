@@ -1,17 +1,22 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { saveCommunityNews, savePost } from '../app/actions';
 import Link from 'next/link';
 
 type CommunityFormMode = 'post' | 'news';
+type SubmissionState = { type: 'error' | 'success'; message: string } | null;
 
 export default function CommunityForm({ region, mode = 'post' }: { region: string; mode?: CommunityFormMode }) {
   const isNews = mode === 'news';
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionState, setSubmissionState] = useState<SubmissionState>(null);
+  const router = useRouter();
 
 useEffect(() => {
   const checkUser = async () => {
@@ -73,15 +78,36 @@ useEffect(() => {
 
   // Slučaj 2: Korisnik JE ulogovan - Prikazujemo formu bez polja za ime
   return (
-    <form 
+    <form
       action={async (formData) => {
-        if (isNews) {
-          await saveCommunityNews(formData);
-        } else {
-          await savePost(formData);
+        setIsSubmitting(true);
+        setSubmissionState(null);
+
+        try {
+          if (!isNews) {
+            await savePost(formData);
+            return;
+          }
+
+          const result = await saveCommunityNews(formData);
+          if ('error' in result) {
+            setSubmissionState({ type: 'error', message: result.error || 'The news could not be published.' });
+            return;
+          }
+
+          setSubmissionState({ type: 'success', message: 'News published successfully.' });
+          router.refresh();
+        } catch (error) {
+          console.error('COMMUNITY_FORM_SUBMIT_ERROR:', error);
+          setSubmissionState({
+            type: 'error',
+            message: isNews ? 'The news could not be published. Please try again.' : 'The post could not be published. Please try again.',
+          });
+        } finally {
+          setIsSubmitting(false);
         }
-      }} 
-      className="p-6 border-4 border-white bg-zinc-950 space-y-4 shadow-[8px_8px_0px_0px_rgba(147,51,234,1)] text-left"
+      }}
+      className="space-y-4 border-4 border-white bg-zinc-950 p-6 text-left shadow-[8px_8px_0px_0px_rgba(147,51,234,1)]"
     >
       {/* Skriveni podaci koji idu u bazu automatski */}
       <input type="hidden" name="region" value={region} />
@@ -101,44 +127,72 @@ useEffect(() => {
         </span>
       </div>
 
+      {submissionState && (
+        <p
+          role={submissionState.type === 'error' ? 'alert' : 'status'}
+          aria-live={submissionState.type === 'error' ? 'assertive' : 'polite'}
+          className={submissionState.type === 'error'
+            ? 'border-2 border-red-500/60 bg-red-950/40 p-3 text-xs font-bold text-red-200'
+            : 'border-2 border-emerald-500/60 bg-emerald-950/40 p-3 text-xs font-bold text-emerald-200'}
+        >
+          {submissionState.message}
+        </p>
+      )}
+
       <div>
-        <label className="block text-[10px] font-black text-zinc-500 mb-1 tracking-widest">{isNews ? 'NEWS HEADLINE' : 'POST TITLE'}</label>
-        <input 
-          type="text" 
-          name="title" 
+        <label htmlFor={isNews ? 'community-news-title' : 'community-post-title'} className="mb-1 block text-[10px] font-black tracking-widest text-zinc-500">{isNews ? 'NEWS HEADLINE' : 'POST TITLE'}</label>
+        <input
+          id={isNews ? 'community-news-title' : 'community-post-title'}
+          type="text"
+          name="title"
           placeholder={isNews ? 'News headline...' : 'Title...'}
           required
-          className="w-full p-2 border-2 border-zinc-800 bg-zinc-900 focus:border-purple-500 focus:outline-none text-sm font-medium text-white normal-case"
+          onInput={() => setSubmissionState(null)}
+          className="w-full border-2 border-zinc-800 bg-zinc-900 p-2 text-sm font-medium text-white normal-case focus:border-purple-500 focus:outline-none"
         />
       </div>
 
       <div>
-        <label className="block text-[10px] font-black text-zinc-500 mb-1 tracking-widest">{isNews ? 'NEWS CONTENT' : 'CONTENT'}</label>
-        <textarea 
-          name="content" 
+        <label htmlFor={isNews ? 'community-news-content' : 'community-post-content'} className="mb-1 block text-[10px] font-black tracking-widest text-zinc-500">{isNews ? 'NEWS CONTENT' : 'CONTENT'}</label>
+        <textarea
+          id={isNews ? 'community-news-content' : 'community-post-content'}
+          name="content"
           placeholder={isNews ? 'Write a short news report...' : 'Content...'}
           required
-          className="w-full p-2 border-2 border-zinc-800 bg-zinc-900 focus:border-purple-500 focus:outline-none text-sm font-medium text-white min-h-[120px] normal-case"
+          onInput={() => setSubmissionState(null)}
+          className="min-h-[120px] w-full border-2 border-zinc-800 bg-zinc-900 p-2 text-sm font-medium text-white normal-case focus:border-purple-500 focus:outline-none"
         />
       </div>
 
       <div>
-        <label className="block text-[10px] font-black text-zinc-500 mb-1 tracking-widest">{isNews ? 'NEWS IMAGE' : 'POST IMAGE'}</label>
-        <input 
-          type="file" 
-          name="post_image" 
-          accept="image/*" 
-          required 
-          className="w-full p-2 border-2 border-zinc-800 bg-zinc-900 text-xs font-bold text-zinc-400 file:mr-4 file:py-1 file:px-3 file:border-0 file:text-xs file:font-black file:bg-purple-600 file:text-white hover:file:bg-white hover:file:text-black file:cursor-pointer"
+        <label htmlFor={isNews ? 'community-news-image' : 'community-post-image'} className="mb-1 block text-[10px] font-black tracking-widest text-zinc-500">{isNews ? 'NEWS IMAGE' : 'POST IMAGE'}</label>
+        <input
+          id={isNews ? 'community-news-image' : 'community-post-image'}
+          type="file"
+          name="post_image"
+          accept="image/*"
+          required
+          onInvalid={(event) => {
+            if (isNews) {
+              setSubmissionState({ type: 'error', message: 'Please select an image for your news.' });
+            }
+            event.currentTarget.setCustomValidity(isNews ? 'Please select an image for your news.' : '');
+          }}
+          onChange={(event) => {
+            event.currentTarget.setCustomValidity('');
+            setSubmissionState(null);
+          }}
+          className="w-full border-2 border-zinc-800 bg-zinc-900 p-2 text-xs font-bold text-zinc-400 file:mr-4 file:border-0 file:bg-purple-600 file:px-3 file:py-1 file:text-xs file:font-black file:text-white hover:file:bg-white hover:file:text-black file:cursor-pointer"
         />
       </div>
 
-        <button
-          type="submit"
-          className="w-full py-3 bg-white text-black border-2 border-white hover:bg-purple-600 hover:text-white transition duration-300 font-black tracking-widest text-xs"
-        >
-          {isNews ? 'PUBLISH NEWS' : 'PUBLISH POST'}
-        </button>
+      <button
+        type="submit"
+        disabled={isSubmitting}
+        className="w-full border-2 border-white bg-white py-3 text-xs font-black tracking-widest text-black transition duration-300 hover:bg-purple-600 hover:text-white disabled:cursor-not-allowed disabled:border-zinc-800 disabled:bg-zinc-800 disabled:text-zinc-600"
+      >
+        {isSubmitting ? (isNews ? 'PUBLISHING NEWS...' : 'PUBLISHING POST...') : (isNews ? 'PUBLISH NEWS' : 'PUBLISH POST')}
+      </button>
     </form>
   );
 }

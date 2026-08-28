@@ -156,13 +156,68 @@ function PublishPostPanel({ region, variant }: { region: string; variant: Publis
 
 type LatestNewsCardSource = 'editorial' | 'community';
 
+const PUBLISH_AFTER_STORY_COUNT = 3;
+
+function CommunityNewsEditorialCard({ region, item }: { region: string; item: NewsEditorialItem }) {
+  const profile = getProfile(item);
+  const title = item.title || item.text || 'Untitled community news';
+  const author = profile?.first_name || 'Community contributor';
+  const excerpt = item.content?.replace(/\s+/g, ' ').trim() || 'A community report from the music scene.';
+
+  return (
+    <Link
+      href={`/news/${region}/community/${item.id}`}
+      className="group block overflow-hidden border border-line bg-white transition-colors hover:border-ink"
+    >
+      <div className="relative aspect-[16/7] overflow-hidden bg-ink sm:aspect-[5/1]">
+        {item.post_image ? (
+          <img
+            src={item.post_image}
+            alt={title}
+            loading="lazy"
+            decoding="async"
+            className="h-full w-full object-cover grayscale transition-all duration-700 group-hover:scale-[1.02] group-hover:grayscale-0"
+          />
+        ) : (
+          <span className="flex h-full w-full items-center justify-center text-[9px] font-black tracking-[0.14em] text-white/60 uppercase">No image</span>
+        )}
+        <div className="mt-image-overlay absolute inset-0 opacity-80" />
+        <span className="absolute left-4 top-4 bg-accent-red px-2.5 py-1 text-[9px] font-black tracking-[0.22em] text-white uppercase">From the writers</span>
+      </div>
+
+      <div className="p-5 sm:p-6 lg:p-8">
+        <div className="flex items-center gap-3">
+          {profile?.avatar_url ? (
+            <img src={profile.avatar_url} alt="" loading="lazy" decoding="async" className="size-10 shrink-0 rounded-full border border-line object-cover" />
+          ) : (
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-ink text-[10px] font-black text-white">MT</span>
+          )}
+          <div className="min-w-0">
+            <p className="truncate text-[10px] font-black tracking-[0.12em] text-ink uppercase">{author}</p>
+            <p className="mt-1 text-[9px] font-bold tracking-[0.16em] text-muted uppercase">Community contributor · {formatDate(item.created_at)}</p>
+          </div>
+        </div>
+
+        <h3 className="mt-6 line-clamp-3 text-2xl font-black leading-[0.95] tracking-[-0.05em] text-ink uppercase transition-colors group-hover:text-accent-blue sm:text-3xl">{title}</h3>
+        <p className="mt-4 line-clamp-2 text-sm leading-relaxed text-muted sm:text-base">{excerpt}</p>
+
+        <div className="mt-7 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
+          <span className="mt-meta">Community news · {formatDate(item.created_at)}</span>
+          <span className="inline-flex items-center gap-1 text-[9px] font-black tracking-[0.16em] text-ink uppercase transition-colors group-hover:text-accent-blue">Read full news <ArrowUpRight aria-hidden="true" className="size-3.5" /></span>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 function LatestNewsCard({ region, item, source = 'editorial' }: { region: string; item: NewsEditorialItem; source?: LatestNewsCardSource }) {
+  if (source === 'community') {
+    return <CommunityNewsEditorialCard region={region} item={item} />;
+  }
+
   const title = item.title || item.text || 'Untitled music story';
-  const profile = source === 'community' ? getProfile(item) : null;
-  const image = source === 'community' ? item.post_image : item.image;
-  const articleHref = source === 'community'
-    ? `/news/${region}/community/${item.id}`
-    : `/news/${region}/${item.id}`;
+  const image = item.image;
+  const articleHref = `/news/${region}/${item.id}`;
 
   return (
     <Link
@@ -184,16 +239,11 @@ function LatestNewsCard({ region, item, source = 'editorial' }: { region: string
       </div>
       <div className="min-w-0 self-center">
         <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span className="text-[9px] font-black tracking-[0.2em] text-accent-red uppercase">{source === 'community' ? 'Community news' : item.category || 'Latest'}</span>
+          <span className="text-[9px] font-black tracking-[0.2em] text-accent-red uppercase">{item.category || 'Latest'}</span>
           <span className="text-[9px] font-bold tracking-[0.12em] text-muted uppercase">{formatDate(item.created_at)}</span>
-          {profile && <span className="text-[9px] font-bold tracking-[0.12em] text-muted uppercase">By {profile.first_name || 'Anonymous'}</span>}
         </div>
         <h3 className="line-clamp-3 text-base font-black leading-tight tracking-[-0.025em] text-ink transition-colors group-hover:text-accent-blue sm:text-lg">{title}</h3>
-        {source === 'community' ? (
-          <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-muted sm:text-sm">{item.content || 'Read this community news report.'}</p>
-        ) : item.excerpt ? (
-          <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-muted sm:text-sm">{item.excerpt}</p>
-        ) : null}
+        {item.excerpt && <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-muted sm:text-sm">{item.excerpt}</p>}
         <span className="mt-3 inline-flex items-center gap-1 text-[9px] font-black tracking-[0.16em] text-ink uppercase transition-colors group-hover:text-accent-blue">Read full news <ArrowUpRight aria-hidden="true" className="size-3.5" /></span>
       </div>
     </Link>
@@ -207,15 +257,20 @@ type FeedCard = {
 };
 
 function LatestNewsFeed({ region, items, communityNews }: { region: string; items: NewsEditorialItem[]; communityNews: NewsEditorialItem[] }) {
-  const feedItems: FeedCard[] = [
-    ...items.map((item) => ({ item, source: 'editorial' as const, key: `editorial-${item.id}` })),
-    ...communityNews.map((item) => ({ item, source: 'community' as const, key: `community-${item.id}` })),
-  ].sort((left, right) => {
-    const leftTime = left.item.created_at ? new Date(left.item.created_at).getTime() : 0;
-    const rightTime = right.item.created_at ? new Date(right.item.created_at).getTime() : 0;
-    return rightTime - leftTime;
-  });
-  const insertionIndex = feedItems.length > 0 ? Math.min(3, feedItems.length) : 0;
+  const editorialFeedItems: FeedCard[] = items.map((item) => ({
+    item,
+    source: 'editorial' as const,
+    key: `editorial-${item.id}`,
+  }));
+  const communityFeedItems: FeedCard[] = communityNews.map((item) => ({
+    item,
+    source: 'community' as const,
+    key: `community-${item.id}`,
+  }));
+  const firstStories = editorialFeedItems.slice(0, PUBLISH_AFTER_STORY_COUNT);
+  const remainingStories = editorialFeedItems.slice(PUBLISH_AFTER_STORY_COUNT);
+  const feedItems = [...firstStories, ...communityFeedItems, ...remainingStories];
+  const insertionIndex = firstStories.length;
 
   return (
     <section aria-labelledby="latest-news-heading" className="border-t-2 border-ink pt-4">
