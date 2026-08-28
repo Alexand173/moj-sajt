@@ -233,7 +233,7 @@ function LatestNewsCard({ region, item, source = 'editorial' }: { region: string
             alt={title}
             loading="lazy"
             decoding="async"
-            className="h-full w-full object-cover grayscale transition-all duration-500 group-hover:scale-105 group-hover:grayscale-0"
+            className="news-feed-image h-full w-full object-cover grayscale transition-all duration-500 group-hover:scale-105 group-hover:grayscale-0"
           />
         ) : (
           <span className="flex h-full w-full items-center justify-center px-2 text-center text-[9px] font-black tracking-[0.14em] text-muted uppercase">No image</span>
