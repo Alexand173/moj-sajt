@@ -184,7 +184,7 @@ export default async function SingleNewsPage({
           <p className="mt-6 max-w-2xl text-sm leading-relaxed text-muted sm:text-base">Published {article.created_at ? new Date(article.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'recently'} · {regionName.toUpperCase()}</p>
         </header>
 
-        {article.image && <div className="mt-10 aspect-[16/8] overflow-hidden bg-ink"><img src={article.image} alt={article.title} loading="eager" fetchPriority="high" decoding="async" className="h-full w-full object-cover grayscale transition-all duration-700 hover:grayscale-0" /></div>}
+        {article.image && <div className="mt-10 aspect-[16/8] overflow-hidden bg-ink"><img src={article.image} alt={article.title} loading="eager" fetchPriority="high" decoding="async" className="news-feed-image h-full w-full object-cover grayscale transition-all duration-700 hover:grayscale-0" /></div>}
 
         <div className="mx-auto mt-12 grid max-w-6xl grid-cols-1 gap-12 lg:grid-cols-[minmax(0,1fr)_16rem] lg:gap-16">
           <div>
