@@ -4,6 +4,7 @@ import { getPublicSupabaseClient } from '@/lib/supabase-public';
 import NewsEditorialView, { type NewsEditorialItem } from '@/components/NewsEditorialView';
 
 const MOST_READ_LIMIT = 5;
+const STORIES_BY_MASS_LIMIT = 4;
 
 function getNewsTitle(item: NewsEditorialItem) {
   return item.title?.trim() || item.text?.trim() || '';
@@ -25,6 +26,33 @@ function buildMostReadNews(latestNews: NewsEditorialItem[], officialNews: NewsEd
       seenIds.add(itemId);
       selected.push(item);
       if (selected.length === MOST_READ_LIMIT) break;
+    }
+  }
+
+  return selected;
+}
+
+function buildStoriesByMass(
+  latestNews: NewsEditorialItem[],
+  officialNews: NewsEditorialItem[],
+  centerLatestNews: NewsEditorialItem[],
+) {
+  const centerIds = new Set(centerLatestNews.map((item) => String(item.id)));
+  const selected: NewsEditorialItem[] = [];
+  const seenIds = new Set<string>();
+  const maxSourceLength = Math.max(latestNews.length, officialNews.length);
+
+  for (let index = 0; index < maxSourceLength && selected.length < STORIES_BY_MASS_LIMIT; index += 1) {
+    for (const item of [latestNews[index], officialNews[index]]) {
+      if (!item) continue;
+
+      const title = getNewsTitle(item);
+      const itemId = String(item.id);
+      if (!title || centerIds.has(itemId) || seenIds.has(itemId)) continue;
+
+      seenIds.add(itemId);
+      selected.push(item);
+      if (selected.length === STORIES_BY_MASS_LIMIT) break;
     }
   }
 
@@ -104,7 +132,9 @@ export default async function BillboardNewsPage({
     }
   }
 
+  const centerLatestNews = latestNews[0] ? latestNews.slice(1) : latestNews;
   const mostReadNews = buildMostReadNews(latestNews, officialNews);
+  const storiesByMass = buildStoriesByMass(latestNews, officialNews, centerLatestNews);
   const activeBlog = blogId ? communityPosts.find((post) => post.id.toString() === blogId) : null;
   const activeAlbum = albumId ? concertAlbums.find((album) => album.id.toString() === albumId) : null;
 
@@ -116,6 +146,7 @@ export default async function BillboardNewsPage({
       communityNews={communityNews}
       officialNews={officialNews}
       mostReadNews={mostReadNews}
+      storiesByMass={storiesByMass}
       communityPosts={communityPosts}
       discussions={discussions}
       concertAlbums={concertAlbums}

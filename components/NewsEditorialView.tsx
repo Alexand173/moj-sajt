@@ -36,6 +36,7 @@ export interface NewsEditorialViewProps {
   communityNews: NewsEditorialItem[];
   officialNews: NewsEditorialItem[];
   mostReadNews: NewsEditorialItem[];
+  storiesByMass: NewsEditorialItem[];
   communityPosts: NewsEditorialItem[];
   discussions: NewsEditorialItem[];
   concertAlbums: NewsEditorialItem[];
@@ -407,6 +408,93 @@ function CommunityRail({ region, mostReadNews, communityPosts, discussions, conc
   );
 }
 
+type MassStoryVariant = 'lead' | 'top-right' | 'lower-left' | 'wide';
+
+const MASS_STORY_VARIANTS: MassStoryVariant[] = ['lead', 'top-right', 'lower-left', 'wide'];
+const MASS_STORY_FALLBACK_IMAGES: Record<MassStoryVariant, string> = {
+  lead: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1400&q=80',
+  'top-right': 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=1000&q=80',
+  'lower-left': 'https://images.unsplash.com/photo-1511192336575-5a79af67a629?auto=format&fit=crop&w=1000&q=80',
+  wide: 'https://images.unsplash.com/photo-1501386761578-eac5c24b064d?auto=format&fit=crop&w=1400&q=80',
+};
+const MASS_STORY_CARD_CLASSES: Record<MassStoryVariant, string> = {
+  lead: 'md:col-span-2 aspect-[16/6]',
+  'top-right': 'md:col-span-1 aspect-[4/3]',
+  'lower-left': 'md:col-span-1 aspect-[6/5]',
+  wide: 'md:col-span-2 aspect-[16/5] self-start',
+};
+const MASS_STORY_TITLE_CLASSES: Record<MassStoryVariant, string> = {
+  lead: 'text-2xl sm:text-4xl',
+  'top-right': 'text-lg sm:text-2xl',
+  'lower-left': 'text-lg sm:text-2xl',
+  wide: 'text-xl sm:text-3xl',
+};
+
+function MassStoryCard({ region, item, variant }: { region: string; item: NewsEditorialItem; variant: MassStoryVariant }) {
+  const title = item.title?.trim() || item.text?.trim() || 'Untitled music story';
+  const category = item.category || 'News';
+  const image = item.image || MASS_STORY_FALLBACK_IMAGES[variant];
+
+  return (
+    <Link
+      href={`/news/${region}/${item.id}`}
+      aria-label={`Read ${title}`}
+      className={`group relative block min-w-0 overflow-hidden bg-ink ${MASS_STORY_CARD_CLASSES[variant]}`}
+    >
+      {image ? (
+        <img
+          src={image}
+          alt={title}
+          loading="lazy"
+          decoding="async"
+          className="absolute inset-0 h-full w-full object-cover grayscale transition-all duration-700 group-hover:scale-105 group-hover:grayscale-0"
+        />
+      ) : (
+        <span className="absolute inset-0 flex items-center justify-center text-[9px] font-black tracking-[0.16em] text-white/50 uppercase">No image</span>
+      )}
+      <div className="mt-image-overlay absolute inset-0" />
+      <div className="absolute inset-x-0 bottom-0 z-10 p-4 sm:p-6">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="bg-accent-red px-2 py-1 text-[8px] font-black tracking-[0.18em] text-white uppercase">{category}</span>
+          <span className="text-[9px] font-bold tracking-[0.14em] text-white/55 uppercase">{formatDate(item.created_at)}</span>
+        </div>
+        <h3 className={`mt-3 line-clamp-3 font-black leading-[0.94] tracking-[-0.045em] text-white uppercase transition-colors group-hover:text-accent-red ${MASS_STORY_TITLE_CLASSES[variant]}`}>{title}</h3>
+      </div>
+    </Link>
+  );
+}
+
+function StoriesByMass({ region, items }: { region: string; items: NewsEditorialItem[] }) {
+  const stories = items.slice(0, MASS_STORY_VARIANTS.length);
+
+  return (
+    <section aria-labelledby="stories-by-mass-heading" className="mt-16 border-t-2 border-ink pt-5 sm:mt-24">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4 sm:mb-8">
+        <div>
+          <p className="mt-kicker">The intelligence feed</p>
+          <h2 id="stories-by-mass-heading" className="mt-3 text-4xl font-black tracking-[-0.07em] text-ink uppercase sm:text-6xl">Stories by mass</h2>
+        </div>
+        <Link href={`/news/${region}`} className="group inline-flex items-center gap-1.5 pb-1 text-[9px] font-black tracking-[0.2em] text-ink uppercase transition-colors hover:text-accent-red">
+          View all
+          <ArrowUpRight aria-hidden="true" className="size-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+        </Link>
+      </div>
+
+      {stories.length > 0 ? (
+        <div className="grid grid-cols-1 gap-px bg-line md:grid-cols-3">
+          {stories.map((item, index) => (
+            <MassStoryCard key={`mass-story-${item.id}`} region={region} item={item} variant={MASS_STORY_VARIANTS[index]} />
+          ))}
+        </div>
+      ) : (
+        <div className="border border-line bg-paper-muted px-5 py-10 text-center">
+          <p className="text-[10px] font-bold tracking-[0.16em] text-muted uppercase">No mass stories yet.</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function NewsEditorialView({
   region,
   featuredNews,
@@ -414,6 +502,7 @@ export default function NewsEditorialView({
   communityNews,
   officialNews,
   mostReadNews,
+  storiesByMass,
   communityPosts,
   discussions,
   concertAlbums,
@@ -444,17 +533,20 @@ export default function NewsEditorialView({
             </div>
           </section>
         ) : (
-          <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:items-start lg:gap-10 xl:gap-12">
-            <div className="order-2 min-w-0 lg:order-1 lg:col-span-3">
-              <LiveFeed items={officialNews} />
+          <Fragment>
+            <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:items-start lg:gap-10 xl:gap-12">
+              <div className="order-2 min-w-0 lg:order-1 lg:col-span-3">
+                <LiveFeed items={officialNews} />
+              </div>
+              <div className="order-1 min-w-0 lg:order-2 lg:col-span-6">
+                <LatestNewsFeed region={region} items={latestFeedItems} communityNews={communityNews} />
+              </div>
+              <div className="order-3 min-w-0 lg:order-3 lg:col-span-3">
+                <CommunityRail region={region} mostReadNews={mostReadNews} communityPosts={communityPosts} discussions={discussions} concertAlbums={concertAlbums} />
+              </div>
             </div>
-            <div className="order-1 min-w-0 lg:order-2 lg:col-span-6">
-              <LatestNewsFeed region={region} items={latestFeedItems} communityNews={communityNews} />
-            </div>
-            <div className="order-3 min-w-0 lg:order-3 lg:col-span-3">
-              <CommunityRail region={region} mostReadNews={mostReadNews} communityPosts={communityPosts} discussions={discussions} concertAlbums={concertAlbums} />
-            </div>
-          </div>
+            <StoriesByMass region={region} items={storiesByMass} />
+          </Fragment>
         )}
       </main>
     </div>
