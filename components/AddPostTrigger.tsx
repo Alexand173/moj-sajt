@@ -4,11 +4,12 @@ import { useState } from 'react';
 
 import CommunityForm from './CommunityForm'; // tvoja komponenta
 
+type PublishMode = 'post' | 'news';
 
-
-export default function CommunityPage({ region }: { region: string }) {
+export default function CommunityPage({ region, mode = 'post' }: { region: string; mode?: PublishMode }) {
 
   const [showForm, setShowForm] = useState(false);
+  const isNews = mode === 'news';
 
 
 
@@ -25,7 +26,7 @@ export default function CommunityPage({ region }: { region: string }) {
           onClick={() => setShowForm(true)}
           className="inline-flex items-center border border-white/20 px-4 py-2 text-[9px] font-black tracking-[0.16em] text-white uppercase transition-colors hover:border-accent-red hover:bg-accent-red"
         >
-          Publish a new post
+          {isNews ? 'Publish a news' : 'Publish a new post'}
         </button>
 
       )}
@@ -38,7 +39,7 @@ export default function CommunityPage({ region }: { region: string }) {
 
         <div className="mt-4">
 
-          <CommunityForm region={region} />
+          <CommunityForm region={region} mode={mode} />
 
           <button
 

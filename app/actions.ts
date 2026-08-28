@@ -154,7 +154,67 @@ export async function savePost(formData: FormData) {
   revalidatePath(`/news/${region}`);
 }
 
-// 4. SAVE COMMENT
+// 4. SAVE COMMUNITY NEWS
+export async function saveCommunityNews(formData: FormData) {
+  const file = formData.get('post_image') as File | null;
+  const region = formData.get('region') as string;
+  const title = formData.get('title') as string;
+  const authorId = formData.get('author_id') as string;
+  const content = formData.get('content') as string;
+
+  if (content.length > 1000) {
+    return { error: 'Content must not exceed 1000 characters.' };
+  }
+
+  const wordCount = content.trim().split(/\s+/).length;
+  if (wordCount > 200) {
+    return { error: 'The maximum number of words is 200.' };
+  }
+
+  if (!file || file.size === 0) {
+    return { error: 'Please select an image for your news.' };
+  }
+
+  const arrayBuffer = await file.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+  const resizedBuffer = await sharp(buffer)
+    .resize({ width: 800 })
+    .jpeg({ quality: 80 })
+    .toBuffer();
+  const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('blog-images')
+    .upload(fileName, resizedBuffer, { contentType: 'image/jpeg' });
+
+  if (uploadError) {
+    console.error('Greška pri uploadu community news slike:', uploadError);
+    return { error: 'The news image could not be uploaded.' };
+  }
+
+  const { data: publicUrlData } = supabase.storage
+    .from('blog-images')
+    .getPublicUrl(fileName);
+
+  const { error: dbError } = await supabase.from('community_news').insert([{
+    region,
+    title,
+    author_id: authorId,
+    content,
+    post_image: publicUrlData.publicUrl,
+    password_check: 'moj_koment_202!',
+  }]);
+
+  if (dbError) {
+    console.error('Greška pri upisu community news u bazu:', dbError);
+    return { error: 'The news could not be published.' };
+  }
+
+  revalidatePath(`/news/${region}`);
+  return { success: true };
+}
+
+// 5. SAVE COMMENT
 export async function saveComment(formData: FormData) {
   const region = formData.get('region') as string;
   const text = formData.get('text') as string;

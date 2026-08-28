@@ -33,6 +33,7 @@ export interface NewsEditorialViewProps {
   region: string;
   featuredNews?: NewsEditorialItem;
   latestNews: NewsEditorialItem[];
+  communityNews: NewsEditorialItem[];
   officialNews: NewsEditorialItem[];
   communityPosts: NewsEditorialItem[];
   discussions: NewsEditorialItem[];
@@ -144,27 +145,34 @@ function PublishPostPanel({ region, variant }: { region: string; variant: Publis
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <p className="text-[9px] font-bold tracking-[0.22em] text-white/45 uppercase">Contributor</p>
-          <h2 id={headingId} className="mt-1 text-sm font-black tracking-[0.08em] uppercase">Share with the {region} scene</h2>
+          <h2 id={headingId} className="mt-1 text-sm font-black tracking-[0.08em] uppercase">{isRail ? 'Publish a new post' : 'Publish a news'}</h2>
         </div>
         <Plus aria-hidden="true" className="size-5 shrink-0 text-accent-red" />
       </div>
-      <AddPostTrigger region={region} />
+      <AddPostTrigger region={region} mode={isRail ? 'post' : 'news'} />
     </section>
   );
 }
 
-function LatestNewsCard({ region, item }: { region: string; item: NewsEditorialItem }) {
+type LatestNewsCardSource = 'editorial' | 'community';
+
+function LatestNewsCard({ region, item, source = 'editorial' }: { region: string; item: NewsEditorialItem; source?: LatestNewsCardSource }) {
   const title = item.title || item.text || 'Untitled music story';
+  const profile = source === 'community' ? getProfile(item) : null;
+  const image = source === 'community' ? item.post_image : item.image;
+  const articleHref = source === 'community'
+    ? `/news/${region}/community/${item.id}`
+    : `/news/${region}/${item.id}`;
 
   return (
     <Link
-      href={`/news/${region}/${item.id}`}
+      href={articleHref}
       className="group grid grid-cols-[clamp(7rem,30%,14rem)_minmax(0,1fr)] gap-4 border-b border-line py-4 transition-colors hover:border-ink sm:gap-5 sm:py-5"
     >
       <div className="aspect-[5/3] min-w-0 overflow-hidden bg-paper-muted">
-        {item.image ? (
+        {image ? (
           <img
-            src={item.image}
+            src={image}
             alt={title}
             loading="lazy"
             decoding="async"
@@ -176,19 +184,38 @@ function LatestNewsCard({ region, item }: { region: string; item: NewsEditorialI
       </div>
       <div className="min-w-0 self-center">
         <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span className="text-[9px] font-black tracking-[0.2em] text-accent-red uppercase">{item.category || 'Latest'}</span>
+          <span className="text-[9px] font-black tracking-[0.2em] text-accent-red uppercase">{source === 'community' ? 'Community news' : item.category || 'Latest'}</span>
           <span className="text-[9px] font-bold tracking-[0.12em] text-muted uppercase">{formatDate(item.created_at)}</span>
+          {profile && <span className="text-[9px] font-bold tracking-[0.12em] text-muted uppercase">By {profile.first_name || 'Anonymous'}</span>}
         </div>
         <h3 className="line-clamp-3 text-base font-black leading-tight tracking-[-0.025em] text-ink transition-colors group-hover:text-accent-blue sm:text-lg">{title}</h3>
-        {item.excerpt && <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-muted sm:text-sm">{item.excerpt}</p>}
-        <span className="mt-3 inline-flex items-center gap-1 text-[9px] font-black tracking-[0.16em] text-ink uppercase transition-colors group-hover:text-accent-blue">Read story <ArrowUpRight aria-hidden="true" className="size-3.5" /></span>
+        {source === 'community' ? (
+          <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-muted sm:text-sm">{item.content || 'Read this community news report.'}</p>
+        ) : item.excerpt ? (
+          <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-muted sm:text-sm">{item.excerpt}</p>
+        ) : null}
+        <span className="mt-3 inline-flex items-center gap-1 text-[9px] font-black tracking-[0.16em] text-ink uppercase transition-colors group-hover:text-accent-blue">Read full news <ArrowUpRight aria-hidden="true" className="size-3.5" /></span>
       </div>
     </Link>
   );
 }
 
-function LatestNewsFeed({ region, items }: { region: string; items: NewsEditorialItem[] }) {
-  const insertionIndex = items.length > 0 ? Math.min(3, items.length) : 0;
+type FeedCard = {
+  item: NewsEditorialItem;
+  source: LatestNewsCardSource;
+  key: string;
+};
+
+function LatestNewsFeed({ region, items, communityNews }: { region: string; items: NewsEditorialItem[]; communityNews: NewsEditorialItem[] }) {
+  const feedItems: FeedCard[] = [
+    ...items.map((item) => ({ item, source: 'editorial' as const, key: `editorial-${item.id}` })),
+    ...communityNews.map((item) => ({ item, source: 'community' as const, key: `community-${item.id}` })),
+  ].sort((left, right) => {
+    const leftTime = left.item.created_at ? new Date(left.item.created_at).getTime() : 0;
+    const rightTime = right.item.created_at ? new Date(right.item.created_at).getTime() : 0;
+    return rightTime - leftTime;
+  });
+  const insertionIndex = feedItems.length > 0 ? Math.min(3, feedItems.length) : 0;
 
   return (
     <section aria-labelledby="latest-news-heading" className="border-t-2 border-ink pt-4">
@@ -197,18 +224,18 @@ function LatestNewsFeed({ region, items }: { region: string; items: NewsEditoria
           <p className="mt-kicker">Fresh from Supabase</p>
           <h2 id="latest-news-heading" className="mt-2 text-3xl font-black tracking-[-0.06em] text-ink uppercase sm:text-4xl">Latest news</h2>
         </div>
-        <span className="shrink-0 text-[9px] font-bold tracking-[0.16em] text-muted uppercase">{items.length} stories</span>
+        <span className="shrink-0 text-[9px] font-bold tracking-[0.16em] text-muted uppercase">{feedItems.length} stories</span>
       </div>
 
-      {items.length > 0 ? (
+      {feedItems.length > 0 ? (
         <div>
-          {items.map((item, index) => (
-            <Fragment key={item.id}>
+          {feedItems.map(({ item, source, key }, index) => (
+            <Fragment key={key}>
               {index === insertionIndex && <PublishPostPanel region={region} variant="inline" />}
-              <LatestNewsCard region={region} item={item} />
+              <LatestNewsCard region={region} item={item} source={source} />
             </Fragment>
           ))}
-          {insertionIndex === items.length && <PublishPostPanel region={region} variant="inline" />}
+          {insertionIndex === feedItems.length && <PublishPostPanel region={region} variant="inline" />}
         </div>
       ) : (
         <div className="border border-line bg-paper-muted px-5 py-10 text-center">
@@ -285,6 +312,7 @@ export default function NewsEditorialView({
   region,
   featuredNews,
   latestNews,
+  communityNews,
   officialNews,
   communityPosts,
   discussions,
@@ -321,7 +349,7 @@ export default function NewsEditorialView({
               <LiveFeed items={officialNews} />
             </div>
             <div className="order-1 min-w-0 lg:order-2 lg:col-span-6">
-              <LatestNewsFeed region={region} items={latestFeedItems} />
+              <LatestNewsFeed region={region} items={latestFeedItems} communityNews={communityNews} />
             </div>
             <div className="order-3 min-w-0 lg:order-3 lg:col-span-3">
               <CommunityRail region={region} communityPosts={communityPosts} discussions={discussions} concertAlbums={concertAlbums} />

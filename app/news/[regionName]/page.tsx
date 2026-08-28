@@ -40,15 +40,20 @@ export default async function BillboardNewsPage({
 
   let officialNews: NewsEditorialItem[] = [];
   let latestNews: NewsEditorialItem[] = [];
+  let communityNews: NewsEditorialItem[] = [];
   let communityPosts: NewsEditorialItem[] = [];
   let discussions: NewsEditorialItem[] = [];
   let concertAlbums: NewsEditorialItem[] = [];
 
   if (supabase) {
     try {
-      const [officialRes, latestRes, blogRes, discRes, concertRes] = await Promise.all([
+      const [officialRes, latestRes, communityNewsRes, blogRes, discRes, concertRes] = await Promise.all([
         supabase.from('news').select('*').eq('region', region).eq('category', 'OFFICIAL').order('created_at', { ascending: false }).limit(50),
         supabase.from('news').select('*').eq('region', region).eq('category', 'LATEST').order('created_at', { ascending: false }).limit(50),
+        supabase.from('community_news').select(`
+          id, title, content, created_at, region, post_image, author_id,
+          profiles (first_name, avatar_url)
+        `).eq('region', region).order('created_at', { ascending: false }).limit(50),
         supabase.from('community_posts').select(`
           id, title, content, created_at, region, post_image, author_id,
           profiles (first_name, avatar_url)
@@ -62,6 +67,7 @@ export default async function BillboardNewsPage({
 
       officialNews = (officialRes.data || []) as NewsEditorialItem[];
       latestNews = (latestRes.data || []) as NewsEditorialItem[];
+      communityNews = (communityNewsRes.data || []) as NewsEditorialItem[];
       communityPosts = (blogRes.data || []) as NewsEditorialItem[];
       discussions = (discRes.data || []) as NewsEditorialItem[];
       concertAlbums = (concertRes.data || []) as NewsEditorialItem[];
@@ -78,6 +84,7 @@ export default async function BillboardNewsPage({
       region={region}
       featuredNews={latestNews[0]}
       latestNews={latestNews}
+      communityNews={communityNews}
       officialNews={officialNews}
       communityPosts={communityPosts}
       discussions={discussions}
