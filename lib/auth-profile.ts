@@ -31,6 +31,20 @@ function getSafeHttpUrl(value: unknown): string | null {
   }
 }
 
+function getProviderAvatarUrl(metadata: Record<string, unknown>): string | null {
+  const directAvatar = getSafeHttpUrl(metadata.avatar_url)
+    || getSafeHttpUrl(metadata.picture)
+    || getSafeHttpUrl(metadata.avatar_url_path);
+  if (directAvatar) return directAvatar;
+
+  if (metadata.picture && typeof metadata.picture === 'object') {
+    const pictureData = (metadata.picture as { data?: { url?: unknown } }).data;
+    return getSafeHttpUrl(pictureData?.url);
+  }
+
+  return null;
+}
+
 function getProfileFromUser(user: User, existing: ExistingProfile | null): ProfileRecord {
   const metadata = user.user_metadata ?? {};
   const givenName = getNonEmptyString(metadata.first_name)
@@ -56,10 +70,7 @@ function getProfileFromUser(user: User, existing: ExistingProfile | null): Profi
     last_name: getNonEmptyString(existing?.last_name)
       || familyName
       || (nameParts.length > 1 ? nameParts.slice(1).join(' ') : null),
-    avatar_url: getSafeHttpUrl(existing?.avatar_url)
-      || getSafeHttpUrl(metadata.avatar_url)
-      || getSafeHttpUrl(metadata.picture)
-      || getSafeHttpUrl(metadata.avatar_url_path),
+    avatar_url: getSafeHttpUrl(existing?.avatar_url) || getProviderAvatarUrl(metadata),
   };
 }
 
