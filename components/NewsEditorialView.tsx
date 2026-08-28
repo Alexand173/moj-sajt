@@ -1,5 +1,6 @@
+import { Fragment } from 'react';
 import Link from 'next/link';
-import { ArrowUpRight, Plus, TrendingUp } from 'lucide-react';
+import { ArrowUpRight, Plus } from 'lucide-react';
 import AddAlbumTrigger from '@/components/AddAlbumTrigger';
 import AddCommentTrigger from '@/components/AddCommentTrigger';
 import AddPostTrigger from '@/components/AddPostTrigger';
@@ -68,7 +69,7 @@ function EditorialHero({ region, article }: { region: string; article?: NewsEdit
         <div className="mt-container flex min-h-[25rem] items-end py-12 lg:min-h-[34rem]">
           <div>
             <p className="mt-kicker">{region} editorial desk</p>
-            <h1 className="mt-5 max-w-4xl text-[clamp(3rem,8vw,7.5rem)] font-black leading-[0.86] tracking-[-0.08em] text-white uppercase">News in motion</h1>
+            <h1 className="mt-5 max-w-4xl text-[clamp(2rem,5.3vw,5rem)] font-black leading-[0.86] tracking-[-0.08em] text-white uppercase">News in motion</h1>
             <p className="mt-5 max-w-xl text-sm leading-relaxed text-white/60">The latest stories from the {region.toUpperCase()} music scene.</p>
           </div>
         </div>
@@ -88,7 +89,7 @@ function EditorialHero({ region, article }: { region: string; article?: NewsEdit
             <span className="bg-accent-red px-2.5 py-1 text-[9px] font-black tracking-[0.22em] text-white uppercase">{article.category || 'Featured'}</span>
             <span className="mt-meta text-white/55">Long read · {formatDate(article.created_at)}</span>
           </div>
-          <h1 className="mt-5 max-w-5xl text-balance text-[clamp(2.5rem,8vw,7.5rem)] font-black leading-[0.88] tracking-[-0.08em] text-white uppercase sm:text-[clamp(3rem,8vw,7.5rem)]">{article.title}</h1>
+          <h1 className="mt-5 max-w-5xl text-balance text-[clamp(2rem,5.3vw,5rem)] font-black leading-[0.88] tracking-[-0.08em] text-white uppercase sm:text-[clamp(2.5rem,5.3vw,5rem)]">{article.title}</h1>
           {article.excerpt && <p className="mt-5 max-w-2xl text-sm leading-relaxed text-white/70 sm:text-base">{article.excerpt}</p>}
           <div className="mt-7 flex flex-wrap items-center gap-4">
             <Link href={`/news/${region}/${article.id}`} className="group inline-flex items-center gap-2 bg-white px-5 py-3 text-[10px] font-black tracking-[0.2em] text-ink uppercase transition-colors hover:bg-accent-red hover:text-white">
@@ -129,72 +130,101 @@ function LiveFeed({ items }: { items: NewsEditorialItem[] }) {
   );
 }
 
-function MostReadList({ items }: { items: NewsEditorialItem[] }) {
-  return (
-    <section className="border border-line bg-white p-5 sm:p-6">
-      <div className="mb-5 flex items-center gap-2">
-        <TrendingUp aria-hidden="true" className="size-4 text-accent-red" />
-        <h2 className="text-xs font-black tracking-[0.25em] text-ink uppercase">Most read</h2>
-      </div>
-      {items.length > 0 ? (
-        <ol>
-          {items.slice(0, 4).map((item, index) => (
-            <li key={item.id} className="border-b border-line last:border-0">
-              <Link href={`/news/${item.region || 'us'}/${item.id}`} className="group flex items-start gap-3 py-4">
-                <span className="text-2xl font-black leading-none text-line transition-colors group-hover:text-accent-red">{String(index + 1).padStart(2, '0')}</span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-black leading-snug text-ink transition-colors group-hover:text-accent-blue">{item.title || item.text}</span>
-                  <span className="mt-1 block text-[9px] font-bold tracking-[0.14em] text-muted uppercase">{formatDate(item.created_at)}</span>
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ol>
-      ) : (
-        <p className="py-6 text-[10px] font-bold tracking-[0.14em] text-muted uppercase">The reading list is updating.</p>
-      )}
-    </section>
-  );
-}
+type PublishPostPanelVariant = 'rail' | 'inline';
 
-function StoryGrid({ region, items }: { region: string; items: NewsEditorialItem[] }) {
+function PublishPostPanel({ region, variant }: { region: string; variant: PublishPostPanelVariant }) {
+  const isRail = variant === 'rail';
+  const headingId = `publish-post-${variant}`;
+
   return (
-    <section className="mt-16 border-t border-line pt-10 sm:mt-20">
-      <div className="mb-7 flex items-end justify-between gap-6">
+    <section
+      aria-labelledby={headingId}
+      className={isRail ? 'border border-ink bg-ink p-5 text-white sm:p-6' : 'border border-ink bg-ink px-4 py-4 text-white sm:px-5'}
+    >
+      <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <p className="mt-kicker">The intelligence feed</p>
-          <h2 className="mt-2 text-3xl font-black tracking-[-0.06em] text-ink uppercase sm:text-5xl">Stories by mass</h2>
+          <p className="text-[9px] font-bold tracking-[0.22em] text-white/45 uppercase">Contributor</p>
+          <h2 id={headingId} className="mt-1 text-sm font-black tracking-[0.08em] uppercase">Share with the {region} scene</h2>
         </div>
-        <Link href={`/news/${region}`} className="group hidden items-center gap-1.5 text-[10px] font-black tracking-[0.2em] text-ink uppercase transition-colors hover:text-accent-blue sm:inline-flex">View all <ArrowUpRight aria-hidden="true" className="size-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" /></Link>
+        <Plus aria-hidden="true" className="size-5 shrink-0 text-accent-red" />
+      </div>
+      <AddPostTrigger region={region} />
+    </section>
+  );
+}
+
+function LatestNewsCard({ region, item }: { region: string; item: NewsEditorialItem }) {
+  const title = item.title || item.text || 'Untitled music story';
+
+  return (
+    <Link
+      href={`/news/${region}/${item.id}`}
+      className="group grid grid-cols-[clamp(7rem,30%,14rem)_minmax(0,1fr)] gap-4 border-b border-line py-4 transition-colors hover:border-ink sm:gap-5 sm:py-5"
+    >
+      <div className="aspect-[5/3] min-w-0 overflow-hidden bg-paper-muted">
+        {item.image ? (
+          <img
+            src={item.image}
+            alt={title}
+            loading="lazy"
+            decoding="async"
+            className="h-full w-full object-cover grayscale transition-all duration-500 group-hover:scale-105 group-hover:grayscale-0"
+          />
+        ) : (
+          <span className="flex h-full w-full items-center justify-center px-2 text-center text-[9px] font-black tracking-[0.14em] text-muted uppercase">No image</span>
+        )}
+      </div>
+      <div className="min-w-0 self-center">
+        <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="text-[9px] font-black tracking-[0.2em] text-accent-red uppercase">{item.category || 'Latest'}</span>
+          <span className="text-[9px] font-bold tracking-[0.12em] text-muted uppercase">{formatDate(item.created_at)}</span>
+        </div>
+        <h3 className="line-clamp-3 text-base font-black leading-tight tracking-[-0.025em] text-ink transition-colors group-hover:text-accent-blue sm:text-lg">{title}</h3>
+        {item.excerpt && <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-muted sm:text-sm">{item.excerpt}</p>}
+        <span className="mt-3 inline-flex items-center gap-1 text-[9px] font-black tracking-[0.16em] text-ink uppercase transition-colors group-hover:text-accent-blue">Read story <ArrowUpRight aria-hidden="true" className="size-3.5" /></span>
+      </div>
+    </Link>
+  );
+}
+
+function LatestNewsFeed({ region, items }: { region: string; items: NewsEditorialItem[] }) {
+  const insertionIndex = items.length > 0 ? Math.min(3, items.length) : 0;
+
+  return (
+    <section aria-labelledby="latest-news-heading" className="border-t-2 border-ink pt-4">
+      <div className="mb-5 flex items-end justify-between gap-4">
+        <div>
+          <p className="mt-kicker">Fresh from Supabase</p>
+          <h2 id="latest-news-heading" className="mt-2 text-3xl font-black tracking-[-0.06em] text-ink uppercase sm:text-4xl">Latest news</h2>
+        </div>
+        <span className="shrink-0 text-[9px] font-bold tracking-[0.16em] text-muted uppercase">{items.length} stories</span>
       </div>
 
       {items.length > 0 ? (
-        <div className="grid grid-cols-1 gap-px bg-line sm:grid-cols-2 lg:grid-cols-3">
-          {items.slice(0, 6).map((item, index) => (
-            <Link key={item.id} href={`/news/${region}/${item.id}`} className={`group relative min-h-[16rem] overflow-hidden bg-ink ${index === 0 ? 'sm:col-span-2 lg:min-h-[24rem]' : index === 3 ? 'sm:col-span-2' : ''}`}>
-              {item.image && <img src={item.image} alt={item.title || 'MusicTop story'} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover grayscale transition-all duration-700 group-hover:scale-105 group-hover:grayscale-0" />}
-              <div className="mt-image-overlay absolute inset-0" />
-              <div className="relative z-10 flex min-h-[16rem] flex-col justify-end p-5 sm:min-h-[18rem] lg:p-7">
-                <div className="mb-3 flex items-center gap-3">
-                  <span className="bg-accent-red px-2 py-1 text-[9px] font-black tracking-[0.2em] text-white uppercase">{item.category || 'Story'}</span>
-                  <span className="mt-meta text-white/50">{formatDate(item.created_at)}</span>
-                </div>
-                <h3 className={`font-black leading-[0.95] tracking-[-0.04em] text-white uppercase ${index === 0 ? 'text-2xl sm:text-4xl' : 'text-xl sm:text-2xl'}`}>{item.title || item.text}</h3>
-                {item.excerpt && <p className="mt-3 line-clamp-2 max-w-lg text-xs leading-relaxed text-white/65">{item.excerpt}</p>}
-              </div>
-            </Link>
+        <div>
+          {items.map((item, index) => (
+            <Fragment key={item.id}>
+              {index === insertionIndex && <PublishPostPanel region={region} variant="inline" />}
+              <LatestNewsCard region={region} item={item} />
+            </Fragment>
           ))}
+          {insertionIndex === items.length && <PublishPostPanel region={region} variant="inline" />}
         </div>
       ) : (
-        <div className="border border-line bg-paper-muted px-6 py-20 text-center text-[10px] font-bold tracking-[0.18em] text-muted uppercase">The editorial archive is updating.</div>
+        <div className="border border-line bg-paper-muted px-5 py-10 text-center">
+          <p className="text-[10px] font-bold tracking-[0.16em] text-muted uppercase">No latest stories yet.</p>
+          <div className="mt-6 text-left"><PublishPostPanel region={region} variant="inline" /></div>
+        </div>
       )}
     </section>
   );
 }
 
-function CommunitySidebar({ region, communityPosts, discussions, concertAlbums }: Pick<NewsEditorialViewProps, 'region' | 'communityPosts' | 'discussions' | 'concertAlbums'>) {
+function CommunityRail({ region, communityPosts, discussions, concertAlbums }: Pick<NewsEditorialViewProps, 'region' | 'communityPosts' | 'discussions' | 'concertAlbums'>) {
   return (
-    <aside className="space-y-8 border-l border-line pl-5 sm:pl-7">
+    <aside aria-label="Community hub" className="space-y-8 border-t border-line pt-5 lg:sticky lg:top-36 lg:border-l lg:border-t-0 lg:pl-7 lg:pt-0">
+      <PublishPostPanel region={region} variant="rail" />
+
       <section>
         <div className="mb-5 flex items-center justify-between gap-3">
           <h2 className="text-xs font-black tracking-[0.25em] text-ink uppercase">Community hub</h2>
@@ -262,7 +292,7 @@ export default function NewsEditorialView({
   activeBlog,
   activeAlbum,
 }: NewsEditorialViewProps) {
-  const storyItems = latestNews.slice(1);
+  const latestFeedItems = featuredNews ? latestNews.slice(1) : latestNews;
 
   return (
     <div className="mt-page mt-page--paper">
@@ -286,21 +316,18 @@ export default function NewsEditorialView({
             </div>
           </section>
         ) : (
-          <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:gap-12">
-            <div className="order-2 lg:order-1 lg:col-span-4 xl:col-span-3"><LiveFeed items={officialNews} /></div>
-            <div className="contents lg:order-2 lg:col-span-8 lg:flex lg:flex-col lg:gap-8 xl:col-span-9">
-              <div className="order-1 lg:order-2"><MostReadList items={latestNews} /></div>
-              <section className="order-3 flex items-center justify-between gap-4 bg-ink px-5 py-5 text-white sm:px-6 lg:order-1">
-                <span><span className="block text-[9px] font-bold tracking-[0.22em] text-white/45 uppercase">Contributor</span><span className="mt-1 block text-sm font-black tracking-[0.12em] uppercase">Publish a new post</span></span>
-                <Plus aria-hidden="true" className="size-5 text-white" />
-                <AddPostTrigger region={region} />
-              </section>
-              <div className="order-4 lg:order-3"><CommunitySidebar region={region} communityPosts={communityPosts} discussions={discussions} concertAlbums={concertAlbums} /></div>
+          <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:items-start lg:gap-10 xl:gap-12">
+            <div className="order-2 min-w-0 lg:order-1 lg:col-span-3">
+              <LiveFeed items={officialNews} />
+            </div>
+            <div className="order-1 min-w-0 lg:order-2 lg:col-span-6">
+              <LatestNewsFeed region={region} items={latestFeedItems} />
+            </div>
+            <div className="order-3 min-w-0 lg:order-3 lg:col-span-3">
+              <CommunityRail region={region} communityPosts={communityPosts} discussions={discussions} concertAlbums={concertAlbums} />
             </div>
           </div>
         )}
-
-        {!activeAlbum && !activeBlog && <StoryGrid region={region} items={storyItems} />}
       </main>
     </div>
   );
