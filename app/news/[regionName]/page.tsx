@@ -4,10 +4,17 @@ import { getPublicSupabaseClient } from '@/lib/supabase-public';
 import NewsEditorialView, { type NewsEditorialItem } from '@/components/NewsEditorialView';
 
 const MOST_READ_LIMIT = 5;
+const NEWS_FEED_LIMIT = 50;
 const STORIES_BY_MASS_LIMIT = 4;
+const STORIES_BY_MASS_OFFSET = NEWS_FEED_LIMIT;
+const STORIES_BY_MASS_FETCH_LIMIT = 50;
 
 function getNewsTitle(item: NewsEditorialItem) {
   return item.title?.trim() || item.text?.trim() || '';
+}
+
+function normalizeNewsTitle(value: string) {
+  return value.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, ' ').trim().toLowerCase();
 }
 
 function buildMostReadNews(latestNews: NewsEditorialItem[], officialNews: NewsEditorialItem[]) {
@@ -35,25 +42,37 @@ function buildMostReadNews(latestNews: NewsEditorialItem[], officialNews: NewsEd
 function buildStoriesByMass(
   latestNews: NewsEditorialItem[],
   officialNews: NewsEditorialItem[],
-  centerLatestNews: NewsEditorialItem[],
+  additionalLatestNews: NewsEditorialItem[],
+  additionalOfficialNews: NewsEditorialItem[],
 ) {
-  const centerIds = new Set(centerLatestNews.map((item) => String(item.id)));
+  const displayedNews = [...latestNews, ...officialNews];
+  const excludedIds = new Set(displayedNews.map((item) => String(item.id)));
+  const excludedTitles = new Set(
+    displayedNews
+      .map(getNewsTitle)
+      .map(normalizeNewsTitle)
+      .filter(Boolean),
+  );
   const selected: NewsEditorialItem[] = [];
   const seenIds = new Set<string>();
-  const maxSourceLength = Math.max(latestNews.length, officialNews.length);
+  const seenTitles = new Set<string>();
 
-  for (let index = 0; index < maxSourceLength && selected.length < STORIES_BY_MASS_LIMIT; index += 1) {
-    for (const item of [latestNews[index], officialNews[index]]) {
-      if (!item) continue;
+  for (const item of [...additionalLatestNews, ...additionalOfficialNews]) {
+    const title = getNewsTitle(item);
+    const normalizedTitle = normalizeNewsTitle(title);
+    const itemId = String(item.id);
+    if (
+      !title
+      || excludedIds.has(itemId)
+      || excludedTitles.has(normalizedTitle)
+      || seenIds.has(itemId)
+      || seenTitles.has(normalizedTitle)
+    ) continue;
 
-      const title = getNewsTitle(item);
-      const itemId = String(item.id);
-      if (!title || centerIds.has(itemId) || seenIds.has(itemId)) continue;
-
-      seenIds.add(itemId);
-      selected.push(item);
-      if (selected.length === STORIES_BY_MASS_LIMIT) break;
-    }
+    seenIds.add(itemId);
+    seenTitles.add(normalizedTitle);
+    selected.push(item);
+    if (selected.length === STORIES_BY_MASS_LIMIT) break;
   }
 
   return selected;
@@ -96,6 +115,8 @@ export default async function BillboardNewsPage({
 
   let officialNews: NewsEditorialItem[] = [];
   let latestNews: NewsEditorialItem[] = [];
+  let additionalOfficialNews: NewsEditorialItem[] = [];
+  let additionalLatestNews: NewsEditorialItem[] = [];
   let communityNews: NewsEditorialItem[] = [];
   let communityPosts: NewsEditorialItem[] = [];
   let discussions: NewsEditorialItem[] = [];
@@ -103,9 +124,11 @@ export default async function BillboardNewsPage({
 
   if (supabase) {
     try {
-      const [officialRes, latestRes, communityNewsRes, blogRes, discRes, concertRes] = await Promise.all([
-        supabase.from('news').select('*').eq('region', region).eq('category', 'OFFICIAL').order('created_at', { ascending: false }).limit(50),
-        supabase.from('news').select('*').eq('region', region).eq('category', 'LATEST').order('created_at', { ascending: false }).limit(50),
+      const [officialRes, latestRes, additionalOfficialRes, additionalLatestRes, communityNewsRes, blogRes, discRes, concertRes] = await Promise.all([
+        supabase.from('news').select('*').eq('region', region).eq('category', 'OFFICIAL').order('created_at', { ascending: false }).limit(NEWS_FEED_LIMIT),
+        supabase.from('news').select('*').eq('region', region).eq('category', 'LATEST').order('created_at', { ascending: false }).limit(NEWS_FEED_LIMIT),
+        supabase.from('news').select('*').eq('region', region).eq('category', 'OFFICIAL').order('created_at', { ascending: false }).range(STORIES_BY_MASS_OFFSET, STORIES_BY_MASS_OFFSET + STORIES_BY_MASS_FETCH_LIMIT - 1),
+        supabase.from('news').select('*').eq('region', region).eq('category', 'LATEST').order('created_at', { ascending: false }).range(STORIES_BY_MASS_OFFSET, STORIES_BY_MASS_OFFSET + STORIES_BY_MASS_FETCH_LIMIT - 1),
         supabase.from('community_news').select(`
           id, title, content, created_at, region, post_image, author_id,
           profiles (first_name, avatar_url)
@@ -123,6 +146,8 @@ export default async function BillboardNewsPage({
 
       officialNews = (officialRes.data || []) as NewsEditorialItem[];
       latestNews = (latestRes.data || []) as NewsEditorialItem[];
+      additionalOfficialNews = (additionalOfficialRes.data || []) as NewsEditorialItem[];
+      additionalLatestNews = (additionalLatestRes.data || []) as NewsEditorialItem[];
       communityNews = (communityNewsRes.data || []) as NewsEditorialItem[];
       communityPosts = (blogRes.data || []) as NewsEditorialItem[];
       discussions = (discRes.data || []) as NewsEditorialItem[];
@@ -132,9 +157,8 @@ export default async function BillboardNewsPage({
     }
   }
 
-  const centerLatestNews = latestNews[0] ? latestNews.slice(1) : latestNews;
   const mostReadNews = buildMostReadNews(latestNews, officialNews);
-  const storiesByMass = buildStoriesByMass(latestNews, officialNews, centerLatestNews);
+  const storiesByMass = buildStoriesByMass(latestNews, officialNews, additionalLatestNews, additionalOfficialNews);
   const activeBlog = blogId ? communityPosts.find((post) => post.id.toString() === blogId) : null;
   const activeAlbum = albumId ? concertAlbums.find((album) => album.id.toString() === albumId) : null;
 
