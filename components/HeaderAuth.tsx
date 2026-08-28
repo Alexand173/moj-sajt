@@ -59,6 +59,25 @@ function mergeProfiles(fallback: UserProfile, profile: UserProfile | null): User
   };
 }
 
+function getDisplayName(profile: UserProfile | null, user: User): string {
+  const firstName = getNonEmptyString(profile?.first_name);
+  const lastName = getNonEmptyString(profile?.last_name);
+
+  if (firstName && lastName) {
+    const firstNameLower = firstName.toLocaleLowerCase();
+    const lastNameLower = lastName.toLocaleLowerCase();
+    if (firstNameLower === lastNameLower || firstNameLower.endsWith(` ${lastNameLower}`)) {
+      return firstName;
+    }
+    return `${firstName} ${lastName}`;
+  }
+
+  return firstName
+    || lastName
+    || getNonEmptyString(user.email)?.split('@')[0]
+    || 'User';
+}
+
 export default function HeaderAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -210,11 +229,7 @@ export default function HeaderAuth() {
   }
 
   if (user) {
-    const displayName = [profile?.first_name, profile?.last_name]
-      .filter((value): value is string => Boolean(value))
-      .join(' ')
-      || user.email?.split('@')[0]
-      || 'User';
+    const displayName = getDisplayName(profile, user);
     const avatar = profile?.avatar_url || DEFAULT_AVATAR;
 
     return (
