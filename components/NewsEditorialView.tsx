@@ -1,6 +1,6 @@
 import { Fragment } from 'react';
 import Link from 'next/link';
-import { ArrowUpRight, Plus } from 'lucide-react';
+import { ArrowUpRight, Plus, TrendingUp } from 'lucide-react';
 import AddAlbumTrigger from '@/components/AddAlbumTrigger';
 import AddCommentTrigger from '@/components/AddCommentTrigger';
 import AddPostTrigger from '@/components/AddPostTrigger';
@@ -35,6 +35,7 @@ export interface NewsEditorialViewProps {
   latestNews: NewsEditorialItem[];
   communityNews: NewsEditorialItem[];
   officialNews: NewsEditorialItem[];
+  mostReadNews: NewsEditorialItem[];
   communityPosts: NewsEditorialItem[];
   discussions: NewsEditorialItem[];
   concertAlbums: NewsEditorialItem[];
@@ -302,7 +303,48 @@ function LatestNewsFeed({ region, items, communityNews }: { region: string; item
   );
 }
 
-function CommunityRail({ region, communityPosts, discussions, concertAlbums }: Pick<NewsEditorialViewProps, 'region' | 'communityPosts' | 'discussions' | 'concertAlbums'>) {
+function MostReadNewsRail({ region, items }: { region: string; items: NewsEditorialItem[] }) {
+  const headingId = 'most-read-heading';
+
+  return (
+    <section aria-labelledby={headingId} className="rounded-2xl border border-line bg-white p-5 sm:p-6">
+      <h3 id={headingId} className="flex items-center gap-2 text-[10px] font-black tracking-[0.22em] text-ink uppercase">
+        <TrendingUp aria-hidden="true" className="size-4 text-accent-red" />
+        Most read
+      </h3>
+
+      {items.length > 0 ? (
+        <ol className="mt-2">
+          {items.slice(0, 5).map((item, index) => {
+            const title = item.title || item.text || 'Music news';
+
+            return (
+              <li key={`most-read-${item.id}`} className="border-t border-line first:border-t-0">
+                <Link
+                  href={`/news/${region}/${item.id}`}
+                  aria-label={`Read ${title}`}
+                  className="group grid grid-cols-[2rem_minmax(0,1fr)] gap-3 py-4"
+                >
+                  <span aria-hidden="true" className="pt-0.5 text-2xl font-black leading-none tracking-[0.08em] text-line-strong tabular-nums transition-colors group-hover:text-accent-blue">
+                    {String(index + 1).padStart(2, '0')}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block line-clamp-2 text-xs font-black leading-snug text-ink transition-colors group-hover:text-accent-blue">{title}</span>
+                    <span className="mt-1.5 block text-[9px] font-bold tracking-[0.14em] text-muted uppercase">{item.category || 'Music news'} · {formatDate(item.created_at)}</span>
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ol>
+      ) : (
+        <p className="mt-4 border-t border-line pt-4 text-[10px] font-bold tracking-[0.14em] text-muted uppercase">No news yet.</p>
+      )}
+    </section>
+  );
+}
+
+function CommunityRail({ region, mostReadNews, communityPosts, discussions, concertAlbums }: Pick<NewsEditorialViewProps, 'region' | 'mostReadNews' | 'communityPosts' | 'discussions' | 'concertAlbums'>) {
   return (
     <aside aria-label="Community hub" className="space-y-8 border-t border-line pt-5 lg:sticky lg:top-36 lg:border-l lg:border-t-0 lg:pl-7 lg:pt-0">
       <PublishPostPanel region={region} variant="rail" />
@@ -334,6 +376,8 @@ function CommunityRail({ region, communityPosts, discussions, concertAlbums }: P
           </div>
         </div>
       </section>
+
+      <MostReadNewsRail region={region} items={mostReadNews} />
 
       <section className="border-t-2 border-ink pt-4">
         <div className="mb-4 flex items-center justify-between gap-3">
@@ -369,6 +413,7 @@ export default function NewsEditorialView({
   latestNews,
   communityNews,
   officialNews,
+  mostReadNews,
   communityPosts,
   discussions,
   concertAlbums,
@@ -407,7 +452,7 @@ export default function NewsEditorialView({
               <LatestNewsFeed region={region} items={latestFeedItems} communityNews={communityNews} />
             </div>
             <div className="order-3 min-w-0 lg:order-3 lg:col-span-3">
-              <CommunityRail region={region} communityPosts={communityPosts} discussions={discussions} concertAlbums={concertAlbums} />
+              <CommunityRail region={region} mostReadNews={mostReadNews} communityPosts={communityPosts} discussions={discussions} concertAlbums={concertAlbums} />
             </div>
           </div>
         )}

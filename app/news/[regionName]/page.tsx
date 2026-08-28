@@ -3,6 +3,34 @@ import type { Metadata } from 'next';
 import { getPublicSupabaseClient } from '@/lib/supabase-public';
 import NewsEditorialView, { type NewsEditorialItem } from '@/components/NewsEditorialView';
 
+const MOST_READ_LIMIT = 5;
+
+function getNewsTitle(item: NewsEditorialItem) {
+  return item.title?.trim() || item.text?.trim() || '';
+}
+
+function buildMostReadNews(latestNews: NewsEditorialItem[], officialNews: NewsEditorialItem[]) {
+  const selected: NewsEditorialItem[] = [];
+  const seenIds = new Set<string>();
+  const maxSourceLength = Math.max(latestNews.length, officialNews.length);
+
+  for (let index = 0; index < maxSourceLength && selected.length < MOST_READ_LIMIT; index += 1) {
+    for (const item of [latestNews[index], officialNews[index]]) {
+      if (!item) continue;
+
+      const title = getNewsTitle(item);
+      const itemId = String(item.id);
+      if (!title || seenIds.has(itemId)) continue;
+
+      seenIds.add(itemId);
+      selected.push(item);
+      if (selected.length === MOST_READ_LIMIT) break;
+    }
+  }
+
+  return selected;
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -76,6 +104,7 @@ export default async function BillboardNewsPage({
     }
   }
 
+  const mostReadNews = buildMostReadNews(latestNews, officialNews);
   const activeBlog = blogId ? communityPosts.find((post) => post.id.toString() === blogId) : null;
   const activeAlbum = albumId ? concertAlbums.find((album) => album.id.toString() === albumId) : null;
 
@@ -86,6 +115,7 @@ export default async function BillboardNewsPage({
       latestNews={latestNews}
       communityNews={communityNews}
       officialNews={officialNews}
+      mostReadNews={mostReadNews}
       communityPosts={communityPosts}
       discussions={discussions}
       concertAlbums={concertAlbums}
