@@ -212,20 +212,9 @@ export default async function SingleNewsPage({
         excludedUrls: [article.image, relatedMedia?.thumbnailUrl],
       })
     : [];
-  const fallbackRelatedImage: RelatedNewsImageData | null = shouldInsertRelatedMedia && article.image
-    ? {
-        src: article.image,
-        alt: `Fresh image related to ${article.title}`,
-        caption: 'Story image',
-      }
-    : null;
-  const relatedImageAfterThird = shouldInsertRelatedMedia && !relatedMedia
-    ? relatedImages[0] || fallbackRelatedImage
-    : null;
+  const relatedImageAfterThird = shouldInsertRelatedMedia ? relatedImages[0] || null : null;
   const relatedImageAfterSixth = shouldInsertRelatedMedia
-    ? relatedMedia
-      ? relatedImages[0] || fallbackRelatedImage
-      : relatedImages[1] || (relatedImages[0] ? fallbackRelatedImage : null)
+    ? relatedImages.find((image) => image.src !== relatedImageAfterThird?.src) || null
     : null;
   const sourceUrl = getSafeSourceUrl(resolvedSource.sourceUrl);
   const pageUrl = getArticlePageUrl(regionName, id);
@@ -281,7 +270,7 @@ export default async function SingleNewsPage({
         <div className="mx-auto mt-12 grid max-w-6xl grid-cols-1 gap-12 lg:grid-cols-[minmax(0,1fr)_16rem] lg:gap-16">
           <div>
             <p className="border-l-4 border-accent-red pl-6 text-2xl font-black leading-[0.98] tracking-[-0.04em] text-muted sm:text-3xl">{aiArticle.seoDescription}</p>
-            <div className="mt-10 border-t border-line pt-5">{!aiArticle.isAiGenerated && <p className="mt-meta text-accent-red">Editorial source report · {sourceName}</p>}<div className="mt-7 space-y-6 text-base leading-relaxed text-ink sm:text-lg">{articleParagraphs.map((paragraph, index) => <Fragment key={`${article.id}-paragraph-${index}`}><p>{paragraph}</p>{index === 2 && (relatedMedia ? <RelatedNewsVideo media={relatedMedia} /> : <RelatedNewsImage image={relatedImageAfterThird} captionId="related-image-after-third" />)}{index === 5 && <RelatedNewsImage image={relatedImageAfterSixth} captionId="related-image-after-sixth" />}</Fragment>)}</div></div>
+            <div className="mt-10 border-t border-line pt-5">{!aiArticle.isAiGenerated && <p className="mt-meta text-accent-red">Editorial source report · {sourceName}</p>}<div className="mt-7 space-y-6 text-base leading-relaxed text-ink sm:text-lg">{articleParagraphs.map((paragraph, index) => <Fragment key={`${article.id}-paragraph-${index}`}><p>{paragraph}</p>{index === 2 && <RelatedNewsImage image={relatedImageAfterThird} captionId="related-image-after-third" />}{index === 2 && relatedMedia && <RelatedNewsVideo media={relatedMedia} />}{index === 5 && <RelatedNewsImage image={relatedImageAfterSixth} captionId="related-image-after-sixth" />}</Fragment>)}</div></div>
 
             <section className="mt-16 border-t-8 border-ink bg-paper-muted p-6 sm:p-10">
               <h2 className="text-xl font-black tracking-[-0.04em] text-ink uppercase sm:text-2xl">Full story & global impact</h2>
