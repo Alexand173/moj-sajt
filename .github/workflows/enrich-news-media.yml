@@ -50,14 +50,20 @@ jobs:
           const required = [
             'SUPABASE_URL',
             'SUPABASE_SERVICE_ROLE_KEY',
+          ];
+          const optional = [
             'YOUTUBE_API_KEY',
             'GOOGLE_SEARCH_API_KEY',
             'GOOGLE_SEARCH_ENGINE_ID',
           ];
-          const missing = required.filter((name) => !process.env[name]?.trim());
-          if (missing.length) {
-            console.error(`Missing GitHub Actions secrets: ${missing.join(', ')}`);
+          const missingRequired = required.filter((name) => !process.env[name]?.trim());
+          const missingOptional = optional.filter((name) => !process.env[name]?.trim());
+          if (missingRequired.length) {
+            console.error(`Missing required GitHub Actions secrets: ${missingRequired.join(', ')}`);
             process.exit(1);
+          }
+          if (missingOptional.length) {
+            console.warn(`Optional media providers unavailable: ${missingOptional.join(', ')}. Wikimedia fallback will still run.`);
           }
           NODE
 
