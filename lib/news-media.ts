@@ -15,13 +15,21 @@ const SUBJECT_QUERY_BOUNDARIES = new Set([
   'before',
   'breaks',
   'brings',
+  'canceled',
+  'canceling',
+  'cancelled',
+  'cancels',
   'celebrates',
   'celebrating',
   'details',
   'doubles',
+  'dropped',
+  'drops',
   'enters',
   'explains',
+  'faces',
   'features',
+  'fends',
   'for',
   'from',
   'gets',
@@ -36,12 +44,17 @@ const SUBJECT_QUERY_BOUNDARIES = new Set([
   'names',
   'of',
   'on',
+  'opens',
   'over',
+  'questions',
+  'reports',
   'reveals',
   'returns',
+  'says',
   'shares',
   'shows',
   'speaks',
+  'suffers',
   'starts',
   'talks',
   'to',
@@ -53,6 +66,7 @@ const SUBJECT_QUERY_BOUNDARIES = new Set([
 ]);
 const LEADING_CONTEXT_WORDS = new Set(['after', 'breaking', 'exclusive', 'how', 'inside', 'what', 'when', 'where', 'why']);
 const GENERIC_SUBJECT_WORDS = new Set(['and', 'band', 'group', 'music', 'official', 'singer', 'the', 'video']);
+const NON_EDITORIAL_IMAGE_TERMS = /\b(?:album\s+cover|cover\s+art|flag|icon|logo|map|poster|screenshot|symbol|wordmark)\b/i;
 
 export type RelatedNewsMedia = {
   subjectQuery: string;
@@ -99,6 +113,8 @@ type WikimediaImageResult = {
       Artist?: { value?: string | null } | null;
       Credit?: { value?: string | null } | null;
       DateTimeOriginal?: { value?: string | null } | null;
+      ImageDescription?: { value?: string | null } | null;
+      ObjectName?: { value?: string | null } | null;
     } | null;
   }>;
 };
@@ -211,12 +227,45 @@ function getSafeImageUrl(value: string | null | undefined): string | null {
   }
 }
 
+function getImageIdentity(value: string): string {
+  try {
+    const parsed = new URL(value);
+    parsed.search = '';
+    parsed.hash = '';
+    return parsed.toString().toLowerCase();
+  } catch {
+    return value.trim().toLowerCase();
+  }
+}
+
 function getDistinctImageUrls(excludedUrls: Array<string | null | undefined>) {
-  return new Set(excludedUrls.filter((url): url is string => Boolean(url)).map((url) => getSafeImageUrl(url)).filter((url): url is string => Boolean(url)));
+  return new Set(
+    excludedUrls
+      .filter((url): url is string => Boolean(url))
+      .map((url) => getSafeImageUrl(url))
+      .filter((url): url is string => Boolean(url))
+      .map(getImageIdentity),
+  );
 }
 
 function stripMarkup(value: string | null | undefined): string {
   return cleanQueryPart(value).replace(/<[^>]*>/g, '');
+}
+
+function getSubjectTokens(subjectQuery: string): string[] {
+  return normalizeSearchText(subjectQuery)
+    .split(' ')
+    .filter((word) => word.length > 2 && !GENERIC_SUBJECT_WORDS.has(word));
+}
+
+function matchesImageSubject(subjectQuery: string, resultTitle: string, description: string): boolean {
+  const subjectTokens = getSubjectTokens(subjectQuery);
+  if (subjectTokens.length === 0) return true;
+
+  const haystack = normalizeSearchText(`${resultTitle} ${description}`);
+  const matchedTokens = subjectTokens.filter((token) => haystack.includes(token));
+  const requiredMatches = subjectTokens.length === 1 ? 1 : Math.min(2, subjectTokens.length);
+  return matchedTokens.length >= requiredMatches;
 }
 
 export async function findRecentNewsImages({
@@ -259,14 +308,13 @@ export async function findRecentNewsImages({
 
     const data = await response.json() as WikimediaImageResponse;
     const excluded = getDistinctImageUrls(excludedUrls);
-    const normalizedSubject = normalizeSearchText(subjectQuery);
     const images: RelatedNewsImage[] = [];
 
     for (const result of Object.values(data.query?.pages || {})) {
       const imageInfo = result.imageinfo?.[0];
       const src = getSafeImageUrl(imageInfo?.thumburl || imageInfo?.url);
       const resultTitle = stripMarkup(result.title).replace(/^File:\s*/i, '');
-      const normalizedResultTitle = normalizeSearchText(resultTitle);
+      const description = stripMarkup(imageInfo?.extmetadata?.ImageDescription?.value || imageInfo?.extmetadata?.ObjectName?.value);
       const uploadedAt = imageInfo?.timestamp || '';
       const uploadedDate = new Date(uploadedAt);
       const isVisualImage = Boolean(
@@ -274,21 +322,24 @@ export async function findRecentNewsImages({
         && (imageInfo.width || 0) >= 320
         && (imageInfo.height || 0) >= 240,
       );
+      const imageIdentity = src ? getImageIdentity(src) : '';
 
       if (
         !src
         || !isVisualImage
-        || excluded.has(src)
-        || !normalizedResultTitle.includes(normalizedSubject)
+        || excluded.has(imageIdentity)
+        || NON_EDITORIAL_IMAGE_TERMS.test(`${resultTitle} ${description}`)
+        || !matchesImageSubject(subjectQuery, resultTitle, description)
         || (uploadedAt && (Number.isNaN(uploadedDate.getTime()) || uploadedDate < publishedAfterDate || uploadedDate > now))
       ) continue;
 
-      excluded.add(src);
+      excluded.add(imageIdentity);
       const credit = stripMarkup(imageInfo?.extmetadata?.Credit?.value || imageInfo?.extmetadata?.Artist?.value);
       images.push({
         src,
         alt: `${subjectQuery} — ${resultTitle}`,
         caption: `Fresh image · ${credit || 'Wikimedia Commons'}`,
+        publishedAt: uploadedAt || undefined,
       });
     }
 
@@ -383,4 +434,34 @@ export async function findFreshYouTubeMedia({
   return eligibleMedia.reduce((mostViewed, candidate) => (
     candidate.viewCount > mostViewed.viewCount ? candidate : mostViewed
   ));
+}
+
+export type RelatedNewsMediaResolution = {
+  video: RelatedNewsMedia | null;
+  images: RelatedNewsImage[];
+};
+
+export async function resolveRelatedNewsMedia({
+  title,
+  excerpt,
+  excludedUrls,
+  needsSecondImage,
+}: {
+  title: string;
+  excerpt?: string | null;
+  excludedUrls: Array<string | null | undefined>;
+  needsSecondImage: boolean;
+}): Promise<RelatedNewsMediaResolution> {
+  const video = await findFreshYouTubeMedia({ title, excerpt });
+  const imageLimit = video ? (needsSecondImage ? 1 : 0) : (needsSecondImage ? 2 : 1);
+
+  if (imageLimit === 0) return { video, images: [] };
+
+  const images = await findRecentNewsImages({
+    title,
+    excerpt,
+    excludedUrls: [...excludedUrls, video?.thumbnailUrl],
+  });
+
+  return { video, images: images.slice(0, imageLimit) };
 }
