@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "ai:enrich": "npx tsx scripts/enrich-news.ts",
+    "ai:enrich-media": "npx tsx scripts/enrich-news-media.ts",
     "charts:update": "npx tsx scripts/update-charts.ts"
   },
   "dependencies": {

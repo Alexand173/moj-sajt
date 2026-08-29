@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { resolveRelatedNewsMedia } from '@/lib/news-media';
+import {
+  getYouTubeVideoId,
+  persistResolvedNewsMedia,
+  resolveRelatedNewsMedia,
+} from '@/lib/news-media';
 
 const recentTimestamp = new Date(Date.now() - 60_000).toISOString();
 const originalFetch = globalThis.fetch;
@@ -14,10 +18,12 @@ function jsonResponse(payload: unknown): Response {
 function setYouTubeAndWikimediaResponses({
   youtubeItems,
   youtubeDetails,
+  googleItems = [],
   wikimediaPages = {},
 }: {
   youtubeItems: Array<{ videoId: string }>;
   youtubeDetails: Array<Record<string, unknown>>;
+  googleItems?: Array<Record<string, unknown>>;
   wikimediaPages?: Record<string, unknown>;
 }) {
   globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
@@ -31,6 +37,10 @@ function setYouTubeAndWikimediaResponses({
 
     if (requestUrl.includes('/youtube/v3/videos')) {
       return jsonResponse({ items: youtubeDetails });
+    }
+
+    if (requestUrl.includes('googleapis.com/customsearch/v1')) {
+      return jsonResponse({ items: googleItems });
     }
 
     if (requestUrl.includes('commons.wikimedia.org/w/api.php')) {
@@ -62,6 +72,8 @@ describe('related news media resolver', () => {
 
   afterEach(() => {
     delete process.env.YOUTUBE_API_KEY;
+    delete process.env.GOOGLE_SEARCH_API_KEY;
+    delete process.env.GOOGLE_SEARCH_ENGINE_ID;
     globalThis.fetch = originalFetch;
     vi.restoreAllMocks();
   });
@@ -136,6 +148,47 @@ describe('related news media resolver', () => {
     expect(media.images.every((image) => image.src !== headlineImage)).toBe(true);
   });
 
+  it('uses Google Images for layout2 and Wikimedia as a fallback', async () => {
+    process.env.GOOGLE_SEARCH_API_KEY = 'test-google-search-key';
+    process.env.GOOGLE_SEARCH_ENGINE_ID = 'test-search-engine-id';
+
+    setYouTubeAndWikimediaResponses({
+      youtubeItems: [],
+      youtubeDetails: [],
+      googleItems: [{
+        link: 'https://images.example.com/dolly-parton-portrait.jpg',
+        title: 'Dolly Parton portrait',
+        displayLink: 'images.example.com',
+        mime: 'image/jpeg',
+        image: {
+          contextLink: 'https://images.example.com/dolly-parton',
+          fileFormat: 'image/jpeg',
+          width: 1200,
+          height: 800,
+        },
+      }],
+      wikimediaPages: {
+        second: imagePage('Dolly Parton archive portrait.jpg', 'https://upload.wikimedia.org/dolly-portrait.jpg'),
+      },
+    });
+
+    const media = await resolveRelatedNewsMedia({
+      title: '10 Reasons Dolly Parton Was A National Treasure',
+      excludedUrls: [],
+      needsSecondImage: true,
+    });
+
+    expect(media.video).toBeNull();
+    expect(media.images.map((image) => image.src)).toEqual([
+      'https://images.example.com/dolly-parton-portrait.jpg',
+      'https://upload.wikimedia.org/dolly-portrait.jpg',
+    ]);
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('googleapis.com/customsearch/v1'),
+      expect.objectContaining({ headers: { Accept: 'application/json' } }),
+    );
+  });
+
   it('keeps the second image when video is selected and excludes its thumbnail', async () => {
     const videoId = 'CCCCCCCCCCC';
     const videoThumbnail = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
@@ -167,5 +220,67 @@ describe('related news media resolver', () => {
     expect(media.images).toHaveLength(1);
     expect(media.images[0]?.src).toBe('https://upload.wikimedia.org/harbor-portrait.jpg');
     expect(media.images[0]?.src).not.toBe(videoThumbnail);
+  });
+
+  it('accepts supported YouTube URL formats and rejects non-YouTube or malformed URLs', () => {
+    expect(getYouTubeVideoId('https://www.youtube.com/watch?v=AAAAAAAAAAA')).toBe('AAAAAAAAAAA');
+    expect(getYouTubeVideoId('https://youtu.be/BBBBBBBBBBB?t=30')).toBe('BBBBBBBBBBB');
+    expect(getYouTubeVideoId('https://www.youtube.com/embed/CCCCCCCCCCC')).toBe('CCCCCCCCCCC');
+    expect(getYouTubeVideoId('https://www.youtube.com/shorts/DDDDDDDDDDD')).toBe('DDDDDDDDDDD');
+    expect(getYouTubeVideoId('https://example.com/watch?v=AAAAAAAAAAA')).toBeNull();
+    expect(getYouTubeVideoId('https://www.youtube.com/watch?v=short')).toBeNull();
+  });
+
+  it('maps video-first resolution to layout1 and the distinct image to layout2', () => {
+    const media = persistResolvedNewsMedia({
+      video: {
+        subjectQuery: 'Harbor Lights Ensemble',
+        videoId: 'EEEEEEEEEEE',
+        videoTitle: 'Harbor Lights Ensemble interview',
+        channelTitle: 'Harbor Lights Official',
+        videoUrl: 'https://youtu.be/EEEEEEEEEEE',
+        embedUrl: 'https://www.youtube.com/embed/EEEEEEEEEEE?rel=0',
+        thumbnailUrl: 'https://i.ytimg.com/vi/EEEEEEEEEEE/hqdefault.jpg',
+        publishedAt: recentTimestamp,
+        viewCount: 3000,
+      },
+      images: [
+        {
+          src: 'https://upload.wikimedia.org/harbor-portrait.jpg',
+          alt: 'Harbor Lights Ensemble portrait',
+          caption: 'Wikimedia Commons',
+        },
+      ],
+    });
+
+    expect(media).toEqual({
+      layout1: 'https://www.youtube.com/watch?v=EEEEEEEEEEE',
+      layout2: 'https://upload.wikimedia.org/harbor-portrait.jpg',
+    });
+  });
+
+  it('maps no-video resolution to two distinct image layouts and preserves existing values', () => {
+    const media = persistResolvedNewsMedia({
+      video: null,
+      images: [
+        {
+          src: 'https://upload.wikimedia.org/harbor-first.jpg',
+          alt: 'Harbor Lights Ensemble on stage',
+          caption: 'Wikimedia Commons',
+        },
+        {
+          src: 'https://upload.wikimedia.org/harbor-second.jpg',
+          alt: 'Harbor Lights Ensemble portrait',
+          caption: 'Wikimedia Commons',
+        },
+      ],
+    });
+
+    expect(media).toEqual({
+      layout1: 'https://upload.wikimedia.org/harbor-first.jpg',
+      layout2: 'https://upload.wikimedia.org/harbor-second.jpg',
+    });
+
+    expect(persistResolvedNewsMedia({ video: null, images: [] }, media)).toEqual(media);
   });
 });

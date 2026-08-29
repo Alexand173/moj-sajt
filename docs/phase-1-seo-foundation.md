@@ -43,7 +43,7 @@ Cloudflare is not configured by repository code in this pass. In the Cloudflare 
 
 ## Editorial publishing operations
 
-The existing news fetch and AI enrichment workers remain unchanged. A daily article cadence still requires an editorial queue, source review, and monitoring of the existing worker output. Production automation should not publish unvalidated fallback text as an original article.
+The news fetch and AI enrichment workers preserve the existing generated-content safety gate. A separate `Enrich Generated News Media` GitHub Actions workflow runs after a successful `News Update` workflow and can also be dispatched manually. It stores `layout1` and `layout2` only for validated `LATEST` rows; it does not run media lookups during visitor page requests. Configure `YOUTUBE_API_KEY`, `GOOGLE_SEARCH_API_KEY`, and `GOOGLE_SEARCH_ENGINE_ID` as GitHub Actions secrets alongside the Supabase service-role secrets. YouTube is used for `layout1`; Google Custom Search Images is used for `layout2`, with Wikimedia Commons as a fallback. A daily article cadence still requires an editorial queue, source review, and monitoring of the worker output. Production automation should not publish unvalidated fallback text as an original article.
 
 ## Newsletter foundation and handoff
 

@@ -1,0 +1,65 @@
+name: Enrich Generated News Media
+
+on:
+  workflow_run:
+    workflows: ["News Update"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      batch_size:
+        description: "Generated LATEST rows to inspect in this run"
+        required: false
+        default: "20"
+        type: string
+
+concurrency:
+  group: news-media-enrichment
+  cancel-in-progress: false
+
+jobs:
+  enrich:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+      GOOGLE_SEARCH_API_KEY: ${{ secrets.GOOGLE_SEARCH_API_KEY }}
+      GOOGLE_SEARCH_ENGINE_ID: ${{ secrets.GOOGLE_SEARCH_ENGINE_ID }}
+      AI_NEWS_MEDIA_BATCH_SIZE: ${{ inputs.batch_size || '20' }}
+
+    steps:
+      - name: Checkout source revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate media enrichment configuration
+        run: |
+          node - <<'NODE'
+          const required = [
+            'SUPABASE_URL',
+            'SUPABASE_SERVICE_ROLE_KEY',
+            'YOUTUBE_API_KEY',
+            'GOOGLE_SEARCH_API_KEY',
+            'GOOGLE_SEARCH_ENGINE_ID',
+          ];
+          const missing = required.filter((name) => !process.env[name]?.trim());
+          if (missing.length) {
+            console.error(`Missing GitHub Actions secrets: ${missing.join(', ')}`);
+            process.exit(1);
+          }
+          NODE
+
+      - name: Run generated LATEST media enrichment
+        run: npm run ai:enrich-media

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import StructuredData from '@/components/StructuredData';
 import { getNewsSourceName } from '@/lib/ai-news';
-import { resolveRelatedNewsMedia, type RelatedNewsImage as RelatedNewsImageData, type RelatedNewsMedia } from '@/lib/news-media';
+import { getMediaIdentity, getSafeMediaUrl, getStoredNewsMediaUrl, getYouTubeEmbedUrl, getYouTubeVideoId, isLikelyEditorialImageUrl } from '@/lib/news-media';
 import { countWords, hasValidatedAiContent } from '@/lib/news-indexability';
 import { createBreadcrumbListSchema, createVideoObjectSchema } from '@/lib/seo-schema';
 import { getPublicSupabaseClient } from '@/lib/supabase-public';
@@ -26,6 +26,8 @@ interface NewsArticleRecord {
   ai_similarity_score: number | null;
   ai_generated: boolean | null;
   ai_status: string | null;
+  layout1: string | null;
+  layout2: string | null;
 }
 
 function getSafeSourceUrl(value: string | null | undefined): string | null {
@@ -66,35 +68,29 @@ const getResolvedSource = cache(async (article: NewsArticleRecord) => {
   };
 });
 
-function formatMediaDate(value: string) {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return 'RECENTLY';
-  return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase();
-}
 
-function formatViewCount(value: number) {
-  return `${value.toLocaleString('en-US')} views`;
-}
+function RelatedNewsVideo({ videoUrl }: { videoUrl: string }) {
+  const videoId = getYouTubeVideoId(videoUrl);
+  if (!videoId) return null;
 
-function RelatedNewsVideo({ media }: { media: RelatedNewsMedia }) {
-  const headingId = `related-video-${media.videoId}`;
+  const headingId = `related-video-${videoId}`;
 
   return (
     <section aria-labelledby={headingId} className="my-10 border-y border-line py-5 sm:my-12 sm:py-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="mt-meta text-accent-red">Recent video</p>
-          <h2 id={headingId} className="mt-3 text-xl font-black leading-tight tracking-[-0.04em] text-ink uppercase sm:text-2xl">{media.videoTitle}</h2>
-          <p className="mt-2 text-[10px] font-bold tracking-[0.12em] text-muted uppercase">{media.channelTitle} · Published {formatMediaDate(media.publishedAt)} · {formatViewCount(media.viewCount)}</p>
+          <h2 id={headingId} className="mt-3 text-xl font-black leading-tight tracking-[-0.04em] text-ink uppercase sm:text-2xl">Related music video</h2>
+          <p className="mt-2 text-[10px] font-bold tracking-[0.12em] text-muted uppercase">Selected for this story · Published within the last two years</p>
         </div>
-        <a href={media.videoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex shrink-0 items-center gap-1.5 text-[9px] font-black tracking-[0.16em] text-ink uppercase transition-colors hover:text-accent-red focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent-red">
+        <a href={videoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex shrink-0 items-center gap-1.5 text-[9px] font-black tracking-[0.16em] text-ink uppercase transition-colors hover:text-accent-red focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent-red">
           Watch on YouTube <span aria-hidden="true">↗</span>
         </a>
       </div>
       <div className="mt-5 aspect-video overflow-hidden bg-ink">
         <iframe
-          src={media.embedUrl}
-          title={`${media.videoTitle} — YouTube video`}
+          src={getYouTubeEmbedUrl(videoId)}
+          title="Related music video — YouTube video"
           loading="lazy"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
           allowFullScreen
@@ -105,17 +101,20 @@ function RelatedNewsVideo({ media }: { media: RelatedNewsMedia }) {
   );
 }
 
-function RelatedNewsImage({ image, captionId }: { image?: RelatedNewsImageData | null; captionId: string }) {
-  if (!image) return null;
+function RelatedNewsImage({ imageUrl, captionId }: { imageUrl?: string | null; captionId: string }) {
+  const safeImageUrl = getSafeMediaUrl(imageUrl);
+  if (!safeImageUrl || !isLikelyEditorialImageUrl(safeImageUrl)) return null;
+
+  const imageProvider = safeImageUrl.includes('wikimedia.org') ? 'Wikimedia Commons' : 'Google Images';
 
   return (
     <figure aria-labelledby={captionId} className="my-10 border border-line bg-paper-muted p-4 sm:my-12 sm:p-6">
       <div className="aspect-[16/9] overflow-hidden bg-ink">
-        <img src={image.src} alt={image.alt} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+        <img src={safeImageUrl} alt="Recent image related to this news story" loading="lazy" decoding="async" className="h-full w-full object-cover" />
       </div>
       <figcaption id={captionId} className="mt-4 flex flex-wrap items-center justify-between gap-2 text-[9px] font-bold tracking-[0.14em] text-muted uppercase">
-        <span>{image.caption}</span>
-        {image.publishedAt && <span>{formatMediaDate(image.publishedAt)}</span>}
+        <span>Related subject image · {imageProvider}</span>
+        <span>Distinct from the headline image</span>
       </figcaption>
     </figure>
   );
@@ -201,18 +200,21 @@ export default async function SingleNewsPage({
       };
 
   const articleParagraphs = aiArticle.articleContent.split(/\n\s*\n/).map((paragraph) => paragraph.trim()).filter(Boolean);
-  const shouldResolveRelatedMedia = article.category === 'LATEST' && hasValidatedRewrite && articleParagraphs.length >= 3;
-  const relatedMedia = shouldResolveRelatedMedia
-    ? await resolveRelatedNewsMedia({
-        title: article.title,
-        excerpt: article.excerpt,
-        excludedUrls: [article.image],
-        needsSecondImage: articleParagraphs.length >= 6,
-      })
-    : { video: null, images: [] };
-  const relatedImageAfterThird = relatedMedia.video ? null : relatedMedia.images[0] || null;
-  const relatedImageAfterSixth = articleParagraphs.length >= 6
-    ? relatedMedia.images.find((image) => image.src !== relatedImageAfterThird?.src) || null
+  const canRenderStoredMedia = article.category === 'LATEST' && hasValidatedRewrite && articleParagraphs.length >= 3;
+  const headlineImageUrl = canRenderStoredMedia ? getSafeMediaUrl(article.image) : null;
+  const headlineImageIdentity = headlineImageUrl ? getMediaIdentity(headlineImageUrl) : null;
+  const storedLayout1 = canRenderStoredMedia ? getStoredNewsMediaUrl(article.layout1) : null;
+  const storedLayout2 = canRenderStoredMedia && isLikelyEditorialImageUrl(article.layout2)
+    ? getSafeMediaUrl(article.layout2)
+    : null;
+  const storedLayout1Identity = storedLayout1 ? getMediaIdentity(storedLayout1) : null;
+  const relatedVideoId = getYouTubeVideoId(storedLayout1);
+  const relatedVideoUrl = relatedVideoId ? storedLayout1 : null;
+  const relatedImageAfterThird = relatedVideoUrl || storedLayout1Identity === headlineImageIdentity ? null : storedLayout1;
+  const relatedImageAfterSixth = articleParagraphs.length >= 6 && storedLayout2
+    && getMediaIdentity(storedLayout2) !== storedLayout1Identity
+    && getMediaIdentity(storedLayout2) !== headlineImageIdentity
+    ? storedLayout2
     : null;
   const sourceUrl = getSafeSourceUrl(resolvedSource.sourceUrl);
   const pageUrl = getArticlePageUrl(regionName, id);
@@ -239,13 +241,13 @@ export default async function SingleNewsPage({
     articleBody: hasValidatedRewrite ? aiArticle.articleContent : undefined,
     wordCount: hasValidatedRewrite ? countWords(aiArticle.articleContent) : undefined,
   };
-  const relatedVideoStructuredData = relatedMedia.video
+  const relatedVideoStructuredData = relatedVideoId && relatedVideoUrl
     ? createVideoObjectSchema({
-        name: relatedMedia.video.videoTitle,
-        description: `A recent video related to ${relatedMedia.video.subjectQuery}.`,
-        videoId: relatedMedia.video.videoId,
+        name: 'Related music video',
+        description: `A recent YouTube video related to ${article.title}.`,
+        videoId: relatedVideoId,
         pageUrl,
-        thumbnailUrl: relatedMedia.video.thumbnailUrl,
+        thumbnailUrl: `https://i.ytimg.com/vi/${encodeURIComponent(relatedVideoId)}/hqdefault.jpg`,
       })
     : null;
 
@@ -268,7 +270,19 @@ export default async function SingleNewsPage({
         <div className="mx-auto mt-12 grid max-w-6xl grid-cols-1 gap-12 lg:grid-cols-[minmax(0,1fr)_16rem] lg:gap-16">
           <div>
             <p className="border-l-4 border-accent-red pl-6 text-2xl font-black leading-[0.98] tracking-[-0.04em] text-muted sm:text-3xl">{aiArticle.seoDescription}</p>
-            <div className="mt-10 border-t border-line pt-5">{!aiArticle.isAiGenerated && <p className="mt-meta text-accent-red">Editorial source report · {sourceName}</p>}<div className="mt-7 space-y-6 text-base leading-relaxed text-ink sm:text-lg">{articleParagraphs.map((paragraph, index) => <Fragment key={`${article.id}-paragraph-${index}`}><p>{paragraph}</p>{index === 2 && !relatedMedia.video && <RelatedNewsImage image={relatedImageAfterThird} captionId="related-image-after-third" />}{index === 2 && relatedMedia.video && <RelatedNewsVideo media={relatedMedia.video} />}{index === 5 && <RelatedNewsImage image={relatedImageAfterSixth} captionId="related-image-after-sixth" />}</Fragment>)}</div></div>
+            <div className="mt-10 border-t border-line pt-5">
+              {!aiArticle.isAiGenerated && <p className="mt-meta text-accent-red">Editorial source report · {sourceName}</p>}
+              <div className="mt-7 space-y-6 text-base leading-relaxed text-ink sm:text-lg">
+                {articleParagraphs.map((paragraph, index) => (
+                  <Fragment key={`${article.id}-paragraph-${index}`}>
+                    <p>{paragraph}</p>
+                    {index === 2 && relatedVideoUrl && <RelatedNewsVideo videoUrl={relatedVideoUrl} />}
+                    {index === 2 && !relatedVideoUrl && <RelatedNewsImage imageUrl={relatedImageAfterThird} captionId="related-image-after-third" />}
+                    {index === 5 && <RelatedNewsImage imageUrl={relatedImageAfterSixth} captionId="related-image-after-sixth" />}
+                  </Fragment>
+                ))}
+              </div>
+            </div>
 
             <section className="mt-16 border-t-8 border-ink bg-paper-muted p-6 sm:p-10">
               <h2 className="text-xl font-black tracking-[-0.04em] text-ink uppercase sm:text-2xl">Full story & global impact</h2>
