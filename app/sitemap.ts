@@ -37,6 +37,7 @@ type FestivalSitemapRow = {
   id: string | number;
   region: string | null;
   date_start: string | null;
+  is_deleted: boolean | null;  // ← DODATO!
 };
 
 function isUpcomingDate(value: string | null): boolean {
@@ -73,12 +74,16 @@ async function getContentRoutes(): Promise<SitemapRoute[]> {
       }));
 
     const festivalRoutes = ((festivalResult.data || []) as FestivalSitemapRow[])
-      .filter((festival) => Boolean(festival.region) && isUpcomingDate(festival.date_start))
-      .map((festival) => ({
-        url: `/festivals/${encodeURIComponent(festival.region!.toLowerCase())}/${encodeURIComponent(String(festival.id))}`,
-        priority: 0.7,
-        lastModified: festival.date_start || undefined,
-      }));
+  .filter((festival) => 
+    Boolean(festival.region) && 
+    isUpcomingDate(festival.date_start) &&
+    festival.is_deleted !== true  // ← DODATO!
+  )
+  .map((festival) => ({
+    url: `/festivals/${encodeURIComponent(festival.region!.toLowerCase())}/${encodeURIComponent(String(festival.id))}`,
+    priority: 0.7,
+    lastModified: festival.date_start || undefined,
+  }));
 
     return [...newsRoutes, ...festivalRoutes];
   } catch (error) {
