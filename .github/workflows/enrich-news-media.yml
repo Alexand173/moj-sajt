@@ -9,7 +9,7 @@ on:
       batch_size:
         description: "Generated LATEST rows to inspect in this run"
         required: false
-        default: "20"
+        default: "200"
         type: string
 
 concurrency:
