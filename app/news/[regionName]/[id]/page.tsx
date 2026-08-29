@@ -1,11 +1,12 @@
-import { cache } from 'react';
+import { Fragment, cache } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import StructuredData from '@/components/StructuredData';
 import { getNewsSourceName } from '@/lib/ai-news';
+import { findFreshYouTubeMedia, findRecentNewsImages, type RelatedNewsImage as RelatedNewsImageData, type RelatedNewsMedia } from '@/lib/news-media';
 import { countWords, hasValidatedAiContent } from '@/lib/news-indexability';
-import { createBreadcrumbListSchema } from '@/lib/seo-schema';
+import { createBreadcrumbListSchema, createVideoObjectSchema } from '@/lib/seo-schema';
 import { getPublicSupabaseClient } from '@/lib/supabase-public';
 
 export const revalidate = 0;
@@ -64,6 +65,61 @@ const getResolvedSource = cache(async (article: NewsArticleRecord) => {
     excerpt: article.excerpt?.trim() || '',
   };
 });
+
+function formatMediaDate(value: string) {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return 'RECENTLY';
+  return parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase();
+}
+
+function formatViewCount(value: number) {
+  return `${value.toLocaleString('en-US')} views`;
+}
+
+function RelatedNewsVideo({ media }: { media: RelatedNewsMedia }) {
+  const headingId = `related-video-${media.videoId}`;
+
+  return (
+    <section aria-labelledby={headingId} className="my-10 border-y border-line py-5 sm:my-12 sm:py-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="mt-meta text-accent-red">Recent video</p>
+          <h2 id={headingId} className="mt-3 text-xl font-black leading-tight tracking-[-0.04em] text-ink uppercase sm:text-2xl">{media.videoTitle}</h2>
+          <p className="mt-2 text-[10px] font-bold tracking-[0.12em] text-muted uppercase">{media.channelTitle} · Published {formatMediaDate(media.publishedAt)} · {formatViewCount(media.viewCount)}</p>
+        </div>
+        <a href={media.videoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex shrink-0 items-center gap-1.5 text-[9px] font-black tracking-[0.16em] text-ink uppercase transition-colors hover:text-accent-red focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent-red">
+          Watch on YouTube <span aria-hidden="true">↗</span>
+        </a>
+      </div>
+      <div className="mt-5 aspect-video overflow-hidden bg-ink">
+        <iframe
+          src={media.embedUrl}
+          title={`${media.videoTitle} — YouTube video`}
+          loading="lazy"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+          className="h-full w-full border-0"
+        />
+      </div>
+    </section>
+  );
+}
+
+function RelatedNewsImage({ image, captionId }: { image?: RelatedNewsImageData | null; captionId: string }) {
+  if (!image) return null;
+
+  return (
+    <figure aria-labelledby={captionId} className="my-10 border border-line bg-paper-muted p-4 sm:my-12 sm:p-6">
+      <div className="aspect-[16/9] overflow-hidden bg-ink">
+        <img src={image.src} alt={image.alt} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+      </div>
+      <figcaption id={captionId} className="mt-4 flex flex-wrap items-center justify-between gap-2 text-[9px] font-bold tracking-[0.14em] text-muted uppercase">
+        <span>{image.caption}</span>
+        {image.publishedAt && <span>{formatMediaDate(image.publishedAt)}</span>}
+      </figcaption>
+    </figure>
+  );
+}
 
 export async function generateMetadata({
   params,
@@ -145,6 +201,32 @@ export default async function SingleNewsPage({
       };
 
   const articleParagraphs = aiArticle.articleContent.split(/\n\s*\n/).map((paragraph) => paragraph.trim()).filter(Boolean);
+  const shouldInsertRelatedMedia = article.category === 'LATEST' && hasValidatedRewrite && articleParagraphs.length > 5;
+  const relatedMedia = shouldInsertRelatedMedia
+    ? await findFreshYouTubeMedia({ title: article.title, excerpt: article.excerpt })
+    : null;
+  const relatedImages = shouldInsertRelatedMedia
+    ? await findRecentNewsImages({
+        title: article.title,
+        excerpt: article.excerpt,
+        excludedUrls: [article.image, relatedMedia?.thumbnailUrl],
+      })
+    : [];
+  const fallbackRelatedImage: RelatedNewsImageData | null = shouldInsertRelatedMedia && article.image
+    ? {
+        src: article.image,
+        alt: `Fresh image related to ${article.title}`,
+        caption: 'Story image',
+      }
+    : null;
+  const relatedImageAfterThird = shouldInsertRelatedMedia && !relatedMedia
+    ? relatedImages[0] || fallbackRelatedImage
+    : null;
+  const relatedImageAfterSixth = shouldInsertRelatedMedia
+    ? relatedMedia
+      ? relatedImages[0] || fallbackRelatedImage
+      : relatedImages[1] || (relatedImages[0] ? fallbackRelatedImage : null)
+    : null;
   const sourceUrl = getSafeSourceUrl(resolvedSource.sourceUrl);
   const pageUrl = getArticlePageUrl(regionName, id);
   const breadcrumbSchema = createBreadcrumbListSchema([
@@ -170,10 +252,20 @@ export default async function SingleNewsPage({
     articleBody: hasValidatedRewrite ? aiArticle.articleContent : undefined,
     wordCount: hasValidatedRewrite ? countWords(aiArticle.articleContent) : undefined,
   };
+  const relatedVideoStructuredData = relatedMedia
+    ? createVideoObjectSchema({
+        name: relatedMedia.videoTitle,
+        description: `A recent video related to ${relatedMedia.subjectQuery}.`,
+        videoId: relatedMedia.videoId,
+        pageUrl,
+        thumbnailUrl: relatedMedia.thumbnailUrl,
+      })
+    : null;
 
   return (
     <div className="mt-page mt-page--paper pb-20 pt-10">
       {hasValidatedRewrite && <StructuredData data={articleStructuredData} />}
+      {relatedVideoStructuredData && <StructuredData data={relatedVideoStructuredData} />}
       <StructuredData data={breadcrumbSchema} />
       <article className="mt-container">
         <Link href={`/news/${regionName}`} className="mb-12 inline-flex items-center gap-2 border-b border-ink pb-2 text-[10px] font-black tracking-[0.22em] text-ink uppercase transition-colors hover:border-accent-red hover:text-accent-red">← Back to {regionName} news feed</Link>
@@ -189,7 +281,7 @@ export default async function SingleNewsPage({
         <div className="mx-auto mt-12 grid max-w-6xl grid-cols-1 gap-12 lg:grid-cols-[minmax(0,1fr)_16rem] lg:gap-16">
           <div>
             <p className="border-l-4 border-accent-red pl-6 text-2xl font-black leading-[0.98] tracking-[-0.04em] text-muted sm:text-3xl">{aiArticle.seoDescription}</p>
-            <div className="mt-10 border-t border-line pt-5"><p className="mt-meta text-accent-red">{aiArticle.isAiGenerated ? 'AI-synthesized editorial report' : 'Editorial source report'} · {sourceName}</p><div className="mt-7 space-y-6 text-base leading-relaxed text-ink sm:text-lg">{articleParagraphs.map((paragraph, index) => <p key={`${article.id}-paragraph-${index}`}>{paragraph}</p>)}</div></div>
+            <div className="mt-10 border-t border-line pt-5">{!aiArticle.isAiGenerated && <p className="mt-meta text-accent-red">Editorial source report · {sourceName}</p>}<div className="mt-7 space-y-6 text-base leading-relaxed text-ink sm:text-lg">{articleParagraphs.map((paragraph, index) => <Fragment key={`${article.id}-paragraph-${index}`}><p>{paragraph}</p>{index === 2 && (relatedMedia ? <RelatedNewsVideo media={relatedMedia} /> : <RelatedNewsImage image={relatedImageAfterThird} captionId="related-image-after-third" />)}{index === 5 && <RelatedNewsImage image={relatedImageAfterSixth} captionId="related-image-after-sixth" />}</Fragment>)}</div></div>
 
             <section className="mt-16 border-t-8 border-ink bg-paper-muted p-6 sm:p-10">
               <h2 className="text-xl font-black tracking-[-0.04em] text-ink uppercase sm:text-2xl">Full story & global impact</h2>
