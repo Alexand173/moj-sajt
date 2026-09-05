@@ -48,7 +48,7 @@ Run the interactive exporter:
 python scripts/export-soundcharts-storage-state.py
 ```
 
-By default, the exporter reopens Chrome profile `Profile 1`, which is mapped locally to `okrenisebre@gmail.com`, after all Chrome windows are closed. It opens the immutable Germany Rock chart URL and reuses that profile's existing Google/Soundcharts cookies; it does not create an empty login session. Do not sign out. Confirm that the already-authenticated chart table is visible, then return to the terminal and press Enter. The exporter writes `.tmp/soundcharts-storage-state.json`.
+The exporter first checks the local Chrome DevTools endpoint on port `9222`; when available, it reuses the already-open Chrome tab. Otherwise it reopens Chrome profile `Profile 1`, which is mapped locally to `okrenisebre@gmail.com`, after all Chrome windows are closed. It opens the immutable Germany Rock chart URL and reuses that profile's existing Google/Soundcharts cookies; it does not create an empty login session. Do not sign out. Confirm that the already-authenticated chart table is visible, then return to the terminal and press Enter. The exporter writes `.tmp/soundcharts-storage-state.json`.
 
 If you must keep the current Chrome window open, start Chrome with remote debugging and use the optional CDP attach mode:
 

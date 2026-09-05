@@ -23,7 +23,8 @@ CHROME_PROFILE_DIR = os.getenv("SOUNDCHARTS_CHROME_PROFILE", "Profile 1")
 EXPECTED_CHROME_EMAIL = os.getenv(
     "SOUNDCHARTS_CHROME_EMAIL", "okrenisebre@gmail.com"
 ).strip().lower()
-CHROME_CDP_URL = os.getenv("SOUNDCHARTS_CHROME_CDP_URL", "").strip()
+CONFIGURED_CHROME_CDP_URL = os.getenv("SOUNDCHARTS_CHROME_CDP_URL", "").strip()
+DEFAULT_CHROME_CDP_URL = "http://127.0.0.1:9222"
 GERMANY_ROCK_URL = (
     "https://app.soundcharts.com/app/market/tracks?filters="
     "eyJzIjoiY3VzdG9tLnNjX3RyZW5kaW5nX3Njb3JlfGRlc2N8bW9udGh8dG90YWwiLCJmIjp7"
@@ -48,22 +49,24 @@ def verify_chrome_profile() -> None:
         )
 
 
-if not CHROME_CDP_URL:
-    verify_chrome_profile()
-
-
 with sync_playwright() as playwright:
     persistent_context = False
-    if CHROME_CDP_URL:
-        # Optional mode: attach to a Chrome process already started with
-        # --remote-debugging-port. This keeps every existing tab open.
-        try:
-            browser = playwright.chromium.connect_over_cdp(CHROME_CDP_URL)
-        except PlaywrightError as error:
+    browser = None
+    cdp_url = CONFIGURED_CHROME_CDP_URL or DEFAULT_CHROME_CDP_URL
+
+    # Automatically attach when Chrome was started with port 9222. If the
+    # port is not available, fall back to reopening Profile 1 after validating
+    # that it belongs to okrenisebre@gmail.com.
+    try:
+        browser = playwright.chromium.connect_over_cdp(cdp_url)
+    except PlaywrightError as error:
+        if CONFIGURED_CHROME_CDP_URL:
             raise SystemExit(
-                f"Could not attach to Google Chrome at {CHROME_CDP_URL}. "
+                f"Could not attach to Google Chrome at {CONFIGURED_CHROME_CDP_URL}. "
                 "Start Chrome with --remote-debugging-port and try again."
             ) from error
+
+    if browser is not None:
         contexts = browser.contexts
         if not contexts:
             raise SystemExit("Connected to Chrome, but no browser context is available.")
@@ -72,6 +75,7 @@ with sync_playwright() as playwright:
         # Default mode: reopen the user's saved Chrome profile after all Chrome
         # windows are closed. Existing Google/Soundcharts cookies are reused;
         # no empty isolated login session is created.
+        verify_chrome_profile()
         try:
             context = playwright.chromium.launch_persistent_context(
                 user_data_dir=str(CHROME_USER_DATA_DIR),
@@ -83,7 +87,7 @@ with sync_playwright() as playwright:
         except PlaywrightError as error:
             raise SystemExit(
                 "Could not open the saved Chrome profile. Close all Chrome windows "
-                "or set SOUNDCHARTS_CHROME_CDP_URL for an existing debug session."
+                "or start Chrome with --remote-debugging-port=9222."
             ) from error
         persistent_context = True
 
