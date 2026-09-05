@@ -31,12 +31,10 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
       AI_SCRAPER_BROWSER_MODE: hosted
-      AI_SCRAPER_BROWSER_STORAGE_STATE: ${{ runner.temp }}/soundcharts-storage-state.json
       AI_SCRAPER_PRESETS: ${{ inputs.presets }}
       AI_SCRAPER_MAX_ROWS: 50
       AI_SCRAPER_WAIT_SECONDS: 15
       AI_SCRAPER_ATTEMPTS: 2
-      AI_SCRAPER_OUTPUT_ROOT: ${{ runner.temp }}/musictop-ai-scraper/${{ github.run_id }}
 
     steps:
       - name: Checkout repository
@@ -79,6 +77,7 @@ jobs:
         shell: bash
         env:
           SOUNDCHARTS_STORAGE_STATE_B64: ${{ secrets.SOUNDCHARTS_STORAGE_STATE_B64 }}
+          AI_SCRAPER_BROWSER_STORAGE_STATE: ${{ runner.temp }}/soundcharts-storage-state.json
         run: |
           set -euo pipefail
           printf '%s' "$SOUNDCHARTS_STORAGE_STATE_B64" | base64 --decode > "$AI_SCRAPER_BROWSER_STORAGE_STATE"
@@ -101,6 +100,9 @@ jobs:
           python -c "import playwright; print('Playwright:', playwright.__file__)"
 
       - name: Run OpenAI Vision chart updater
+        env:
+          AI_SCRAPER_BROWSER_STORAGE_STATE: ${{ runner.temp }}/soundcharts-storage-state.json
+          AI_SCRAPER_OUTPUT_ROOT: ${{ runner.temp }}/musictop-ai-scraper/${{ github.run_id }}
         run: python scripts/run-ai-chart-updates.py
 
       - name: Upload chart run artifacts
