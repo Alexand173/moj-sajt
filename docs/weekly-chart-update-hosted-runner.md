@@ -48,9 +48,17 @@ Run the interactive exporter:
 python scripts/export-soundcharts-storage-state.py
 ```
 
-The exporter reuses the installed Google Chrome `Default` profile and opens the immutable Germany Rock chart URL. Close all Chrome windows before running it, but do not sign out of Google or Soundcharts. Confirm that the already-authenticated chart table is visible, then return to the terminal and press Enter. The exporter writes `.tmp/soundcharts-storage-state.json`.
+By default, the exporter reopens the saved Google Chrome `Default` profile after all Chrome windows are closed. It opens the immutable Germany Rock chart URL and reuses the existing Google/Soundcharts cookies; it does not create an empty login session. Do not sign out. Confirm that the already-authenticated chart table is visible, then return to the terminal and press Enter. The exporter writes `.tmp/soundcharts-storage-state.json`.
 
-If the existing login is stored in another Chrome profile, set it explicitly:
+If you must keep the current Chrome window open, start Chrome with remote debugging and use the optional CDP attach mode:
+
+```powershell
+& 'C:\Program Files\Google\Chrome\Application\chrome.exe' --remote-debugging-port=9222
+$env:SOUNDCHARTS_CHROME_CDP_URL = 'http://127.0.0.1:9222'
+python scripts/export-soundcharts-storage-state.py
+```
+
+CDP mode connects to the existing tab and leaves Chrome open. If the login is stored in another profile, set it for the default profile-reopen mode:
 
 ```powershell
 $env:SOUNDCHARTS_CHROME_PROFILE = 'Profile 1'
