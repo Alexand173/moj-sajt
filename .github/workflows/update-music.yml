@@ -21,8 +21,8 @@ permissions:
 
 jobs:
   update-music-charts:
-    # This must be an unlocked Windows session with Chrome already authenticated to Soundcharts.
-    runs-on: [self-hosted, windows, x64]
+    # Hosted Chromium uses an encrypted Soundcharts storage state; no local PC is required.
+    runs-on: ubuntu-latest
     timeout-minutes: 360
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -30,63 +30,75 @@ jobs:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+      AI_SCRAPER_BROWSER_MODE: hosted
+      AI_SCRAPER_BROWSER_STORAGE_STATE: ${{ runner.temp }}/soundcharts-storage-state.json
       AI_SCRAPER_PRESETS: ${{ inputs.presets }}
       AI_SCRAPER_MAX_ROWS: 50
       AI_SCRAPER_WAIT_SECONDS: 15
       AI_SCRAPER_ATTEMPTS: 2
-      AI_SCRAPER_OUTPUT_ROOT: ${{ github.workspace }}\.tmp\musictop-ai-scraper\${{ github.run_id }}
+      AI_SCRAPER_OUTPUT_ROOT: ${{ runner.temp }}/musictop-ai-scraper/${{ github.run_id }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Validate runner and secrets
-        shell: pwsh
+      - name: Validate hosted runner secrets
+        shell: bash
+        env:
+          SOUNDCHARTS_STORAGE_STATE_B64: ${{ secrets.SOUNDCHARTS_STORAGE_STATE_B64 }}
         run: |
-          $required = @(
-            'OPENAI_API_KEY',
-            'SUPABASE_URL',
-            'SUPABASE_SERVICE_ROLE_KEY',
-            'YOUTUBE_API_KEY'
-          )
-          $missing = @()
-          foreach ($name in $required) {
-            $value = [Environment]::GetEnvironmentVariable($name)
-            if ([string]::IsNullOrWhiteSpace($value)) {
-              $missing += $name
-            }
-          }
-          if ($missing.Count -gt 0) {
-            throw "Missing GitHub Actions secrets: $($missing -join ', ')"
-          }
-
-          $chromeCandidates = @(
-            "$env:ProgramFiles\Google\Chrome\Application\chrome.exe",
-            "$env:ProgramFiles(x86)\Google\Chrome\Application\chrome.exe",
-            "$env:LocalAppData\Google\Chrome\Application\chrome.exe"
-          )
-          if (-not ($chromeCandidates | Where-Object { Test-Path $_ })) {
-            throw 'Chrome was not found on the self-hosted runner.'
-          }
+          set -euo pipefail
+          required=(OPENAI_API_KEY SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY YOUTUBE_API_KEY SOUNDCHARTS_STORAGE_STATE_B64)
+          missing=()
+          for name in "${required[@]}"; do
+            if [[ -z "${!name:-}" ]]; then
+              missing+=("$name")
+            fi
+          done
+          if (( ${#missing[@]} > 0 )); then
+            echo "Missing GitHub Actions secrets: ${missing[*]}" >&2
+            exit 1
+          fi
 
       - name: Validate runner Python
-        shell: pwsh
+        shell: bash
         run: |
+          set -euo pipefail
           python --version
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m pip --version
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Install AI scraper dependencies
-        shell: pwsh
+        shell: bash
         run: |
-          python -m pip install --user --upgrade pip
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -m pip install --user -r scripts/requirements-ai-scraper.txt
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -r scripts/requirements-ai-scraper.txt
+          python -m playwright install --with-deps chromium
 
-      - name: Validate interactive desktop
-        run: python -c "import mss, pyautogui; print('Desktop:', pyautogui.size()); print('MSS ready:', bool(mss))"
+      - name: Restore Soundcharts browser session
+        shell: bash
+        env:
+          SOUNDCHARTS_STORAGE_STATE_B64: ${{ secrets.SOUNDCHARTS_STORAGE_STATE_B64 }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$SOUNDCHARTS_STORAGE_STATE_B64" | base64 --decode > "$AI_SCRAPER_BROWSER_STORAGE_STATE"
+          python - "$AI_SCRAPER_BROWSER_STORAGE_STATE" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          path = Path(sys.argv[1])
+          payload = json.loads(path.read_text(encoding='utf-8'))
+          if not isinstance(payload, dict):
+              raise SystemExit('SOUNDCHARTS_STORAGE_STATE_B64 must contain a JSON object')
+          print('Soundcharts browser session restored to runner temp storage.')
+          PY
+
+      - name: Validate hosted browser runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -c "import playwright; print('Playwright:', playwright.__file__)"
 
       - name: Run OpenAI Vision chart updater
         run: python scripts/run-ai-chart-updates.py
@@ -97,8 +109,8 @@ jobs:
         with:
           name: weekly-ai-music-chart-update-${{ github.run_id }}
           path: |
-            ${{ github.workspace }}/.tmp/musictop-ai-scraper/${{ github.run_id }}/run-summary.json
-            ${{ github.workspace }}/.tmp/musictop-ai-scraper/${{ github.run_id }}/**/chart-data.json
-            ${{ github.workspace }}/.tmp/musictop-ai-scraper/${{ github.run_id }}/**/run.log
+            ${{ runner.temp }}/musictop-ai-scraper/${{ github.run_id }}/run-summary.json
+            ${{ runner.temp }}/musictop-ai-scraper/${{ github.run_id }}/**/chart-data.json
+            ${{ runner.temp }}/musictop-ai-scraper/${{ github.run_id }}/**/run.log
           if-no-files-found: warn
           retention-days: 14

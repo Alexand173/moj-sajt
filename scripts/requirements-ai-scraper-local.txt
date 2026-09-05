@@ -1,0 +1,5 @@
+# Optional Windows desktop fallback for local runs.
+-r requirements-ai-scraper.txt
+mss>=9.0.1
+Pillow>=10.4.0
+PyAutoGUI>=0.9.54

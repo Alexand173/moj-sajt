@@ -1,11 +1,14 @@
 """Local AI-assisted chart capture utility.
 
-This script is intentionally separate from the production Soundcharts API updater.
-It opens a chart page, uses OpenAI Vision to locate filter controls, captures the
-visible table, and writes the extracted rows to a JSON file.
+This script reads the rendered chart page instead of calling a Soundcharts API.
+It opens a supplied chart URL, uses OpenAI Vision to locate filter controls and
+read the visible table, and writes the extracted rows to a JSON file.
 
-Install the optional local dependencies first:
+Install the hosted dependencies first:
     python -m pip install -r scripts/requirements-ai-scraper.txt
+
+For the legacy Windows desktop fallback, install the optional local dependencies:
+    python -m pip install -r scripts/requirements-ai-scraper-local.txt
 
 Run from the repository root:
     python scripts/ai_scraper.py --region germany --country Any --genre Any --upload \
@@ -15,6 +18,7 @@ Run from the repository root:
 from __future__ import annotations
 
 import argparse
+import atexit
 import base64
 import json
 from datetime import date
@@ -30,6 +34,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Sequence
 from urllib.error import HTTPError, URLError
+
+try:
+    from .chart_browser import ChartBrowser, ChartBrowserError
+except ImportError:  # pragma: no cover - direct script execution
+    try:
+        from chart_browser import ChartBrowser, ChartBrowserError
+    except ImportError:  # pragma: no cover - reported by _require_runtime
+        ChartBrowser = None  # type: ignore[assignment,misc]
+        ChartBrowserError = RuntimeError  # type: ignore[assignment,misc]
 from urllib.parse import parse_qs, unquote, urlencode, urlparse
 from urllib.request import Request, urlopen
 
@@ -331,6 +344,7 @@ class ScreenCapture:
     path: Path
     offset_x: int
     offset_y: int
+    browser: Any | None = None
 
 
 @dataclass(frozen=True)
@@ -339,6 +353,14 @@ class ScraperConfig:
     monitor_index: int = 1
     page_wait_seconds: float = DEFAULT_PAGE_WAIT_SECONDS
     action_retries: int = MAX_ACTION_RETRIES
+
+
+def use_hosted_browser() -> bool:
+    return os.getenv("AI_SCRAPER_BROWSER_MODE", "local").strip().lower() in {
+        "hosted",
+        "playwright",
+        "github",
+    }
 
 
 
@@ -356,7 +378,10 @@ def load_environment() -> None:
 
 
 def open_chart_page(chart_url: str) -> None:
-    """Open Soundcharts directly in Chrome on Windows, avoiding broken URL associations."""
+    """Open Soundcharts directly in the local browser for legacy runs."""
+    if use_hosted_browser():
+        raise ScraperError("Hosted browser runs must call ChartBrowser.open_chart().")
+
     if os.name == "nt":
         candidates = [
             shutil.which("chrome.exe"),
@@ -381,10 +406,14 @@ def _require_runtime() -> None:
     missing: list[str] = []
     if openai is None:
         missing.append("openai")
-    if mss is None or Image is None:
-        missing.append("mss/Pillow")
-    if pyautogui is None:
-        missing.append("pyautogui")
+    if use_hosted_browser():
+        if ChartBrowser is None:
+            missing.append("chart_browser")
+    else:
+        if mss is None or Image is None:
+            missing.append("mss/Pillow")
+        if pyautogui is None:
+            missing.append("pyautogui")
     if not os.getenv("OPENAI_API_KEY", "").strip():
         missing.append("OPENAI_API_KEY")
 
@@ -426,21 +455,35 @@ def _monitor_geometry(monitor_index: int) -> tuple[int, int, int, int]:
 def take_screenshot(
     filename: str | Path = "screen.png",
     monitor_index: int = 1,
+    *,
+    browser: Any | None = None,
 ) -> str:
-    """Capture one monitor and return the saved path for backwards compatibility."""
-    return str(capture_screen(filename, monitor_index).path)
+    """Capture one monitor or hosted browser viewport for compatibility."""
+    return str(capture_screen(filename, monitor_index, browser=browser).path)
 
 
 
-def capture_screen(filename: str | Path, monitor_index: int = 1) -> ScreenCapture:
+def capture_screen(
+    filename: str | Path,
+    monitor_index: int = 1,
+    *,
+    browser: Any | None = None,
+) -> ScreenCapture:
     """Capture the selected monitor and retain its desktop coordinate offset."""
     _require_runtime()
+    destination = Path(filename).expanduser().resolve()
+    destination.parent.mkdir(parents=True, exist_ok=True)
+
+    if use_hosted_browser():
+        if browser is None:
+            raise ScraperError("Hosted browser capture requires an active ChartBrowser.")
+        browser.screenshot(destination)
+        return ScreenCapture(destination, 0, 0, browser)
+
     assert mss is not None
     assert Image is not None
 
     left, top, width, height = _monitor_geometry(monitor_index)
-    destination = Path(filename).expanduser().resolve()
-    destination.parent.mkdir(parents=True, exist_ok=True)
 
     with mss.mss() as screenshotter:
         screenshot = screenshotter.grab(
@@ -1212,9 +1255,12 @@ def _click_target(
         client=client,
         model=config.model,
     )
-    pyautogui.click(capture.offset_x + x, capture.offset_y + y)  # type: ignore[union-attr]
+    if capture.browser is not None:
+        capture.browser.click_at(x, y)
+    else:
+        pyautogui.click(capture.offset_x + x, capture.offset_y + y)  # type: ignore[union-attr]
     time.sleep(0.8)
-    return capture_screen(capture.path, config.monitor_index)
+    return capture_screen(capture.path, config.monitor_index, browser=capture.browser)
 
 
 
@@ -1233,12 +1279,15 @@ def _type_into_target(
         client=client,
         model=config.model,
     )
-    pyautogui.click(capture.offset_x + x, capture.offset_y + y)  # type: ignore[union-attr]
-    pyautogui.hotkey("ctrl", "a")
-    pyautogui.write(value, interval=0.03)
-    pyautogui.press("enter")
+    if capture.browser is not None:
+        capture.browser.type_at(x, y, value)
+    else:
+        pyautogui.click(capture.offset_x + x, capture.offset_y + y)  # type: ignore[union-attr]
+        pyautogui.hotkey("ctrl", "a")
+        pyautogui.write(value, interval=0.03)
+        pyautogui.press("enter")
     time.sleep(0.8)
-    return capture_screen(capture.path, config.monitor_index)
+    return capture_screen(capture.path, config.monitor_index, browser=capture.browser)
 
 
 
@@ -1445,7 +1494,11 @@ def extract_chart_pages(
         page_rows: list[dict[str, Any]] = []
         capture = first_capture
         for wait_attempt in range(1, 7):
-            capture = capture_screen(page_path, config.monitor_index)
+            capture = capture_screen(
+                page_path,
+                config.monitor_index,
+                browser=first_capture.browser,
+            )
             page_rows = extract_table_data(
                 capture.path,
                 client=client,
@@ -1480,9 +1533,14 @@ def extract_chart_pages(
 
         # Soundcharts virtualizes the table. Give the table body focus first;
         # mouse-wheel scrolling can leave the rows unchanged on this page.
-        screen_width, screen_height = pyautogui.size()  # type: ignore[union-attr]
-        pyautogui.click(int(screen_width * 0.35), int(screen_height * 0.70))  # type: ignore[union-attr]
-        pyautogui.press("pagedown")  # type: ignore[union-attr]
+        if capture.browser is not None:
+            screen_width, screen_height = capture.browser.viewport_size()
+            capture.browser.click_at(int(screen_width * 0.35), int(screen_height * 0.70))
+            capture.browser.press("PageDown")
+        else:
+            screen_width, screen_height = pyautogui.size()  # type: ignore[union-attr]
+            pyautogui.click(int(screen_width * 0.35), int(screen_height * 0.70))  # type: ignore[union-attr]
+            pyautogui.press("pagedown")  # type: ignore[union-attr]
         time.sleep(2)
 
     return all_rows[:target_rows]
@@ -1518,7 +1576,8 @@ def fetch_chartmetric_data(
     unchanged.
     """
     _require_runtime()
-    assert pyautogui is not None
+    if not use_hosted_browser():
+        assert pyautogui is not None
     normalized_region = _normalize_label(region).upper()
     if normalized_region not in REGION_NAMES or normalized_region == "EUROPA":
         raise ScraperError(
@@ -1538,11 +1597,31 @@ def fetch_chartmetric_data(
         output_path = Path(output_dir).expanduser().resolve()
         output_path.mkdir(parents=True, exist_ok=True)
 
-    print(f"[AI Agent] Opening chart page: {chart_url}")
-    open_chart_page(chart_url)
-    time.sleep(max(config.page_wait_seconds, 0))
+    browser = None
+    if use_hosted_browser():
+        assert ChartBrowser is not None
+        try:
+            browser = ChartBrowser()
+        except ChartBrowserError as error:
+            raise ScraperError(str(error)) from error
+        atexit.register(browser.close)
 
-    initial_capture = capture_screen(output_path / "initial.png", config.monitor_index)
+    print(f"[AI Agent] Opening chart page: {chart_url}")
+    if browser is not None:
+        try:
+            browser.open_chart(chart_url, wait_seconds=max(config.page_wait_seconds, 0))
+        except ChartBrowserError as error:
+            browser.close()
+            raise ScraperError(str(error)) from error
+    else:
+        open_chart_page(chart_url)
+        time.sleep(max(config.page_wait_seconds, 0))
+
+    initial_capture = capture_screen(
+        output_path / "initial.png",
+        config.monitor_index,
+        browser=browser,
+    )
     release_start, release_end = _release_date_range(today)
     if apply_filters:
         capture = _click_target(
@@ -1583,7 +1662,10 @@ def fetch_chartmetric_data(
             )
         except ScraperError:
             # Some Soundcharts layouts apply the filter when Enter is pressed.
-            pyautogui.press("escape")
+            if browser is not None:
+                browser.press("Escape")
+            else:
+                pyautogui.press("escape")
             time.sleep(1)
 
         time.sleep(max(config.page_wait_seconds, 1))
@@ -1638,6 +1720,8 @@ def fetch_chartmetric_data(
     finally:
         # Keep the full ranked capture available even when strict upload validation fails.
         write_artifact()
+        if browser is not None:
+            browser.close()
 
     print(
         f"[AI Agent] Extracted {len(chart_records)} chart rows -> {result_path} "

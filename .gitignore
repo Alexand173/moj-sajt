@@ -43,6 +43,7 @@ next-env.d.ts
 # Python tooling
 __pycache__/
 *.py[cod]
+.tmp/soundcharts-storage-state.json
 
 za_server/
 sajt.zip

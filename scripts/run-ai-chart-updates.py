@@ -1,8 +1,10 @@
 """Run the OpenAI Vision chart scraper sequentially for GitHub Actions.
 
-This command is intended for an unlocked Windows self-hosted runner with a
-logged-in Soundcharts Chrome profile. It keeps GUI scraping sequential, writes
-isolated logs/artifacts per preset, and fails before accepting partial charts.
+The hosted mode uses Playwright Chromium with an encrypted Soundcharts storage
+state. It keeps screenshot-based AI scraping sequential, writes isolated
+logs/artifacts per preset, and fails before accepting partial charts. The
+scraper still reads each supplied chart URL from top to bottom and never uses a
+Soundcharts API.
 """
 
 from __future__ import annotations
