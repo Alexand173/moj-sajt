@@ -6,6 +6,7 @@ import {
   TARGET_REGIONS,
 } from '@/lib/auto-updater';
 
+
 describe('Soundcharts chart updater configuration', () => {
   it('covers the dashboard regions used by the regional chart routes', () => {
     expect(TARGET_REGIONS.map((region) => region.regionName)).toEqual([
