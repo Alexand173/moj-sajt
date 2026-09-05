@@ -7,6 +7,7 @@ or print it.
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
@@ -17,7 +18,11 @@ OUTPUT = Path(".tmp/soundcharts-storage-state.json")
 CHROME_USER_DATA_DIR = Path(
     os.getenv("LOCALAPPDATA", str(Path.home() / "AppData" / "Local"))
 ) / "Google" / "Chrome" / "User Data"
-CHROME_PROFILE_DIR = os.getenv("SOUNDCHARTS_CHROME_PROFILE", "Default")
+# Profile 1 is the Chrome profile mapped to okrenisebre@gmail.com.
+CHROME_PROFILE_DIR = os.getenv("SOUNDCHARTS_CHROME_PROFILE", "Profile 1")
+EXPECTED_CHROME_EMAIL = os.getenv(
+    "SOUNDCHARTS_CHROME_EMAIL", "okrenisebre@gmail.com"
+).strip().lower()
 CHROME_CDP_URL = os.getenv("SOUNDCHARTS_CHROME_CDP_URL", "").strip()
 GERMANY_ROCK_URL = (
     "https://app.soundcharts.com/app/market/tracks?filters="
@@ -25,6 +30,26 @@ GERMANY_ROCK_URL = (
     "ImZjIjoiREUiLCJmdHNnIjoicm9jayIsImZyZCI6IkxUXzYiLCJkc3RyOjppbiI6WyJBTEwiXSw"
     "iZmFyZyI6InJvY2sifSwibWkiOltbImF1ZGllbmNlLnNwb3RpZnkudG90YWwiLHsibW0iOiIifV1dfQ%3D%3D"
 )
+
+
+def verify_chrome_profile() -> None:
+    local_state_path = CHROME_USER_DATA_DIR / "Local State"
+    try:
+        local_state = json.loads(local_state_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise SystemExit(f"Could not read Chrome profile metadata: {local_state_path}") from error
+
+    profile = local_state.get("profile", {}).get("info_cache", {}).get(CHROME_PROFILE_DIR, {})
+    actual_email = str(profile.get("user_name") or "").strip().lower()
+    if actual_email != EXPECTED_CHROME_EMAIL:
+        raise SystemExit(
+            f"Chrome profile {CHROME_PROFILE_DIR!r} is mapped to {actual_email or 'no Gmail account'}, "
+            f"not {EXPECTED_CHROME_EMAIL}. Set SOUNDCHARTS_CHROME_PROFILE to the correct profile."
+        )
+
+
+if not CHROME_CDP_URL:
+    verify_chrome_profile()
 
 
 with sync_playwright() as playwright:
