@@ -48,7 +48,14 @@ Run the interactive exporter:
 python scripts/export-soundcharts-storage-state.py
 ```
 
-Log in manually in the visible browser. After the chart page is accessible, return to the terminal and press Enter. The exporter writes `.tmp/soundcharts-storage-state.json`.
+The exporter reuses the installed Google Chrome `Default` profile and opens the immutable Germany Rock chart URL. Close all Chrome windows before running it, but do not sign out of Google or Soundcharts. Confirm that the already-authenticated chart table is visible, then return to the terminal and press Enter. The exporter writes `.tmp/soundcharts-storage-state.json`.
+
+If the existing login is stored in another Chrome profile, set it explicitly:
+
+```powershell
+$env:SOUNDCHARTS_CHROME_PROFILE = 'Profile 1'
+python scripts/export-soundcharts-storage-state.py
+```
 
 Create a base64 value without printing it to the terminal:
 
