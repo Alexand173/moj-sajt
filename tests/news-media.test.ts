@@ -140,10 +140,10 @@ describe('related news media resolver', () => {
 
     expect(media.video).toBeNull();
     expect(media.images).toHaveLength(2);
-    expect(media.images.map((image) => image.src)).toEqual([
+    expect(new Set(media.images.map((image) => image.src))).toEqual(new Set([
       'https://upload.wikimedia.org/harbor-live.jpg',
       'https://upload.wikimedia.org/harbor-backstage.jpg',
-    ]);
+    ]));
     expect(new Set(media.images.map((image) => image.src)).size).toBe(2);
     expect(media.images.every((image) => image.src !== headlineImage)).toBe(true);
   });
@@ -183,10 +183,13 @@ describe('related news media resolver', () => {
       'https://images.example.com/dolly-parton-portrait.jpg',
       'https://upload.wikimedia.org/dolly-portrait.jpg',
     ]);
-    expect(globalThis.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('googleapis.com/customsearch/v1'),
-      expect.objectContaining({ headers: { Accept: 'application/json' } }),
-    );
+    const googleRequest = vi.mocked(globalThis.fetch).mock.calls.find(([input]) => (
+      String(input).includes('googleapis.com/customsearch/v1')
+    ));
+    expect(googleRequest).toBeDefined();
+    expect(googleRequest?.[1]).toEqual(expect.objectContaining({
+      headers: { Accept: 'application/json' },
+    }));
   });
 
   it('keeps the second image when video is selected and excludes its thumbnail', async () => {

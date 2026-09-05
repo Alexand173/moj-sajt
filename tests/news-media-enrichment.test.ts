@@ -18,7 +18,7 @@ import { enrichGeneratedNewsMedia } from '@/lib/news-media-enrichment';
 function longArticle(paragraphCount: number): string {
   return Array.from({ length: paragraphCount }, (_, index) => (
     `Paragraph ${index + 1} covers the confirmed music news context with enough editorial detail for the article validation gate. ` +
-    'Additional reporting context keeps this test article comfortably above the required word count for generated content.'
+    'Additional reporting context keeps this test article comfortably above the required indexable word count for generated content.'
   )).join('\n\n');
 }
 
