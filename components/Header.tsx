@@ -31,14 +31,14 @@ export default function Header() {
   const isHome = pathname === '/';
   const isNewsPage = pathname.startsWith('/news');
   const isReviewsPage = pathname.startsWith('/reviews');
-  const isToursPage = pathname.startsWith('/tours');
+  const isTicketsPage = pathname.startsWith('/tickets');
   const isFestivalsPage = pathname.startsWith('/festivals');
   const isAwardsPage = pathname.startsWith('/awards');
   const isRegionPage = pathname.startsWith('/region');
 
   const pages = [
     { name: 'NEWS', href: '/news/us' },
-    { name: 'TOURS', href: '/tours/us' },
+    { name: 'TICKETS', href: '/tickets/us' },
     { name: 'FESTIVALS', href: '/festivals/us' },
     { name: 'REVIEWS', href: '/reviews' },
     { name: 'MTA', href: '/awards' },
@@ -84,12 +84,12 @@ export default function Header() {
 
   const getBasePath = () => {
     if (pathname.includes('/news')) return 'news';
-    if (pathname.includes('/tours')) return 'tours';
+    if (pathname.includes('/tickets')) return 'tickets';
     if (pathname.includes('/festivals')) return 'festivals';
     return 'region';
   };
 
-  const showRegions = isHome || isNewsPage || isToursPage || isFestivalsPage || isRegionPage || isReviewsPage || isAwardsPage;
+  const showRegions = isHome || isNewsPage || isTicketsPage || isFestivalsPage || isRegionPage || isReviewsPage || isAwardsPage;
   const showGenres = isRegionPage && pathSegments.length < 3;
   const showEuropaSubregions = isRegionPage && currentRegion === 'europa';
   const isAsia = currentRegion === 'asia';
@@ -100,7 +100,7 @@ export default function Header() {
     && !pathname.includes('/news')
     && !pathname.includes('/reviews')
     && !pathname.includes('/festivals')
-    && !pathname.includes('/tours'));
+    && !pathname.includes('/tickets'));
 
   return (
     <header className="fixed inset-x-0 top-0 z-[100] bg-ink text-white shadow-[0_1px_0_rgb(255_255_255_/_0.08)]">

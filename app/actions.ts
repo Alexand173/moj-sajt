@@ -61,7 +61,7 @@ if (error) {
 }
 
 console.log("USPEŠNO UPISANO!");
-revalidatePath('/tours/[regionName]', 'page');
+revalidatePath('/tickets/[regionName]', 'page');
 return { success: true, count: events.length }; // Koristi 'events.length'
 
   } catch (error) {
@@ -306,7 +306,7 @@ export async function saveAlbum(formData: FormData) {
     }
   }
 
-  revalidatePath(`/tours/${region}`);
+  revalidatePath(`/tickets/${region}`);
   return { success: true };
 }
 

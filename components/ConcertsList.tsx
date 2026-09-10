@@ -150,17 +150,17 @@ export default function ConcertsList({ dataZaPrikaz }: ConcertsListProps) {
       <div className="mx-auto mb-10 max-w-2xl">
         <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 rounded-full border border-line bg-white p-1.5 transition-colors focus-within:border-ink">
           <Search aria-hidden="true" className="ml-3 size-4 shrink-0 text-muted" />
-          <label htmlFor="tour-artist-search" className="sr-only">Search artist</label>
-          <input id="tour-artist-search" type="search" placeholder="Search artist..." value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} className="min-w-0 flex-1 bg-transparent px-2 py-2 text-sm text-ink placeholder:text-placeholder focus:outline-none" />
+          <label htmlFor="ticket-artist-search" className="sr-only">Search artist</label>
+          <input id="ticket-artist-search" type="search" placeholder="Search artist..." value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} className="min-w-0 flex-1 bg-transparent px-2 py-2 text-sm text-ink placeholder:text-placeholder focus:outline-none" />
           <button type="submit" className="rounded-full bg-accent-red px-6 py-2.5 text-[10px] font-black tracking-[0.2em] text-white uppercase transition-colors hover:bg-ink">Search</button>
         </form>
       </div>
 
       {cities.length > 0 && (
-        <section aria-labelledby="tour-city-filter" className="mb-12">
+        <section aria-labelledby="ticket-city-filter" className="mb-12">
           <div className="mb-4 flex items-center gap-2">
             <MapPin aria-hidden="true" className="size-4 text-accent-blue" />
-            <h2 id="tour-city-filter" className="text-xs font-black tracking-[0.24em] text-ink uppercase">Filter by city</h2>
+            <h2 id="ticket-city-filter" className="text-xs font-black tracking-[0.24em] text-ink uppercase">Filter by city</h2>
             <span className="text-[9px] font-bold tracking-[0.16em] text-muted uppercase">· {cities.length} markets</span>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -172,9 +172,9 @@ export default function ConcertsList({ dataZaPrikaz }: ConcertsListProps) {
         </section>
       )}
 
-      <section aria-labelledby="official-tour-dates">
+      <section aria-labelledby="official-ticket-dates">
         <div className="mb-6 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2"><CalendarDays aria-hidden="true" className="size-4 text-accent-red" /><h2 id="official-tour-dates" className="text-xs font-black tracking-[0.24em] text-ink uppercase">Official tour dates</h2></div>
+          <div className="flex items-center gap-2"><CalendarDays aria-hidden="true" className="size-4 text-accent-red" /><h2 id="official-ticket-dates" className="text-xs font-black tracking-[0.24em] text-ink uppercase">Official ticket dates</h2></div>
           <span className="hidden text-[9px] font-bold tracking-[0.16em] text-muted uppercase sm:inline">Tickets via Ticketmaster</span>
         </div>
 
@@ -185,7 +185,7 @@ export default function ConcertsList({ dataZaPrikaz }: ConcertsListProps) {
                 <div className="relative h-52 overflow-hidden bg-ink">
                   {group.image_url && <img src={group.image_url} alt={group.artist_name} loading="lazy" decoding="async" onError={(event) => { event.currentTarget.style.display = 'none'; }} className="h-full w-full object-cover grayscale transition-all duration-700 group-hover:scale-105 group-hover:grayscale-0" />}
                   <div className="mt-image-overlay absolute inset-0" />
-                  <div className="absolute inset-x-0 bottom-0 p-5"><p className="mt-meta text-white/60">Official tour</p><h3 className="mt-1.5 line-clamp-2 text-2xl font-black leading-[0.95] tracking-[-0.04em] text-white">{group.artist_name}</h3></div>
+                  <div className="absolute inset-x-0 bottom-0 p-5"><p className="mt-meta text-white/60">Live event</p><h3 className="mt-1.5 line-clamp-2 text-2xl font-black leading-[0.95] tracking-[-0.04em] text-white">{group.artist_name}</h3></div>
                   <span className="absolute right-4 top-4 bg-accent-red px-2.5 py-1 text-[9px] font-black tracking-[0.12em] text-white uppercase">{group.events.length} dates</span>
                 </div>
                 <ul className="divide-y divide-line">

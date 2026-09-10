@@ -118,8 +118,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })),
   );
 
-  const toursRoutes: SitemapRoute[] = Object.keys(siteStructure).map((region) => ({
-    url: `/tours/${region}`,
+  const ticketsRoutes: SitemapRoute[] = Object.keys(siteStructure).map((region) => ({
+    url: `/tickets/${region}`,
     priority: 0.9,
   }));
 
@@ -138,7 +138,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...dynamicRoutes,
     ...europaSubregionRoutes,
     ...newsRoutes,
-    ...toursRoutes,
+    ...ticketsRoutes,
     ...festivalsRoutes,
     ...(await getContentRoutes()),
   ];

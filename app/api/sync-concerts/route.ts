@@ -210,8 +210,8 @@ export async function GET(request: Request) {
       }, { status: 500 });
     }
 
-    // Invalidate every /tours/<region> page after a successful sync.
-    revalidatePath('/tours/[regionName]', 'page');
+    // Invalidate every /tickets/<region> page after a successful sync.
+    revalidatePath('/tickets/[regionName]', 'page');
 
     return NextResponse.json({
       status: "Success",

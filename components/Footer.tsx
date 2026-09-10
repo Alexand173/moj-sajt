@@ -3,7 +3,7 @@ import { ArrowUpRight } from 'lucide-react';
 
 const sectionLinks = [
   { label: 'News', href: '/news/us' },
-  { label: 'Tours', href: '/tours/us' },
+  { label: 'Tickets', href: '/tickets/us' },
   { label: 'Festivals', href: '/festivals/us' },
   { label: 'Reviews', href: '/reviews' },
   { label: 'MTA Awards', href: '/awards' },

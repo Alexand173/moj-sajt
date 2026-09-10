@@ -16,7 +16,7 @@ This document records the repository changes and the manual deployment work for 
 
 1. Open the verified `https://musictop.net` property in Google Search Console.
 2. Go to **Indexing → Sitemaps** and submit `https://musictop.net/sitemap.xml` (or enter `sitemap.xml`).
-3. Use **URL inspection** for the homepage, representative chart, news, festival, and tour URLs.
+3. Use **URL inspection** for the homepage, representative chart, news, festival, and ticket URLs.
 4. Select **Test live URL**, resolve any crawl or mobile usability warnings, then request indexing for the priority URLs.
 5. Recheck the **Pages**, **Sitemaps**, **Core Web Vitals**, and **Enhancements** reports after the deployment is live.
 
