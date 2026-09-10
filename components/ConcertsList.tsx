@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useRef, useMemo, useEffect } from 'react';
+import Image from 'next/image';
+import { useMemo, useState } from 'react';
 import { CalendarDays, MapPin, Search, Ticket } from 'lucide-react';
 import { resolveConcertCity } from '@/lib/concert-city';
 
@@ -43,7 +44,8 @@ function generisiAffiliateLink(izvorniLink: string): string {
     'ticketmaster.fi': { mediaRail: '1958962', campaign: '23892' },
     'ticketmaster.fr': { mediaRail: '1958960', campaign: '23891' },
     'ticketmaster.de': { mediaRail: '1958958', campaign: '23890' },
-    'ticketmaster.gr': { mediaRail: 'XXXXX', campaign: 'YYYYY' },
+    // No Greece-specific Impact placement is configured; use the validated global Ticketmaster fallback.
+    'ticketmaster.gr': { mediaRail: '264167', campaign: '4272' },
     'ticketmaster.ie': { mediaRail: '1958956', campaign: '23889' },
     'ticketmaster.it': { mediaRail: '1958975', campaign: '23899' },
     'ticketmaster.com.mx': { mediaRail: '1958981', campaign: '23902' },
@@ -65,7 +67,6 @@ function generisiAffiliateLink(izvorniLink: string): string {
   for (const domen of sortiraniDomeni) {
     if (proveraLinka.includes(domen)) {
       const { mediaRail, campaign } = affiliateMape[domen];
-      if (mediaRail === 'XXXXX') return `https://ticketmaster.evyy.net/c/${mojImpactId}/264167/4272?u=${encodeURIComponent(izvorniLink)}`;
       return `https://ticketmaster.evyy.net/c/${mojImpactId}/${mediaRail}/${campaign}?u=${encodeURIComponent(izvorniLink)}`;
     }
   }
@@ -76,25 +77,9 @@ function generisiAffiliateLink(izvorniLink: string): string {
 export default function ConcertsList({ dataZaPrikaz }: ConcertsListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
-  const [pendingArtist, setPendingArtist] = useState<string | null>(null);
-  const concertRefs = useRef<{ [key: string]: HTMLElement | null }>({});
 
-  const handleSearchSubmit = (event: React.FormEvent) => {
+  const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) return;
-
-    const foundGroup = (dataZaPrikaz || []).find((group) => group.artist_name.toLowerCase().includes(query));
-    if (!foundGroup) {
-      alert(`Izvođač "${searchQuery}" nije pronađen.`);
-      return;
-    }
-
-    const artistIsInSelectedCity = selectedCity === null || foundGroup.events.some(
-      (concert) => resolveConcertCity(concert.city, concert.location)?.toLowerCase() === selectedCity.toLowerCase(),
-    );
-    if (!artistIsInSelectedCity) setSelectedCity(null);
-    setPendingArtist(foundGroup.artist_name);
   };
 
   const cities = useMemo(() => {
@@ -110,40 +95,28 @@ export default function ConcertsList({ dataZaPrikaz }: ConcertsListProps) {
 
   const activeCity = selectedCity && cities.some((city) => city.toLowerCase() === selectedCity.toLowerCase()) ? selectedCity : null;
 
-  useEffect(() => {
-    if (!pendingArtist) return;
-
-    let timeoutId: number | undefined;
-    const frameId = window.requestAnimationFrame(() => {
-      const element = concertRefs.current[pendingArtist];
-      if (!element) {
-        setPendingArtist(null);
-        return;
-      }
-
-      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      element.classList.add('ring-2', 'ring-accent-red', 'ring-offset-4', 'ring-offset-paper', 'transition-all');
-      timeoutId = window.setTimeout(() => {
-        element.classList.remove('ring-2', 'ring-accent-red', 'ring-offset-4', 'ring-offset-paper');
-        setPendingArtist(null);
-      }, 2000);
-    });
-
-    return () => {
-      window.cancelAnimationFrame(frameId);
-      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
-    };
-  }, [pendingArtist]);
-
   const filteredData = useMemo(() => {
-    if (!activeCity) return dataZaPrikaz || [];
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+
     return (dataZaPrikaz || [])
+      .filter((group) => !normalizedQuery || group.artist_name.toLowerCase().includes(normalizedQuery))
       .map((group) => ({
         ...group,
-        events: group.events.filter((event) => resolveConcertCity(event.city, event.location)?.toLowerCase() === activeCity.toLowerCase()),
+        events: activeCity
+          ? group.events.filter((event) => resolveConcertCity(event.city, event.location)?.toLowerCase() === activeCity.toLowerCase())
+          : group.events,
       }))
       .filter((group) => group.events.length > 0);
-  }, [dataZaPrikaz, activeCity]);
+  }, [dataZaPrikaz, activeCity, searchQuery]);
+
+  const normalizedSearchQuery = searchQuery.trim();
+  const emptyStateMessage = normalizedSearchQuery && selectedCity
+    ? `No artists matching "${normalizedSearchQuery}" with events in ${selectedCity}.`
+    : normalizedSearchQuery
+      ? `No artists matching "${normalizedSearchQuery}".`
+      : selectedCity
+        ? `No concerts found in ${selectedCity}.`
+        : 'No concerts found for this region.';
 
   return (
     <>
@@ -181,9 +154,18 @@ export default function ConcertsList({ dataZaPrikaz }: ConcertsListProps) {
         {filteredData.length > 0 ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {filteredData.map((group) => (
-              <article key={group.artist_name} ref={(element) => { concertRefs.current[group.artist_name] = element; }} className="group flex min-w-0 flex-col overflow-hidden border border-line bg-white transition-colors hover:border-ink">
+              <article key={group.artist_name} className="group flex min-w-0 flex-col overflow-hidden border border-line bg-white transition-colors hover:border-ink">
                 <div className="relative h-52 overflow-hidden bg-ink">
-                  {group.image_url && <img src={group.image_url} alt={group.artist_name} loading="lazy" decoding="async" onError={(event) => { event.currentTarget.style.display = 'none'; }} className="h-full w-full object-cover grayscale transition-all duration-700 group-hover:scale-105 group-hover:grayscale-0" />}
+                  {group.image_url && (
+                    <Image
+                      src={group.image_url}
+                      alt={group.artist_name}
+                      fill
+                      sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 100vw"
+                      onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                      className="object-cover grayscale transition-all duration-700 group-hover:scale-105 group-hover:grayscale-0"
+                    />
+                  )}
                   <div className="mt-image-overlay absolute inset-0" />
                   <div className="absolute inset-x-0 bottom-0 p-5"><p className="mt-meta text-white/60">Live event</p><h3 className="mt-1.5 line-clamp-2 text-2xl font-black leading-[0.95] tracking-[-0.04em] text-white">{group.artist_name}</h3></div>
                   <span className="absolute right-4 top-4 bg-accent-red px-2.5 py-1 text-[9px] font-black tracking-[0.12em] text-white uppercase">{group.events.length} dates</span>
@@ -200,7 +182,7 @@ export default function ConcertsList({ dataZaPrikaz }: ConcertsListProps) {
             ))}
           </div>
         ) : (
-          <div className="border border-line bg-paper-muted px-6 py-20 text-center"><p className="text-sm font-bold tracking-[0.14em] text-muted uppercase">{selectedCity ? `No concerts found in ${selectedCity}.` : 'No concerts found for this region.'}</p>{selectedCity && <button type="button" onClick={() => setSelectedCity(null)} className="mt-4 text-xs font-black tracking-[0.12em] text-accent-red uppercase underline underline-offset-4">Clear city filter</button>}</div>
+          <div className="border border-line bg-paper-muted px-6 py-20 text-center"><p className="text-sm font-bold tracking-[0.14em] text-muted uppercase">{emptyStateMessage}</p>{(selectedCity || normalizedSearchQuery) && <button type="button" onClick={() => { setSearchQuery(''); setSelectedCity(null); }} className="mt-4 text-xs font-black tracking-[0.12em] text-accent-red uppercase underline underline-offset-4">Clear filters</button>}</div>
         )}
       </section>
     </>
