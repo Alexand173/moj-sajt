@@ -13,7 +13,7 @@ type TicketRow = {
   date: string;
   location: string;
   city?: string | null;
-  ticket_link: string;
+  ticket_link?: string | null;
 };
 
 type GroupedTickets = {

@@ -10,7 +10,7 @@ interface Event {
   date: string;
   location: string;
   city?: string | null;
-  ticket_link: string;
+  ticket_link?: string | null;
 }
 
 interface GroupedConcert {
@@ -21,6 +21,14 @@ interface GroupedConcert {
 
 interface ConcertsListProps {
   dataZaPrikaz: GroupedConcert[];
+}
+
+function FilterResultCount({ count }: { count: number }) {
+  return (
+    <p role="status" aria-live="polite" className="text-[9px] font-black tracking-[0.12em] text-accent-red uppercase">
+      {count} matching {count === 1 ? 'artist' : 'artists'}
+    </p>
+  );
 }
 
 function generisiAffiliateLink(izvorniLink: string): string {
@@ -110,12 +118,13 @@ export default function ConcertsList({ dataZaPrikaz }: ConcertsListProps) {
   }, [dataZaPrikaz, activeCity, searchQuery]);
 
   const normalizedSearchQuery = searchQuery.trim();
-  const emptyStateMessage = normalizedSearchQuery && selectedCity
-    ? `No artists matching "${normalizedSearchQuery}" with events in ${selectedCity}.`
+  const hasActiveFilters = Boolean(normalizedSearchQuery || activeCity);
+  const emptyStateMessage = normalizedSearchQuery && activeCity
+    ? `No artists matching "${normalizedSearchQuery}" with events in ${activeCity}.`
     : normalizedSearchQuery
       ? `No artists matching "${normalizedSearchQuery}".`
-      : selectedCity
-        ? `No concerts found in ${selectedCity}.`
+      : activeCity
+        ? `No concerts found in ${activeCity}.`
         : 'No concerts found for this region.';
 
   return (
@@ -148,7 +157,10 @@ export default function ConcertsList({ dataZaPrikaz }: ConcertsListProps) {
       <section aria-labelledby="official-ticket-dates">
         <div className="mb-6 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2"><CalendarDays aria-hidden="true" className="size-4 text-accent-red" /><h2 id="official-ticket-dates" className="text-xs font-black tracking-[0.24em] text-ink uppercase">Official ticket dates</h2></div>
-          <span className="hidden text-[9px] font-bold tracking-[0.16em] text-muted uppercase sm:inline">Tickets via Ticketmaster</span>
+          <div className="flex items-center gap-3">
+            {hasActiveFilters && <FilterResultCount count={filteredData.length} />}
+            <span className="hidden text-[9px] font-bold tracking-[0.16em] text-muted uppercase sm:inline">Tickets via Ticketmaster</span>
+          </div>
         </div>
 
         {filteredData.length > 0 ? (
@@ -174,7 +186,11 @@ export default function ConcertsList({ dataZaPrikaz }: ConcertsListProps) {
                   {group.events.map((event) => (
                     <li key={event.id} className="flex min-w-0 items-center justify-between gap-3 px-4 py-3.5 transition-colors hover:bg-paper-hover">
                       <div className="min-w-0"><div className="flex items-center gap-2"><span className="text-sm font-black tracking-tight text-ink tabular-nums">{event.date ? new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'N/A'}</span><span className="text-[9px] font-bold tracking-widest text-muted uppercase">{event.date ? new Date(event.date).toLocaleDateString('en-US', { weekday: 'short' }) : ''}</span></div><p className="mt-1 flex min-w-0 items-center gap-1 text-[10px] leading-tight text-muted"><MapPin aria-hidden="true" className="size-3 shrink-0 text-accent-blue" /><span className="truncate">{event.location}</span></p></div>
-                      <a href={generisiAffiliateLink(event.ticket_link)} target="_blank" rel="noopener noreferrer" className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-ink px-3 py-2 text-[9px] font-black tracking-[0.12em] text-white uppercase transition-colors hover:bg-accent-red"><Ticket aria-hidden="true" className="size-3" />Tickets</a>
+                      {event.ticket_link?.trim() ? (
+                        <a href={generisiAffiliateLink(event.ticket_link.trim())} target="_blank" rel="noopener noreferrer" className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-ink px-3 py-2 text-[9px] font-black tracking-[0.12em] text-white uppercase transition-colors hover:bg-accent-red"><Ticket aria-hidden="true" className="size-3" />Tickets</a>
+                      ) : (
+                        <button type="button" disabled aria-label={`Tickets unavailable for ${group.artist_name}`} className="inline-flex shrink-0 cursor-not-allowed items-center gap-1.5 rounded-full bg-ink/45 px-3 py-2 text-[9px] font-black tracking-[0.12em] text-white/75 uppercase"><Ticket aria-hidden="true" className="size-3" />Tickets</button>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -182,7 +198,7 @@ export default function ConcertsList({ dataZaPrikaz }: ConcertsListProps) {
             ))}
           </div>
         ) : (
-          <div className="border border-line bg-paper-muted px-6 py-20 text-center"><p className="text-sm font-bold tracking-[0.14em] text-muted uppercase">{emptyStateMessage}</p>{(selectedCity || normalizedSearchQuery) && <button type="button" onClick={() => { setSearchQuery(''); setSelectedCity(null); }} className="mt-4 text-xs font-black tracking-[0.12em] text-accent-red uppercase underline underline-offset-4">Clear filters</button>}</div>
+          <div className="border border-line bg-paper-muted px-6 py-20 text-center"><p className="text-sm font-bold tracking-[0.14em] text-muted uppercase">{emptyStateMessage}</p>{hasActiveFilters && <button type="button" onClick={() => { setSearchQuery(''); setSelectedCity(null); }} className="mt-4 text-xs font-black tracking-[0.12em] text-accent-red uppercase underline underline-offset-4">Clear filters</button>}</div>
         )}
       </section>
     </>
