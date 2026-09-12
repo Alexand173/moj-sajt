@@ -12,6 +12,7 @@ type TicketRow = {
   id: string;
   artist_name: string;
   image_url: string;
+  video_url?: string | null;
   date: string;
   location: string;
   city?: string | null;
@@ -21,10 +22,11 @@ type TicketRow = {
 type GroupedTickets = {
   artist_name: string;
   image_url: string;
+  video_url?: string | null;
   events: Array<Pick<TicketRow, 'id' | 'date' | 'location' | 'city' | 'ticket_link'>>;
 };
 
-const TICKET_COLUMNS = 'id, artist_name, image_url, date, location, city, ticket_link';
+const TICKET_COLUMNS = 'id, artist_name, image_url, video_url, date, location, city, ticket_link';
 
 function firstSearchParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
@@ -71,7 +73,16 @@ export default async function Page({ params, searchParams }: { params: Params; s
 
   const grouped = data.reduce<Record<string, GroupedTickets>>((accumulator, item) => {
     const key = item.artist_name;
-    if (!accumulator[key]) accumulator[key] = { artist_name: item.artist_name, image_url: item.image_url, events: [] };
+    if (!accumulator[key]) {
+      accumulator[key] = {
+        artist_name: item.artist_name,
+        image_url: item.image_url,
+        video_url: item.video_url || null,
+        events: [],
+      };
+    } else if (!accumulator[key].video_url && item.video_url) {
+      accumulator[key].video_url = item.video_url;
+    }
     accumulator[key].events.push({ id: item.id, date: item.date, location: item.location, city: item.city, ticket_link: item.ticket_link });
     return accumulator;
   }, {});

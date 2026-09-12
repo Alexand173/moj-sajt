@@ -9,12 +9,14 @@ export interface TicketEvent {
 export interface GroupedConcert {
   artist_name: string;
   image_url: string;
+  video_url?: string | null;
   events: TicketEvent[];
 }
 
 export interface HeroItem {
   artist: string;
   imageUrl: string | null;
+  videoUrl?: string | null;
   title: string;
   venue: string;
 }

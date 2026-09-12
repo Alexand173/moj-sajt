@@ -153,6 +153,7 @@ export default function ConcertsList({
         ...fallback,
         artist: group?.artist_name || fallback.artist,
         imageUrl: group?.image_url || fallback.imageUrl,
+        videoUrl: group?.video_url || null,
         venue: event?.location || fallback.venue,
       };
     });

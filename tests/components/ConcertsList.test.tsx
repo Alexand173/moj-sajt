@@ -171,6 +171,21 @@ describe('ConcertsList filtering', () => {
     expect(screen.getByRole('button', { name: /^Los Angeles$/ }).getAttribute('aria-pressed')).toBe('true');
     expect(screen.getByRole('status').textContent).toBe('1 matching artist');
   });
+
+  it('renders a stored official YouTube video in the On the road hero', () => {
+    renderConcertsList({
+      dataZaPrikaz: [{
+        ...concerts[0],
+        video_url: 'https://www.youtube.com/watch?v=AAAAAAAAAAA',
+      }],
+    });
+
+    const frame = screen.getByTitle('Official The National tour video');
+    expect(frame.getAttribute('src')).toBe('https://www.youtube.com/embed/AAAAAAAAAAA?rel=0');
+    expect(frame.getAttribute('allow')).toContain('picture-in-picture');
+    expect(frame.getAttribute('allowfullscreen')).not.toBeNull();
+    expect(screen.queryByRole('button', { name: 'Play The National live preview' })).toBeNull();
+  });
 });
 
 describe('ConcertsList ticket actions', () => {
