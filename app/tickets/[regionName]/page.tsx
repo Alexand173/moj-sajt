@@ -5,6 +5,7 @@ import { getPublicSupabaseClient } from '@/lib/supabase-public';
 export const revalidate = 300;
 
 type Params = Promise<{ regionName: string }>;
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 type TicketRow = {
   id: string;
@@ -22,6 +23,17 @@ type GroupedTickets = {
   events: Array<Pick<TicketRow, 'id' | 'date' | 'location' | 'city' | 'ticket_link'>>;
 };
 
+const TICKET_COLUMNS = 'id, artist_name, image_url, date, location, city, ticket_link';
+
+function firstSearchParam(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function parsePage(value: string | undefined): number {
+  const page = Number(value);
+  return Number.isInteger(page) && page > 0 ? page : 1;
+}
+
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { regionName } = await params;
   if (!regionName) return { title: 'Music Tickets | MusicTop' };
@@ -35,16 +47,21 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   };
 }
 
-export default async function Page({ params }: { params: Params }) {
+export default async function Page({ params, searchParams }: { params: Params; searchParams: SearchParams }) {
   const { regionName } = await params;
+  const query = await searchParams;
   if (!regionName) return <div className="py-20 text-center text-muted">Region not found.</div>;
+
+  const initialSearchQuery = firstSearchParam(query.artist) || '';
+  const initialCity = firstSearchParam(query.city) || null;
+  const initialPage = parsePage(firstSearchParam(query.page));
 
   const supabase = getPublicSupabaseClient();
   let data: TicketRow[] = [];
 
   if (supabase) {
     try {
-      const { data: concerts } = await supabase.from('koncerti').select('*').ilike('region', regionName);
+      const { data: concerts } = await supabase.from('koncerti').select(TICKET_COLUMNS).ilike('region', regionName);
       data = (concerts || []) as TicketRow[];
     } catch (error) {
       console.warn(`Could not load ${regionName} tickets:`, error);
@@ -70,7 +87,12 @@ export default async function Page({ params }: { params: Params }) {
         </div>
       </section>
       <main className="mt-container py-10 lg:py-14">
-        <ConcertsList dataZaPrikaz={Object.values(grouped)} />
+        <ConcertsList
+          dataZaPrikaz={Object.values(grouped)}
+          initialSearchQuery={initialSearchQuery}
+          initialCity={initialCity}
+          initialPage={initialPage}
+        />
       </main>
     </div>
   );

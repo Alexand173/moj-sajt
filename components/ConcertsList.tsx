@@ -1,9 +1,11 @@
 'use client';
 
 import Image from 'next/image';
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CalendarDays, MapPin, Search, Ticket } from 'lucide-react';
 import { resolveConcertCity } from '@/lib/concert-city';
+
+const ARTISTS_PER_PAGE = 12;
 
 interface Event {
   id: string;
@@ -21,6 +23,13 @@ interface GroupedConcert {
 
 interface ConcertsListProps {
   dataZaPrikaz: GroupedConcert[];
+  initialSearchQuery?: string;
+  initialCity?: string | null;
+  initialPage?: number;
+}
+
+function normalizePage(value: number | undefined): number {
+  return Number.isFinite(value) && value && value > 0 ? Math.floor(value) : 1;
 }
 
 function FilterResultCount({ count }: { count: number }) {
@@ -28,6 +37,50 @@ function FilterResultCount({ count }: { count: number }) {
     <p role="status" aria-live="polite" className="text-[9px] font-black tracking-[0.12em] text-accent-red uppercase">
       {count} matching {count === 1 ? 'artist' : 'artists'}
     </p>
+  );
+}
+
+function PaginationControls({
+  currentPage,
+  totalPages,
+  totalResults,
+  onPageChange,
+}: {
+  currentPage: number;
+  totalPages: number;
+  totalResults: number;
+  onPageChange: (page: number) => void;
+}) {
+  const firstResult = (currentPage - 1) * ARTISTS_PER_PAGE + 1;
+  const lastResult = Math.min(currentPage * ARTISTS_PER_PAGE, totalResults);
+
+  return (
+    <nav aria-label="Ticket pages" className="mt-10 flex flex-col items-center justify-between gap-4 border-t border-line pt-6 sm:flex-row">
+      <p className="text-[9px] font-bold tracking-[0.14em] text-muted uppercase">
+        {firstResult}–{lastResult} of {totalResults} artists
+      </p>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          disabled={currentPage === 1}
+          onClick={() => onPageChange(currentPage - 1)}
+          className="rounded-full border border-line px-3.5 py-2 text-[9px] font-black tracking-[0.12em] text-ink uppercase transition-colors hover:border-ink disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Previous
+        </button>
+        <span aria-current="page" className="text-[9px] font-black tracking-[0.12em] text-ink uppercase">
+          Page {currentPage} of {totalPages}
+        </span>
+        <button
+          type="button"
+          disabled={currentPage === totalPages}
+          onClick={() => onPageChange(currentPage + 1)}
+          className="rounded-full border border-line px-3.5 py-2 text-[9px] font-black tracking-[0.12em] text-ink uppercase transition-colors hover:border-ink disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Next
+        </button>
+      </div>
+    </nav>
   );
 }
 
@@ -82,9 +135,32 @@ function generisiAffiliateLink(izvorniLink: string): string {
   return `https://ticketmaster.evyy.net/c/${mojImpactId}/264167/4272?u=${encodeURIComponent(izvorniLink)}`;
 }
 
-export default function ConcertsList({ dataZaPrikaz }: ConcertsListProps) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCity, setSelectedCity] = useState<string | null>(null);
+export default function ConcertsList({
+  dataZaPrikaz,
+  initialSearchQuery = '',
+  initialCity = null,
+  initialPage = 1,
+}: ConcertsListProps) {
+  const [searchQuery, setSearchQuery] = useState(initialSearchQuery.trim());
+  const [selectedCity, setSelectedCity] = useState<string | null>(initialCity?.trim() || null);
+  const [currentPage, setCurrentPage] = useState(normalizePage(initialPage));
+
+  const updateUrl = useCallback((nextSearchQuery: string, nextCity: string | null, nextPage: number) => {
+    const params = new URLSearchParams(window.location.search);
+    const normalizedQuery = nextSearchQuery.trim();
+    const normalizedCity = nextCity?.trim() || '';
+    const normalizedPage = normalizePage(nextPage);
+
+    if (normalizedQuery) params.set('artist', normalizedQuery);
+    else params.delete('artist');
+    if (normalizedCity) params.set('city', normalizedCity);
+    else params.delete('city');
+    if (normalizedPage > 1) params.set('page', String(normalizedPage));
+    else params.delete('page');
+
+    const queryString = params.toString();
+    window.history.replaceState(null, '', `${window.location.pathname}${queryString ? `?${queryString}` : ''}`);
+  }, []);
 
   const handleSearchSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -101,7 +177,27 @@ export default function ConcertsList({ dataZaPrikaz }: ConcertsListProps) {
     return Array.from(cityMap.values()).sort((a, b) => a.localeCompare(b));
   }, [dataZaPrikaz]);
 
-  const activeCity = selectedCity && cities.some((city) => city.toLowerCase() === selectedCity.toLowerCase()) ? selectedCity : null;
+  const activeCity = selectedCity
+    ? cities.find((city) => city.toLowerCase() === selectedCity.toLowerCase()) || null
+    : null;
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    setCurrentPage(1);
+    updateUrl(value, activeCity, 1);
+  };
+
+  const handleCityChange = (city: string | null) => {
+    setSelectedCity(city);
+    setCurrentPage(1);
+    updateUrl(searchQuery, city, 1);
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(normalizePage(page));
+    updateUrl(searchQuery, activeCity, page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const filteredData = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -119,6 +215,24 @@ export default function ConcertsList({ dataZaPrikaz }: ConcertsListProps) {
 
   const normalizedSearchQuery = searchQuery.trim();
   const hasActiveFilters = Boolean(normalizedSearchQuery || activeCity);
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / ARTISTS_PER_PAGE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedData = filteredData.slice(
+    (safeCurrentPage - 1) * ARTISTS_PER_PAGE,
+    safeCurrentPage * ARTISTS_PER_PAGE,
+  );
+
+  useEffect(() => {
+    if (currentPage > totalPages) updateUrl(searchQuery, activeCity, totalPages);
+  }, [activeCity, currentPage, searchQuery, totalPages, updateUrl]);
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setSelectedCity(null);
+    setCurrentPage(1);
+    updateUrl('', null, 1);
+  };
+
   const emptyStateMessage = normalizedSearchQuery && activeCity
     ? `No artists matching "${normalizedSearchQuery}" with events in ${activeCity}.`
     : normalizedSearchQuery
@@ -133,7 +247,7 @@ export default function ConcertsList({ dataZaPrikaz }: ConcertsListProps) {
         <form onSubmit={handleSearchSubmit} className="flex items-center gap-2 rounded-full border border-line bg-white p-1.5 transition-colors focus-within:border-ink">
           <Search aria-hidden="true" className="ml-3 size-4 shrink-0 text-muted" />
           <label htmlFor="ticket-artist-search" className="sr-only">Search artist</label>
-          <input id="ticket-artist-search" type="search" placeholder="Search artist..." value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} className="min-w-0 flex-1 bg-transparent px-2 py-2 text-sm text-ink placeholder:text-placeholder focus:outline-none" />
+          <input id="ticket-artist-search" type="search" placeholder="Search artist..." value={searchQuery} onChange={(event) => handleSearchChange(event.target.value)} className="min-w-0 flex-1 bg-transparent px-2 py-2 text-sm text-ink placeholder:text-placeholder focus:outline-none" />
           <button type="submit" className="rounded-full bg-accent-red px-6 py-2.5 text-[10px] font-black tracking-[0.2em] text-white uppercase transition-colors hover:bg-ink">Search</button>
         </form>
       </div>
@@ -146,9 +260,9 @@ export default function ConcertsList({ dataZaPrikaz }: ConcertsListProps) {
             <span className="text-[9px] font-bold tracking-[0.16em] text-muted uppercase">· {cities.length} markets</span>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => setSelectedCity(null)} aria-pressed={activeCity === null} className={`whitespace-nowrap rounded-full border px-3.5 py-2 text-[10px] font-black tracking-[0.12em] transition-colors ${activeCity === null ? 'border-accent-red bg-accent-red text-white' : 'border-line bg-white text-ink hover:border-ink'}`}>All Cities</button>
+            <button type="button" onClick={() => handleCityChange(null)} aria-pressed={activeCity === null} className={`whitespace-nowrap rounded-full border px-3.5 py-2 text-[10px] font-black tracking-[0.12em] transition-colors ${activeCity === null ? 'border-accent-red bg-accent-red text-white' : 'border-line bg-white text-ink hover:border-ink'}`}>All Cities</button>
             {cities.map((city) => (
-              <button key={city} type="button" onClick={() => setSelectedCity(city)} aria-pressed={activeCity === city} className={`whitespace-nowrap rounded-full border px-3.5 py-2 text-[10px] font-black tracking-[0.12em] transition-colors ${activeCity === city ? 'border-accent-red bg-accent-red text-white' : 'border-line bg-white text-ink hover:border-ink'}`}>{city}</button>
+              <button key={city} type="button" onClick={() => handleCityChange(city)} aria-pressed={activeCity === city} className={`whitespace-nowrap rounded-full border px-3.5 py-2 text-[10px] font-black tracking-[0.12em] transition-colors ${activeCity === city ? 'border-accent-red bg-accent-red text-white' : 'border-line bg-white text-ink hover:border-ink'}`}>{city}</button>
             ))}
           </div>
         </section>
@@ -165,7 +279,7 @@ export default function ConcertsList({ dataZaPrikaz }: ConcertsListProps) {
 
         {filteredData.length > 0 ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {filteredData.map((group) => (
+            {paginatedData.map((group) => (
               <article key={group.artist_name} className="group flex min-w-0 flex-col overflow-hidden border border-line bg-white transition-colors hover:border-ink">
                 <div className="relative h-52 overflow-hidden bg-ink">
                   {group.image_url && (
@@ -198,7 +312,16 @@ export default function ConcertsList({ dataZaPrikaz }: ConcertsListProps) {
             ))}
           </div>
         ) : (
-          <div className="border border-line bg-paper-muted px-6 py-20 text-center"><p className="text-sm font-bold tracking-[0.14em] text-muted uppercase">{emptyStateMessage}</p>{hasActiveFilters && <button type="button" onClick={() => { setSearchQuery(''); setSelectedCity(null); }} className="mt-4 text-xs font-black tracking-[0.12em] text-accent-red uppercase underline underline-offset-4">Clear filters</button>}</div>
+          <div className="border border-line bg-paper-muted px-6 py-20 text-center"><p className="text-sm font-bold tracking-[0.14em] text-muted uppercase">{emptyStateMessage}</p>{hasActiveFilters && <button type="button" onClick={clearFilters} className="mt-4 text-xs font-black tracking-[0.12em] text-accent-red uppercase underline underline-offset-4">Clear filters</button>}</div>
+        )}
+
+        {filteredData.length > 0 && totalPages > 1 && (
+          <PaginationControls
+            currentPage={safeCurrentPage}
+            totalPages={totalPages}
+            totalResults={filteredData.length}
+            onPageChange={handlePageChange}
+          />
         )}
       </section>
     </>

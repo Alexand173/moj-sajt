@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 
+import type { ComponentProps } from 'react';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ConcertsList from '@/components/ConcertsList';
 
 vi.mock('next/image', () => ({
@@ -56,12 +57,33 @@ const concerts = [
   },
 ];
 
-afterEach(() => {
-  cleanup();
+beforeEach(() => {
+  vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
 });
 
-function renderConcertsList() {
-  return render(<ConcertsList dataZaPrikaz={concerts} />);
+afterEach(() => {
+  cleanup();
+  window.history.replaceState(null, '', '/tickets/us');
+  vi.restoreAllMocks();
+});
+
+const paginatedConcerts = [
+  ...concerts,
+  ...Array.from({ length: 10 }, (_, index) => ({
+    artist_name: `Artist ${index + 4}`,
+    image_url: '',
+    events: [{
+      id: `artist-${index + 4}`,
+      date: '2026-12-15',
+      location: 'Madison Square Garden, New York, NY',
+      city: 'New York',
+      ticket_link: `https://ticketmaster.com/artist-${index + 4}`,
+    }],
+  })),
+];
+
+function renderConcertsList(props: Partial<ComponentProps<typeof ConcertsList>> = {}) {
+  return render(<ConcertsList dataZaPrikaz={concerts} {...props} />);
 }
 
 describe('ConcertsList filtering', () => {
@@ -76,6 +98,7 @@ describe('ConcertsList filtering', () => {
     expect(screen.getByRole('heading', { level: 3, name: 'The Weeknd' })).toBeTruthy();
     expect(screen.queryByRole('heading', { level: 3, name: 'The National' })).toBeNull();
     expect(screen.getByRole('status').textContent).toBe('1 matching artist');
+    expect(new URL(window.location.href).searchParams.get('artist')).toBe('week');
   });
 
   it('filters ticket cards by city and shows the matching result count', () => {
@@ -85,6 +108,8 @@ describe('ConcertsList filtering', () => {
 
     expect(screen.getAllByRole('article')).toHaveLength(2);
     expect(screen.getByRole('status').textContent).toBe('2 matching artists');
+    expect(new URL(window.location.href).searchParams.get('city')).toBe('Los Angeles');
+    expect(new URL(window.location.href).searchParams.get('page')).toBeNull();
     expect(screen.getByRole('heading', { level: 3, name: 'The National' })).toBeTruthy();
     expect(screen.getByRole('heading', { level: 3, name: 'The Weeknd' })).toBeTruthy();
   });
@@ -113,6 +138,38 @@ describe('ConcertsList filtering', () => {
     expect(screen.getByText('No artists matching "Missing Artist".')).toBeTruthy();
     expect(screen.getByRole('status').textContent).toBe('0 matching artists');
     expect(screen.getByRole('button', { name: 'Clear filters' })).toBeTruthy();
+  });
+
+  it('paginates artist cards and persists the page in the URL', () => {
+    renderConcertsList({ dataZaPrikaz: paginatedConcerts });
+
+    expect(screen.getAllByRole('article')).toHaveLength(12);
+    expect(screen.getByRole('navigation', { name: 'Ticket pages' })).toBeTruthy();
+    expect(screen.getByText('Page 1 of 2')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Previous' })).toHaveProperty('disabled', true);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+
+    expect(screen.getAllByRole('article')).toHaveLength(1);
+    expect(screen.getByRole('heading', { level: 3, name: 'Artist 13' })).toBeTruthy();
+    expect(screen.getByText('Page 2 of 2')).toBeTruthy();
+    expect(new URL(window.location.href).searchParams.get('page')).toBe('2');
+
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search artist' }), {
+      target: { value: 'Artist 4' },
+    });
+
+    expect(screen.queryByText('Page 1 of 1')).toBeNull();
+    expect(new URL(window.location.href).searchParams.get('page')).toBeNull();
+    expect(screen.getByRole('heading', { level: 3, name: 'Artist 4' })).toBeTruthy();
+  });
+
+  it('hydrates search and city filters from initial URL values', () => {
+    renderConcertsList({ initialSearchQuery: 'week', initialCity: 'Los Angeles' });
+
+    expect(screen.getByRole('searchbox', { name: 'Search artist' })).toHaveProperty('value', 'week');
+    expect(screen.getByRole('button', { name: /^Los Angeles$/ }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('status').textContent).toBe('1 matching artist');
   });
 });
 
