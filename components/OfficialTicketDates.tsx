@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import { CalendarDays, MapPin, Ticket } from 'lucide-react';
 import { generisiAffiliateLink } from '@/lib/ticket-affiliate';
+import PaginationRail from '@/components/PaginationRail';
 import type { GroupedConcert } from '@/components/ticket-types';
 
 interface OfficialTicketDatesProps {
@@ -8,6 +9,10 @@ interface OfficialTicketDatesProps {
   hasActiveFilters: boolean;
   emptyStateMessage: string;
   onClearFilters: () => void;
+  currentPage: number;
+  totalPages: number;
+  totalResults: number;
+  onPageChange: (page: number) => void;
 }
 
 function FilterResultCount({ count }: { count: number }) {
@@ -27,7 +32,16 @@ function formatEventDate(value: string) {
   };
 }
 
-export default function OfficialTicketDates({ data, hasActiveFilters, emptyStateMessage, onClearFilters }: OfficialTicketDatesProps) {
+export default function OfficialTicketDates({
+  data,
+  hasActiveFilters,
+  emptyStateMessage,
+  onClearFilters,
+  currentPage,
+  totalPages,
+  totalResults,
+  onPageChange,
+}: OfficialTicketDatesProps) {
   return (
     <section id="official-ticket-dates" aria-labelledby="official-ticket-dates-heading" className="mt-container scroll-mt-32 py-14 sm:py-16 lg:py-20">
       <div className="mb-6 flex items-center justify-between gap-4">
@@ -99,6 +113,15 @@ export default function OfficialTicketDates({ data, hasActiveFilters, emptyState
           <p className="text-sm font-bold tracking-[0.14em] text-muted uppercase">{emptyStateMessage}</p>
           {hasActiveFilters && <button type="button" onClick={onClearFilters} className="mt-4 text-xs font-black tracking-[0.12em] text-accent-red uppercase underline underline-offset-4">Clear filters</button>}
         </div>
+      )}
+
+      {data.length > 0 && totalPages > 1 && (
+        <PaginationRail
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalResults={totalResults}
+          onPageChange={onPageChange}
+        />
       )}
     </section>
   );

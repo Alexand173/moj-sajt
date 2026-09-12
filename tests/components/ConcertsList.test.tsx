@@ -145,14 +145,14 @@ describe('ConcertsList filtering', () => {
 
     expect(screen.getAllByRole('article')).toHaveLength(12);
     expect(screen.getByRole('navigation', { name: 'Ticket pages' })).toBeTruthy();
-    expect(screen.getByText('Page 1 of 2')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Previous' })).toHaveProperty('disabled', true);
+    expect(screen.getByRole('button', { name: 'Page 1' }).getAttribute('aria-current')).toBe('page');
+    expect(screen.getByRole('button', { name: 'Page 2' })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Page 2' }));
 
     expect(screen.getAllByRole('article')).toHaveLength(1);
     expect(screen.getByRole('heading', { level: 3, name: 'Artist 13' })).toBeTruthy();
-    expect(screen.getByText('Page 2 of 2')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Page 2' }).getAttribute('aria-current')).toBe('page');
     expect(new URL(window.location.href).searchParams.get('page')).toBe('2');
 
     fireEvent.change(screen.getByRole('searchbox', { name: 'Search artist' }), {

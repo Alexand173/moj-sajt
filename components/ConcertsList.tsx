@@ -8,6 +8,7 @@ import TicketAlertCta from '@/components/TicketAlertCta';
 import TicketCityFilters from '@/components/TicketCityFilters';
 import TicketFaqGuides from '@/components/TicketFaqGuides';
 import TicketHero from '@/components/TicketHero';
+import TicketSearchForm from '@/components/TicketSearchForm';
 import LivePreviewRail from '@/components/LivePreviewRail';
 import OfficialTicketDates from '@/components/OfficialTicketDates';
 import TrendingOnSale from '@/components/TrendingOnSale';
@@ -27,49 +28,6 @@ function normalizePage(value: number | undefined): number {
   return Number.isFinite(value) && value && value > 0 ? Math.floor(value) : 1;
 }
 
-function PaginationControls({
-  currentPage,
-  totalPages,
-  totalResults,
-  onPageChange,
-}: {
-  currentPage: number;
-  totalPages: number;
-  totalResults: number;
-  onPageChange: (page: number) => void;
-}) {
-  const firstResult = (currentPage - 1) * ARTISTS_PER_PAGE + 1;
-  const lastResult = Math.min(currentPage * ARTISTS_PER_PAGE, totalResults);
-
-  return (
-    <nav aria-label="Ticket pages" className="flex flex-col items-center justify-between gap-4 border-t border-line pt-6 sm:flex-row">
-      <p className="text-[9px] font-bold tracking-[0.14em] text-muted uppercase">
-        {firstResult}–{lastResult} of {totalResults} artists
-      </p>
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          disabled={currentPage === 1}
-          onClick={() => onPageChange(currentPage - 1)}
-          className="rounded-full border border-line px-3.5 py-2 text-[9px] font-black tracking-[0.12em] text-ink uppercase transition-colors hover:border-ink disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          Previous
-        </button>
-        <span aria-current="page" className="text-[9px] font-black tracking-[0.12em] text-ink uppercase">
-          Page {currentPage} of {totalPages}
-        </span>
-        <button
-          type="button"
-          disabled={currentPage === totalPages}
-          onClick={() => onPageChange(currentPage + 1)}
-          className="rounded-full border border-line px-3.5 py-2 text-[9px] font-black tracking-[0.12em] text-ink uppercase transition-colors hover:border-ink disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          Next
-        </button>
-      </div>
-    </nav>
-  );
-}
 
 export default function ConcertsList({
   dataZaPrikaz,
@@ -134,7 +92,8 @@ export default function ConcertsList({
   const handlePageChange = (page: number) => {
     setCurrentPage(normalizePage(page));
     updateUrl(searchQuery, activeCity, page);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const section = document.getElementById('official-ticket-dates');
+    if (section && typeof section.scrollIntoView === 'function') section.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const filteredData = useMemo(() => {
@@ -212,6 +171,11 @@ export default function ConcertsList({
       <TicketHero
         regionName={regionName}
         heroItems={heroItems}
+      />
+
+      <TicketCityFilters cities={cities} activeCity={activeCity} onCityChange={handleCityChange} />
+      <TicketAnnouncements groups={dataZaPrikaz} />
+      <TicketSearchForm
         searchQuery={searchQuery}
         cities={cities}
         activeCity={activeCity}
@@ -220,26 +184,16 @@ export default function ConcertsList({
         onSearchSubmit={handleSearchSubmit}
       />
 
-      <TicketCityFilters cities={cities} activeCity={activeCity} onCityChange={handleCityChange} />
-      <TicketAnnouncements groups={dataZaPrikaz} />
-
       <OfficialTicketDates
         data={paginatedData}
         hasActiveFilters={hasActiveFilters}
         emptyStateMessage={emptyStateMessage}
         onClearFilters={clearFilters}
+        currentPage={safeCurrentPage}
+        totalPages={totalPages}
+        totalResults={filteredData.length}
+        onPageChange={handlePageChange}
       />
-
-      {filteredData.length > 0 && totalPages > 1 && (
-        <div className="mt-container pb-14 sm:pb-16">
-          <PaginationControls
-            currentPage={safeCurrentPage}
-            totalPages={totalPages}
-            totalResults={filteredData.length}
-            onPageChange={handlePageChange}
-          />
-        </div>
-      )}
 
       <LivePreviewRail groups={dataZaPrikaz} />
       <TrendingOnSale artists={trendingArtists} onArtistSelect={handleArtistShortcut} />
