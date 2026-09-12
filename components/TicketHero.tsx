@@ -4,17 +4,19 @@ import Image from 'next/image';
 import { Maximize2, Pause, Play, Volume2 } from 'lucide-react';
 import { useState } from 'react';
 import { getYouTubeEmbedUrl, getYouTubeVideoId, getYouTubeWatchUrl } from '@/lib/news-media';
-import TicketHeroVideoRail from '@/components/TicketHeroVideoRail';
+import TicketHeroVideoRail, { type TicketHeroVideoRailVariant } from '@/components/TicketHeroVideoRail';
 import type { HeroItem } from '@/components/ticket-types';
 
 interface TicketHeroProps {
   regionName: string;
   heroItems: HeroItem[];
+  videoRailVariant?: TicketHeroVideoRailVariant;
 }
 
 export default function TicketHero({
   regionName,
   heroItems,
+  videoRailVariant = 'ticket-strip',
 }: TicketHeroProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -101,7 +103,7 @@ export default function TicketHero({
             </button>
           )}
 
-          <div className="pointer-events-none absolute inset-x-4 bottom-24 z-20 flex flex-col gap-4 sm:inset-x-6 sm:bottom-24 sm:flex-row sm:items-end sm:justify-between">
+          <div className="pointer-events-none absolute inset-x-4 bottom-32 z-20 flex flex-col gap-4 sm:inset-x-6 sm:bottom-32 sm:flex-row sm:items-end sm:justify-between">
             <div className="max-w-md">
               <p className="text-[9px] font-black tracking-[0.24em] text-accent-red uppercase">Now playing</p>
               <p className="mt-1 text-3xl font-black leading-none tracking-[-0.06em] sm:text-4xl">{activeItem.artist}</p>
@@ -121,6 +123,7 @@ export default function TicketHero({
             items={heroItems}
             activeIndex={safeActiveIndex}
             onSelect={selectHeroItem}
+            variant={videoRailVariant}
           />
         </div>
 
