@@ -44,6 +44,12 @@ function RailThumbnail({ item, videoId }: Pick<RailCardProps, 'item' | 'videoId'
   );
 }
 
+function RailCardSource({ item, videoId }: Pick<RailCardProps, 'item' | 'videoId'>) {
+  if (videoId || !item.title) return null;
+
+  return <span className="mt-video-rail__source">{item.title}</span>;
+}
+
 function RailButtonFrame({
   item,
   index,
@@ -88,7 +94,7 @@ function SourceMonitorCard(props: RailCardProps) {
       </span>
       <span className="mt-video-rail__copy mt-video-rail__copy--source-monitor">
         <span className="mt-video-rail__artist">{item.artist}</span>
-        <span className="mt-video-rail__source">{videoId ? 'YouTube video' : item.title}</span>
+        <RailCardSource item={item} videoId={videoId} />
       </span>
     </RailButtonFrame>
   );
@@ -106,7 +112,7 @@ function TicketStripCard(props: RailCardProps) {
       <span aria-hidden="true" className="mt-video-rail__seam" />
       <span className="mt-video-rail__copy mt-video-rail__copy--ticket-strip">
         <span className="mt-video-rail__artist">{item.artist}</span>
-        <span className="mt-video-rail__source">{videoId ? 'YouTube video' : item.title}</span>
+        <RailCardSource item={item} videoId={videoId} />
       </span>
       {props.active && <span aria-hidden="true" className="mt-video-rail__punch" />}
     </RailButtonFrame>
@@ -124,7 +130,7 @@ function LinerIndexCard(props: RailCardProps) {
       </span>
       <span className="mt-video-rail__copy mt-video-rail__copy--liner-index">
         <span className="mt-video-rail__artist">{item.artist}</span>
-        <span className="mt-video-rail__source">{videoId ? 'YouTube video' : item.title}</span>
+        <RailCardSource item={item} videoId={videoId} />
       </span>
       <span aria-hidden="true" className="mt-video-rail__corner" />
     </RailButtonFrame>

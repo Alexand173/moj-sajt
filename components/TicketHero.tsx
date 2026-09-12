@@ -107,7 +107,7 @@ export default function TicketHero({
             <div className="max-w-md">
               <p className="text-[9px] font-black tracking-[0.24em] text-accent-red uppercase">Now playing</p>
               <p className="mt-1 text-3xl font-black leading-none tracking-[-0.06em] sm:text-4xl">{activeItem.artist}</p>
-              <p className="mt-1 text-[11px] text-white/75">{activeItem.title}</p>
+              {activeItem.title && <p className="mt-1 text-[11px] text-white/75">{activeItem.title}</p>}
               <p className="mt-1 text-[9px] font-bold tracking-[0.12em] text-white/45 uppercase">{activeItem.venue}</p>
             </div>
 

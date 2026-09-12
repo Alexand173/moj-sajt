@@ -156,7 +156,7 @@ export default function ConcertsList({
         artist: group.artist_name,
         imageUrl: group.image_url || null,
         videoUrl: group.video_url || null,
-        title: 'Official YouTube video',
+        title: '',
         venue: event?.location || 'Live tour dates',
       } satisfies HeroItem];
     });

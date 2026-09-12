@@ -56,6 +56,7 @@ describe('TicketHeroVideoRail variants', () => {
     expect(options[0].className).toContain(variantClasses[variant]);
     expect(options[0].getAttribute('aria-selected')).toBe('true');
     expect(options[0].getAttribute('aria-setsize')).toBe('2');
+    expect(within(options[0]).queryByText('YouTube video', { exact: true })).toBeNull();
     expect(options[1].getAttribute('aria-selected')).toBe('false');
   });
 

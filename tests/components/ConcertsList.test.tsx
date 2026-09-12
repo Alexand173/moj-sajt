@@ -183,10 +183,12 @@ describe('ConcertsList filtering', () => {
 
     const frame = screen.getByTitle('Official The National tour video');
     expect(frame.getAttribute('src')).toBe('https://www.youtube.com/embed/AAAAAAAAAAA?rel=0');
+    expect(screen.queryByText('Official YouTube video')).toBeNull();
     expect(frame.getAttribute('allow')).toContain('picture-in-picture');
     expect(frame.getAttribute('allowfullscreen')).not.toBeNull();
     const videoRail = within(screen.getByRole('region', { name: 'On the road videos' }));
     expect(videoRail.getByRole('listbox').className).toContain('mt-video-rail--ticket-strip');
+    expect(videoRail.queryByText('YouTube video', { exact: true })).toBeNull();
     expect(videoRail.getAllByRole('option')).toHaveLength(2);
     expect(videoRail.getByRole('option', { name: 'Show The National live preview' })).toBeTruthy();
     expect(screen.getByRole('option', { name: 'Show The Weeknd live preview' })).toBeTruthy();
