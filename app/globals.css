@@ -14,6 +14,9 @@
   --mt-placeholder: #94a3b8;
   --mt-accent-red: #e63946;
   --mt-accent-blue: #2563eb;
+  --mt-ticket-green: #16a34a;
+  --mt-ticket-preview-start: #151423;
+  --mt-ticket-preview-end: #c72d45;
   --mt-awards-gold: #ffc107;
   --mt-container-wide: 1600px;
   --mt-container-awards: 1200px;
@@ -39,6 +42,9 @@
   --color-placeholder: var(--mt-placeholder);
   --color-accent-red: var(--mt-accent-red);
   --color-accent-blue: var(--mt-accent-blue);
+  --color-ticket-green: var(--mt-ticket-green);
+  --color-ticket-preview-start: var(--mt-ticket-preview-start);
+  --color-ticket-preview-end: var(--mt-ticket-preview-end);
   --color-awards-gold: var(--mt-awards-gold);
   --font-sans: var(--mt-font-body);
   --font-mono: var(--mt-font-mono);
@@ -181,6 +187,25 @@
     content: "";
     opacity: 0.45;
   }
+
+  .mt-ticket-card-rail {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 82%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    align-items: start;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+  }
+
+  .mt-ticket-card-rail::-webkit-scrollbar {
+    display: none;
+  }
+
+  .mt-ticket-card {
+    scroll-snap-align: start;
+  }
 }
 
 @layer utilities {
@@ -207,6 +232,18 @@
 
   .animate-mt-reveal {
     animation: mt-reveal 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@media (min-width: 640px) {
+  .mt-ticket-card-rail {
+    grid-auto-columns: calc((100% - 1rem) / 2);
+  }
+}
+
+@media (min-width: 1280px) {
+  .mt-ticket-card-rail {
+    grid-auto-columns: calc((100% - 3rem) / 4);
   }
 }
 

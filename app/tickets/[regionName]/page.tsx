@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import ConcertsList from '@/components/ConcertsList';
 import { getPublicSupabaseClient } from '@/lib/supabase-public';
+import { getNewsletterSignupUrl } from '@/lib/newsletter';
 
 export const revalidate = 300;
 
@@ -75,23 +76,16 @@ export default async function Page({ params, searchParams }: { params: Params; s
     return accumulator;
   }, {});
 
-  const region = regionName.toUpperCase();
-
   return (
     <div className="mt-page mt-page--paper">
-      <section className="border-b border-line">
-        <div className="mt-container py-14 lg:py-20">
-          <p className="mt-kicker">On the road · 2026</p>
-          <h1 className="mt-display mt-5 text-[clamp(4.5rem,12vw,10rem)] text-ink">Tickets</h1>
-          <p className="mt-6 max-w-xl text-sm leading-relaxed text-muted sm:text-base">Explore current live event schedules, verified ticket links, and availability across {region === 'UK' ? 'the UK' : region}.</p>
-        </div>
-      </section>
-      <main className="mt-container py-10 lg:py-14">
+      <main>
         <ConcertsList
           dataZaPrikaz={Object.values(grouped)}
           initialSearchQuery={initialSearchQuery}
           initialCity={initialCity}
           initialPage={initialPage}
+          regionName={regionName}
+          newsletterSignupUrl={getNewsletterSignupUrl()}
         />
       </main>
     </div>
