@@ -23,4 +23,4 @@ The ticket hero reads `koncerti.video_url`. The scheduled GitHub Actions workflo
 
 Apply [`supabase/migrations/20260912141000_add_koncerti_video_url.sql`](../supabase/migrations/20260912141000_add_koncerti_video_url.sql) to the Supabase project before the first workflow run.
 
-The workflow runs daily at 01:15 UTC after the existing midnight concert sync and can also be dispatched manually with an optional unique-artist limit. The default is 75 artists per run to stay within the YouTube Data API search quota; later runs continue with artists whose URLs are missing or older than one year.
+The workflow runs daily at 01:15 UTC after the existing midnight concert sync and can also be dispatched manually with an optional unique-artist limit or an exact `artist_name` value. The default is 75 artists per run to stay within the YouTube Data API search quota; later runs continue with artists whose URLs are missing or older than one year.

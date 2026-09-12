@@ -11,6 +11,11 @@ on:
         required: false
         type: string
         default: ""
+      artist_name:
+        description: "Optional exact koncerti.artist_name to process once"
+        required: false
+        type: string
+        default: ""
 
 concurrency:
   group: enrich-concert-videos
@@ -28,6 +33,7 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
       CONCERT_VIDEO_MAX_ARTISTS: ${{ inputs.max_artists || '75' }}
+      CONCERT_VIDEO_ARTIST: ${{ inputs.artist_name || '' }}
       CONCERT_VIDEO_SUMMARY_PATH: .tmp/concert-video-enrichment/summary.json
 
     steps:

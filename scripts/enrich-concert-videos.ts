@@ -294,7 +294,15 @@ export async function runConcertVideoEnrichment(options: WorkerOptions = {}): Pr
   if (!process.env.YOUTUBE_API_KEY?.trim()) throw new Error('YOUTUBE_API_KEY is required.');
   const supabase = options.supabase || createSupabaseClient();
   const rows = await loadConcertRows(supabase);
-  const artists = Array.from(groupArtistRows(rows).values()).slice(0, Math.max(maxArtists, 1));
+  const requestedArtist = getStoredArtistName(process.env.CONCERT_VIDEO_ARTIST);
+  const allArtists = Array.from(groupArtistRows(rows).values());
+  const matchingArtists = requestedArtist
+    ? allArtists.filter((artist) => artist.sourceNames.includes(requestedArtist))
+    : allArtists;
+  if (requestedArtist && matchingArtists.length === 0) {
+    throw new Error(`No koncerti row found with artist_name exactly equal to ${requestedArtist}.`);
+  }
+  const artists = matchingArtists.slice(0, Math.max(maxArtists, 1));
   const allExistingIds = Array.from(new Set(artists.flatMap((artist) => artist.existingUrls.map((url) => getYouTubeVideoId(url)).filter((id): id is string => Boolean(id)))));
   let freshExistingIds = new Set<string>();
 

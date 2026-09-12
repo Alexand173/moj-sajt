@@ -29,6 +29,7 @@ function jsonResponse(body: unknown): Response {
 
 afterEach(() => {
   delete process.env.YOUTUBE_API_KEY;
+  delete process.env.CONCERT_VIDEO_ARTIST;
   vi.restoreAllMocks();
 });
 
@@ -108,6 +109,32 @@ describe('concert video enrichment worker', () => {
       { payload: { video_url: 'https://www.youtube.com/watch?v=AAAAAAAAAAA' }, names: ['Bruno Mars', 'bruno   mars'] },
       { payload: { video_url: 'https://www.youtube.com/watch?v=BBBBBBBBBBB' }, names: ['Nick Cave'] },
     ]);
+  });
+
+  it('can target one exact stored artist_name without scanning another artist', async () => {
+    process.env.YOUTUBE_API_KEY = 'youtube-key';
+    process.env.CONCERT_VIDEO_ARTIST = 'Bruno Mars';
+    const { supabase, updates } = createSupabaseMock([
+      { artist_name: 'Bruno Mars', video_url: null },
+      { artist_name: 'bruno   mars', video_url: null },
+      { artist_name: 'Nick Cave', video_url: null },
+    ]);
+    const fetchMock = vi.fn(async () => jsonResponse({
+      items: [{
+        id: { videoId: 'AAAAAAAAAAA' },
+        snippet: { title: 'Bruno Mars official tour announcement', channelTitle: 'Bruno Mars', publishedAt: '2026-09-01T00:00:00.000Z' },
+      }],
+    }));
+
+    const result = await runConcertVideoEnrichment({
+      supabase,
+      fetchImpl: fetchMock,
+      now: new Date('2026-09-12T00:00:00.000Z'),
+    });
+
+    expect(result.processedArtists).toBe(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(updates[0]?.names).toEqual(['Bruno Mars', 'bruno   mars']);
   });
 
   it('does not search again when a unique artist already has a fresh video', async () => {
