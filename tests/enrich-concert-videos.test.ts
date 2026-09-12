@@ -12,8 +12,12 @@ function createSupabaseMock(rows: Array<Record<string, unknown>>) {
     from: vi.fn(() => ({
       ...query,
       update: vi.fn((payload: Record<string, unknown>) => ({
-        in: vi.fn(async (_column: string, names: string[]) => {
-          updates.push({ payload, names });
+        eq: vi.fn(async (_column: string, id: string | number) => {
+          updates.push({ payload, names: [String(id)] });
+          return { error: null };
+        }),
+        in: vi.fn(async (_column: string, names: Array<string | number>) => {
+          updates.push({ payload, names: names.map(String) });
           return { error: null };
         }),
       })),
@@ -30,6 +34,7 @@ function jsonResponse(body: unknown): Response {
 afterEach(() => {
   delete process.env.YOUTUBE_API_KEY;
   delete process.env.CONCERT_VIDEO_ARTIST;
+  delete process.env.CONCERT_VIDEO_CLEANUP_ONLY;
   vi.restoreAllMocks();
 });
 
@@ -70,12 +75,12 @@ describe('concert video selection', () => {
 });
 
 describe('concert video enrichment worker', () => {
-  it('searches each normalized artist once and writes one URL to every duplicate row', async () => {
+  it('searches each exact artist_name once and keeps one URL row per artist', async () => {
     process.env.YOUTUBE_API_KEY = 'youtube-key';
     const { supabase, updates } = createSupabaseMock([
-      { artist_name: 'Bruno Mars', video_url: null },
-      { artist_name: 'bruno   mars', video_url: null },
-      { artist_name: 'Nick Cave', video_url: null },
+      { id: 1, artist_name: 'Bruno Mars', video_url: null },
+      { id: 2, artist_name: 'Bruno Mars', video_url: null },
+      { id: 3, artist_name: 'Nick Cave', video_url: null },
     ]);
     const searchQueries: string[] = [];
     const fetchMock = vi.fn(async (input: string | URL) => {
@@ -104,10 +109,11 @@ describe('concert video enrichment worker', () => {
       'Bruno Mars official tour announcement live clip',
       'Nick Cave official tour announcement live clip',
     ]);
-    expect(result).toMatchObject({ inspectedRows: 3, uniqueArtists: 2, processedArtists: 2, updated: 2, unresolved: 0 });
+    expect(result).toMatchObject({ inspectedRows: 3, uniqueArtists: 2, processedArtists: 2, updated: 2, deduplicated: 1, unresolved: 0 });
     expect(updates).toEqual([
-      { payload: { video_url: 'https://www.youtube.com/watch?v=AAAAAAAAAAA' }, names: ['Bruno Mars', 'bruno   mars'] },
-      { payload: { video_url: 'https://www.youtube.com/watch?v=BBBBBBBBBBB' }, names: ['Nick Cave'] },
+      { payload: { video_url: 'https://www.youtube.com/watch?v=AAAAAAAAAAA' }, names: ['1'] },
+      { payload: { video_url: null }, names: ['2'] },
+      { payload: { video_url: 'https://www.youtube.com/watch?v=BBBBBBBBBBB' }, names: ['3'] },
     ]);
   });
 
@@ -115,9 +121,9 @@ describe('concert video enrichment worker', () => {
     process.env.YOUTUBE_API_KEY = 'youtube-key';
     process.env.CONCERT_VIDEO_ARTIST = 'Bruno Mars';
     const { supabase, updates } = createSupabaseMock([
-      { artist_name: 'Bruno Mars', video_url: null },
-      { artist_name: 'bruno   mars', video_url: null },
-      { artist_name: 'Nick Cave', video_url: null },
+      { id: 1, artist_name: 'Bruno Mars', video_url: null },
+      { id: 2, artist_name: 'Bruno Mars', video_url: null },
+      { id: 3, artist_name: 'Nick Cave', video_url: null },
     ]);
     const fetchMock = vi.fn(async () => jsonResponse({
       items: [{
@@ -134,13 +140,34 @@ describe('concert video enrichment worker', () => {
 
     expect(result.processedArtists).toBe(1);
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(updates[0]?.names).toEqual(['Bruno Mars', 'bruno   mars']);
+    expect(updates).toEqual([
+      { payload: { video_url: 'https://www.youtube.com/watch?v=AAAAAAAAAAA' }, names: ['1'] },
+      { payload: { video_url: null }, names: ['2'] },
+    ]);
+  });
+
+  it('cleanup mode clears duplicate URLs without calling YouTube', async () => {
+    process.env.CONCERT_VIDEO_CLEANUP_ONLY = 'true';
+    const { supabase, updates } = createSupabaseMock([
+      { id: 10, artist_name: 'The R&B Tour', video_url: 'https://www.youtube.com/watch?v=AAAAAAAAAAA' },
+      { id: 11, artist_name: 'The R&B Tour', video_url: 'https://www.youtube.com/watch?v=AAAAAAAAAAA' },
+      { id: 12, artist_name: 'The R&B Tour', video_url: null },
+    ]);
+    const fetchMock = vi.fn(async () => jsonResponse({ items: [] }));
+
+    const result = await runConcertVideoEnrichment({ supabase, fetchImpl: fetchMock });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ processedArtists: 1, deduplicated: 2, skippedNoVideo: 0, failed: 0 });
+    expect(updates).toEqual([
+      { payload: { video_url: null }, names: ['11', '12'] },
+    ]);
   });
 
   it('does not search again when a unique artist already has a fresh video', async () => {
     process.env.YOUTUBE_API_KEY = 'youtube-key';
     const { supabase, updates } = createSupabaseMock([
-      { artist_name: 'Bruno Mars', video_url: 'https://www.youtube.com/watch?v=AAAAAAAAAAA' },
+      { id: 1, artist_name: 'Bruno Mars', video_url: 'https://www.youtube.com/watch?v=AAAAAAAAAAA' },
     ]);
     const fetchMock = vi.fn(async () => jsonResponse({
       items: [{ id: 'AAAAAAAAAAA', snippet: { publishedAt: '2026-09-01T00:00:00.000Z' } }],

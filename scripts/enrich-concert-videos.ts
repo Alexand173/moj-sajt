@@ -15,6 +15,7 @@ const OFFICIAL_TERMS = /\b(?:official|vevo|topic|ticketmaster|livenation|live\s+
 type FetchLike = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
 type ConcertRow = {
+  id: string | number;
   artist_name: unknown;
   video_url: unknown;
 };
@@ -36,18 +37,22 @@ type YouTubeVideoItem = {
 };
 type YouTubeVideosResponse = { items?: YouTubeVideoItem[] };
 
+type ExistingVideo = {
+  rowId: string | number;
+  url: string;
+};
+
 type ArtistRecord = {
   artistName: string;
-  sourceNames: string[];
-  rowCount: number;
-  rowsWithVideo: number;
-  existingUrls: string[];
+  rowIds: Array<string | number>;
+  existingVideos: ExistingVideo[];
 };
 
 export type ConcertVideoResult = {
   artist: string;
-  status: 'updated' | 'skipped-fresh-existing' | 'unresolved' | 'failed';
+  status: 'updated' | 'deduplicated' | 'skipped-fresh-existing' | 'skipped-no-video' | 'unresolved' | 'failed';
   videoUrl?: string;
+  duplicatesCleared?: number;
   reason?: string;
 };
 
@@ -56,7 +61,9 @@ export type ConcertVideoSummary = {
   uniqueArtists: number;
   processedArtists: number;
   updated: number;
+  deduplicated: number;
   skippedFreshExisting: number;
+  skippedNoVideo: number;
   unresolved: number;
   failed: number;
   results: ConcertVideoResult[];
@@ -67,6 +74,7 @@ type WorkerOptions = {
   fetchImpl?: FetchLike;
   now?: Date;
   maxArtists?: number;
+  cleanupOnly?: boolean;
 };
 
 function cleanText(value: unknown): string {
@@ -194,28 +202,21 @@ function groupArtistRows(rows: ConcertRow[]): Map<string, ArtistRecord> {
   const grouped = new Map<string, ArtistRecord>();
   for (const row of rows) {
     const artistName = getStoredArtistName(row.artist_name);
-    const key = normalizeArtist(artistName);
-    if (!key) continue;
+    if (!artistName) continue;
 
-    const existing = grouped.get(key);
+    const existing = grouped.get(artistName);
     const videoUrl = canonicalVideoUrl(row.video_url);
     if (!existing) {
-      grouped.set(key, {
+      grouped.set(artistName, {
         artistName,
-        sourceNames: [artistName],
-        rowCount: 1,
-        rowsWithVideo: videoUrl ? 1 : 0,
-        existingUrls: videoUrl ? [videoUrl] : [],
+        rowIds: [row.id],
+        existingVideos: videoUrl ? [{ rowId: row.id, url: videoUrl }] : [],
       });
       continue;
     }
 
-    existing.rowCount += 1;
-    if (!existing.sourceNames.includes(artistName)) existing.sourceNames.push(artistName);
-    if (videoUrl) {
-      existing.rowsWithVideo += 1;
-      if (!existing.existingUrls.includes(videoUrl)) existing.existingUrls.push(videoUrl);
-    }
+    existing.rowIds.push(row.id);
+    if (videoUrl) existing.existingVideos.push({ rowId: row.id, url: videoUrl });
   }
   return grouped;
 }
@@ -225,7 +226,7 @@ async function loadConcertRows(supabase: SupabaseClient): Promise<ConcertRow[]> 
   for (let start = 0; ; start += DEFAULT_PAGE_SIZE) {
     const { data, error } = await supabase
       .from(CONCERT_TABLE)
-      .select('artist_name, video_url')
+      .select('id, artist_name, video_url')
       .range(start, start + DEFAULT_PAGE_SIZE - 1);
     if (error) throw new Error(`Could not read koncerti: ${error.message}`);
     const page = (data || []) as ConcertRow[];
@@ -272,12 +273,28 @@ async function searchArtistVideo(artistName: string, now: Date, fetchImpl: Fetch
   return selectFreshOfficialVideo(artistName, data.items || [], now);
 }
 
-async function updateArtistVideo(supabase: SupabaseClient, artist: ArtistRecord, videoUrl: string): Promise<void> {
-  const { error } = await supabase
+async function persistOneArtistVideo(supabase: SupabaseClient, artist: ArtistRecord, videoUrl: string): Promise<number> {
+  const keeperId = artist.existingVideos[0]?.rowId ?? artist.rowIds[0];
+  if (keeperId === undefined) throw new Error(`Could not update ${artist.artistName}: no row ID was found.`);
+
+  const keeperVideo = artist.existingVideos.find((video) => video.rowId === keeperId);
+  if (!keeperVideo || keeperVideo.url !== videoUrl) {
+    const { error: keeperError } = await supabase
+      .from(CONCERT_TABLE)
+      .update({ video_url: videoUrl })
+      .eq('id', keeperId);
+    if (keeperError) throw new Error(`Could not update ${artist.artistName}: ${keeperError.message}`);
+  }
+
+  const duplicateIds = artist.rowIds.filter((rowId) => rowId !== keeperId);
+  if (duplicateIds.length === 0) return 0;
+
+  const { error: duplicateError } = await supabase
     .from(CONCERT_TABLE)
-    .update({ video_url: videoUrl })
-    .in('artist_name', artist.sourceNames);
-  if (error) throw new Error(`Could not update ${artist.artistName}: ${error.message}`);
+    .update({ video_url: null })
+    .in('id', duplicateIds);
+  if (duplicateError) throw new Error(`Could not clear duplicate videos for ${artist.artistName}: ${duplicateError.message}`);
+  return duplicateIds.length;
 }
 
 function createSupabaseClient(): SupabaseClient {
@@ -291,22 +308,23 @@ export async function runConcertVideoEnrichment(options: WorkerOptions = {}): Pr
   const fetchImpl = options.fetchImpl || fetch;
   const now = options.now || new Date();
   const maxArtists = options.maxArtists || Number.parseInt(process.env.CONCERT_VIDEO_MAX_ARTISTS || '', 10) || DEFAULT_MAX_ARTISTS;
-  if (!process.env.YOUTUBE_API_KEY?.trim()) throw new Error('YOUTUBE_API_KEY is required.');
+  const cleanupOnly = options.cleanupOnly ?? process.env.CONCERT_VIDEO_CLEANUP_ONLY === 'true';
+  if (!cleanupOnly && !process.env.YOUTUBE_API_KEY?.trim()) throw new Error('YOUTUBE_API_KEY is required.');
   const supabase = options.supabase || createSupabaseClient();
   const rows = await loadConcertRows(supabase);
   const requestedArtist = getStoredArtistName(process.env.CONCERT_VIDEO_ARTIST);
   const allArtists = Array.from(groupArtistRows(rows).values());
   const matchingArtists = requestedArtist
-    ? allArtists.filter((artist) => artist.sourceNames.includes(requestedArtist))
+    ? allArtists.filter((artist) => artist.artistName === requestedArtist)
     : allArtists;
   if (requestedArtist && matchingArtists.length === 0) {
     throw new Error(`No koncerti row found with artist_name exactly equal to ${requestedArtist}.`);
   }
-  const artists = matchingArtists.slice(0, Math.max(maxArtists, 1));
-  const allExistingIds = Array.from(new Set(artists.flatMap((artist) => artist.existingUrls.map((url) => getYouTubeVideoId(url)).filter((id): id is string => Boolean(id)))));
+  const artists = cleanupOnly ? matchingArtists : matchingArtists.slice(0, Math.max(maxArtists, 1));
+  const allExistingIds = Array.from(new Set(artists.flatMap((artist) => artist.existingVideos.map((video) => getYouTubeVideoId(video.url)).filter((id): id is string => Boolean(id)))));
   let freshExistingIds = new Set<string>();
 
-  if (allExistingIds.length > 0) {
+  if (!cleanupOnly && allExistingIds.length > 0) {
     try {
       freshExistingIds = await findFreshExistingVideoIds(allExistingIds, now, fetchImpl);
     } catch (error) {
@@ -316,23 +334,48 @@ export async function runConcertVideoEnrichment(options: WorkerOptions = {}): Pr
 
   const results: ConcertVideoResult[] = [];
   for (const artist of artists) {
-    const freshExistingUrl = artist.existingUrls.find((url) => {
-      const videoId = getYouTubeVideoId(url);
-      return Boolean(videoId && freshExistingIds.has(videoId));
-    });
+    const freshExistingUrl = cleanupOnly
+      ? artist.existingVideos[0]?.url
+      : artist.existingVideos
+        .map((video) => video.url)
+        .find((url) => {
+          const videoId = getYouTubeVideoId(url);
+          return Boolean(videoId && freshExistingIds.has(videoId));
+        });
 
-    if (freshExistingUrl) {
-      const alreadyCanonicalForAllRows = artist.existingUrls.length === 1
-        && artist.sourceNames.length === 1
-        && artist.rowsWithVideo === artist.rowCount;
-      if (alreadyCanonicalForAllRows) {
-        results.push({ artist: artist.artistName, status: 'skipped-fresh-existing', videoUrl: freshExistingUrl });
+    if (cleanupOnly) {
+      if (!freshExistingUrl) {
+        results.push({
+          artist: artist.artistName,
+          status: 'skipped-no-video',
+          reason: 'Cleanup mode does not search YouTube.',
+        });
         continue;
       }
 
       try {
-        await updateArtistVideo(supabase, artist, freshExistingUrl);
-        results.push({ artist: artist.artistName, status: 'updated', videoUrl: freshExistingUrl, reason: 'normalized duplicate artist rows' });
+        const duplicatesCleared = await persistOneArtistVideo(supabase, artist, freshExistingUrl);
+        results.push({
+          artist: artist.artistName,
+          status: duplicatesCleared > 0 ? 'deduplicated' : 'skipped-fresh-existing',
+          videoUrl: freshExistingUrl,
+          duplicatesCleared,
+        });
+      } catch (error) {
+        results.push({ artist: artist.artistName, status: 'failed', reason: error instanceof Error ? error.message : String(error) });
+      }
+      continue;
+    }
+
+    if (freshExistingUrl) {
+      try {
+        const duplicatesCleared = await persistOneArtistVideo(supabase, artist, freshExistingUrl);
+        results.push({
+          artist: artist.artistName,
+          status: duplicatesCleared > 0 ? 'deduplicated' : 'skipped-fresh-existing',
+          videoUrl: freshExistingUrl,
+          duplicatesCleared,
+        });
       } catch (error) {
         results.push({ artist: artist.artistName, status: 'failed', reason: error instanceof Error ? error.message : String(error) });
       }
@@ -342,12 +385,24 @@ export async function runConcertVideoEnrichment(options: WorkerOptions = {}): Pr
     try {
       const selected = await searchArtistVideo(artist.artistName, now, fetchImpl);
       if (!selected) {
-        results.push({ artist: artist.artistName, status: 'unresolved', reason: 'No fresh official tour video matched the filters.' });
+        const fallbackExistingUrl = artist.existingVideos[0]?.url;
+        if (fallbackExistingUrl) {
+          const duplicatesCleared = await persistOneArtistVideo(supabase, artist, fallbackExistingUrl);
+          results.push({
+            artist: artist.artistName,
+            status: duplicatesCleared > 0 ? 'deduplicated' : 'skipped-fresh-existing',
+            videoUrl: fallbackExistingUrl,
+            duplicatesCleared,
+            reason: 'Kept the existing URL because no newer eligible video was found.',
+          });
+        } else {
+          results.push({ artist: artist.artistName, status: 'unresolved', reason: 'No fresh official tour video matched the filters.' });
+        }
         continue;
       }
 
-      await updateArtistVideo(supabase, artist, selected.videoUrl);
-      results.push({ artist: artist.artistName, status: 'updated', videoUrl: selected.videoUrl });
+      const duplicatesCleared = await persistOneArtistVideo(supabase, artist, selected.videoUrl);
+      results.push({ artist: artist.artistName, status: 'updated', videoUrl: selected.videoUrl, duplicatesCleared });
     } catch (error) {
       results.push({ artist: artist.artistName, status: 'failed', reason: error instanceof Error ? error.message : String(error) });
     }
@@ -358,7 +413,9 @@ export async function runConcertVideoEnrichment(options: WorkerOptions = {}): Pr
     uniqueArtists: groupArtistRows(rows).size,
     processedArtists: artists.length,
     updated: results.filter((result) => result.status === 'updated').length,
+    deduplicated: results.reduce((total, result) => total + (result.duplicatesCleared || 0), 0),
     skippedFreshExisting: results.filter((result) => result.status === 'skipped-fresh-existing').length,
+    skippedNoVideo: results.filter((result) => result.status === 'skipped-no-video').length,
     unresolved: results.filter((result) => result.status === 'unresolved').length,
     failed: results.filter((result) => result.status === 'failed').length,
     results,

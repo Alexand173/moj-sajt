@@ -16,6 +16,11 @@ on:
         required: false
         type: string
         default: ""
+      cleanup_only:
+        description: "Clear duplicate video_url values without searching YouTube"
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   group: enrich-concert-videos
@@ -34,6 +39,7 @@ jobs:
       YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
       CONCERT_VIDEO_MAX_ARTISTS: ${{ inputs.max_artists || '75' }}
       CONCERT_VIDEO_ARTIST: ${{ inputs.artist_name || '' }}
+      CONCERT_VIDEO_CLEANUP_ONLY: ${{ inputs.cleanup_only || false }}
       CONCERT_VIDEO_SUMMARY_PATH: .tmp/concert-video-enrichment/summary.json
 
     steps:
@@ -52,7 +58,10 @@ jobs:
       - name: Validate configuration
         run: |
           set -euo pipefail
-          required=(SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY YOUTUBE_API_KEY)
+          required=(SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY)
+          if [[ "${CONCERT_VIDEO_CLEANUP_ONLY:-false}" != "true" ]]; then
+            required+=(YOUTUBE_API_KEY)
+          fi
           missing=()
           for name in "${required[@]}"; do
             if [[ -z "${!name:-}" ]]; then missing+=("$name"); fi
