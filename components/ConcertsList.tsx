@@ -12,6 +12,7 @@ import TicketSearchForm from '@/components/TicketSearchForm';
 import LivePreviewRail from '@/components/LivePreviewRail';
 import OfficialTicketDates from '@/components/OfficialTicketDates';
 import TrendingOnSale from '@/components/TrendingOnSale';
+import { getYouTubeVideoId } from '@/lib/news-media';
 
 const ARTISTS_PER_PAGE = 12;
 
@@ -146,6 +147,22 @@ export default function ConcertsList({
       { artist: 'OMD', imageUrl: null, title: 'Architecture & More Anniversary', venue: 'Kälvinge Bandstand · London' },
     ];
 
+    const videoItems = dataZaPrikaz.flatMap((group) => {
+      const videoId = getYouTubeVideoId(group.video_url);
+      if (!videoId) return [];
+
+      const event = group.events[0];
+      return [{
+        artist: group.artist_name,
+        imageUrl: group.image_url || null,
+        videoUrl: group.video_url || null,
+        title: 'Official YouTube video',
+        venue: event?.location || 'Live tour dates',
+      } satisfies HeroItem];
+    });
+
+    if (videoItems.length > 0) return videoItems;
+
     return fallbacks.map((fallback, index) => {
       const group = dataZaPrikaz[index];
       const event = group?.events[0];
@@ -153,7 +170,7 @@ export default function ConcertsList({
         ...fallback,
         artist: group?.artist_name || fallback.artist,
         imageUrl: group?.image_url || fallback.imageUrl,
-        videoUrl: group?.video_url || null,
+        videoUrl: null,
         venue: event?.location || fallback.venue,
       };
     });

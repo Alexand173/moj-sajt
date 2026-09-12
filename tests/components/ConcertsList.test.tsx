@@ -172,19 +172,41 @@ describe('ConcertsList filtering', () => {
     expect(screen.getByRole('status').textContent).toBe('1 matching artist');
   });
 
-  it('renders a stored official YouTube video in the On the road hero', () => {
+  it('renders every valid stored video in the On the road hero and excludes invalid URLs', () => {
     renderConcertsList({
-      dataZaPrikaz: [{
-        ...concerts[0],
-        video_url: 'https://www.youtube.com/watch?v=AAAAAAAAAAA',
-      }],
+      dataZaPrikaz: [
+        { ...concerts[0], video_url: 'https://www.youtube.com/watch?v=AAAAAAAAAAA' },
+        { ...concerts[1], video_url: 'https://youtu.be/BBBBBBBBBBB' },
+        { ...concerts[2], video_url: 'https://vimeo.com/123456789' },
+      ],
     });
 
     const frame = screen.getByTitle('Official The National tour video');
     expect(frame.getAttribute('src')).toBe('https://www.youtube.com/embed/AAAAAAAAAAA?rel=0');
     expect(frame.getAttribute('allow')).toContain('picture-in-picture');
     expect(frame.getAttribute('allowfullscreen')).not.toBeNull();
+    const videoRail = within(screen.getByRole('region', { name: 'On the road videos' }));
+    expect(videoRail.getAllByRole('option')).toHaveLength(2);
+    expect(videoRail.getByRole('option', { name: 'Show The National live preview' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'Show The Weeknd live preview' })).toBeTruthy();
+    expect(screen.queryByRole('option', { name: 'Show Dua Lipa live preview' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Play The National live preview' })).toBeNull();
+  });
+
+  it('changes the hero video when a rail item is selected or keyboard-navigated', () => {
+    renderConcertsList({
+      dataZaPrikaz: [
+        { ...concerts[0], video_url: 'https://www.youtube.com/watch?v=AAAAAAAAAAA' },
+        { ...concerts[1], video_url: 'https://www.youtube.com/watch?v=BBBBBBBBBBB' },
+      ],
+    });
+
+    fireEvent.click(screen.getByRole('option', { name: 'Show The Weeknd live preview' }));
+    expect(screen.getByTitle('Official The Weeknd tour video').getAttribute('src')).toBe('https://www.youtube.com/embed/BBBBBBBBBBB?rel=0');
+    expect(screen.getByRole('option', { name: 'Show The Weeknd live preview' }).getAttribute('aria-selected')).toBe('true');
+
+    fireEvent.keyDown(screen.getByRole('option', { name: 'Show The Weeknd live preview' }), { key: 'ArrowRight' });
+    expect(screen.getByTitle('Official The National tour video')).toBeTruthy();
   });
 });
 

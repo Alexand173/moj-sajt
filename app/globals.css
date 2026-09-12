@@ -206,6 +206,25 @@
   .mt-ticket-card {
     scroll-snap-align: start;
   }
+
+  .mt-video-rail {
+    scroll-behavior: smooth;
+    scroll-padding-inline: 1rem;
+    overscroll-behavior-inline: contain;
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 1.25rem, #000 calc(100% - 1.25rem), transparent);
+    mask-image: linear-gradient(to right, transparent, #000 1.25rem, #000 calc(100% - 1.25rem), transparent);
+  }
+
+  .mt-video-rail-item {
+    animation: mt-video-rail-item-in 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: calc(var(--mt-video-rail-index, 0) * 45ms);
+    will-change: transform, opacity;
+  }
+
+  .mt-video-rail-item:hover,
+  .mt-video-rail-item:focus-visible {
+    transform: translateY(-2px);
+  }
 }
 
 @layer utilities {
@@ -266,6 +285,29 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes mt-video-rail-item-in {
+  from {
+    opacity: 0;
+    transform: translateX(1rem) translateY(2px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0) translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mt-video-rail {
+    scroll-behavior: auto;
+  }
+
+  .mt-video-rail-item {
+    animation: none;
+    will-change: auto;
   }
 }
 

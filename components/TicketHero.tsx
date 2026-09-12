@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { Maximize2, Pause, Play, Volume2 } from 'lucide-react';
 import { useState } from 'react';
 import { getYouTubeEmbedUrl, getYouTubeVideoId, getYouTubeWatchUrl } from '@/lib/news-media';
+import TicketHeroVideoRail from '@/components/TicketHeroVideoRail';
 import type { HeroItem } from '@/components/ticket-types';
 
 interface TicketHeroProps {
@@ -18,7 +19,8 @@ export default function TicketHero({
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [failedVideoId, setFailedVideoId] = useState<string | null>(null);
-  const activeItem = heroItems[activeIndex] || heroItems[0];
+  const safeActiveIndex = Math.min(activeIndex, Math.max(heroItems.length - 1, 0));
+  const activeItem = heroItems[safeActiveIndex] || heroItems[0];
   const regionLabel = regionName.toLowerCase() === 'uk' ? 'the UK' : regionName.toUpperCase();
 
   if (!activeItem) return null;
@@ -62,7 +64,7 @@ export default function TicketHero({
               src={activeItem.imageUrl}
               alt=""
               fill
-              priority={activeIndex === 0}
+              priority={safeActiveIndex === 0}
               sizes="(min-width: 1280px) 1200px, 100vw"
               onError={(event) => { event.currentTarget.style.display = 'none'; }}
               className="object-cover opacity-45"
@@ -99,7 +101,7 @@ export default function TicketHero({
             </button>
           )}
 
-          <div className="pointer-events-none absolute inset-x-4 bottom-4 z-20 flex flex-col gap-4 sm:inset-x-6 sm:bottom-5 sm:flex-row sm:items-end sm:justify-between">
+          <div className="pointer-events-none absolute inset-x-4 bottom-24 z-20 flex flex-col gap-4 sm:inset-x-6 sm:bottom-24 sm:flex-row sm:items-end sm:justify-between">
             <div className="max-w-md">
               <p className="text-[9px] font-black tracking-[0.24em] text-accent-red uppercase">Now playing</p>
               <p className="mt-1 text-3xl font-black leading-none tracking-[-0.06em] sm:text-4xl">{activeItem.artist}</p>
@@ -115,29 +117,11 @@ export default function TicketHero({
             )}
           </div>
 
-          <div className="absolute bottom-3 left-4 right-14 z-20 flex max-w-[min(72%,26rem)] gap-2 overflow-x-auto pb-1 no-scrollbar sm:bottom-4 sm:left-6">
-            {heroItems.map((item, index) => (
-              <button
-                key={`${item.artist}-${index}`}
-                type="button"
-                aria-label={`Show ${item.artist} live preview`}
-                aria-pressed={index === activeIndex}
-                onClick={() => selectHeroItem(index)}
-                className={`relative h-10 min-w-20 overflow-hidden border bg-black/70 px-2 text-left transition-colors sm:h-11 sm:min-w-24 ${index === activeIndex ? 'border-accent-red' : 'border-white/20 hover:border-white/60'}`}
-              >
-                {item.imageUrl && (
-                  <Image
-                    src={item.imageUrl}
-                    alt=""
-                    fill
-                    sizes="96px"
-                    className="object-cover opacity-55"
-                  />
-                )}
-                <span className="relative z-10 line-clamp-2 text-[8px] font-black leading-tight text-white">{item.artist}</span>
-              </button>
-            ))}
-          </div>
+          <TicketHeroVideoRail
+            items={heroItems}
+            activeIndex={safeActiveIndex}
+            onSelect={selectHeroItem}
+          />
         </div>
 
         <p className="mt-5 max-w-xl text-sm leading-relaxed text-muted sm:text-base">
