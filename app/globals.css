@@ -353,9 +353,37 @@
   .mt-video-rail__image {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
+    object-position: center;
+    background: var(--mt-ink-soft);
     opacity: 0.62;
     transition: opacity 180ms ease;
+  }
+
+  .mt-tour-profile__ticket-events {
+    max-height: min(37.5rem, 70vh);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-color: var(--mt-line-strong) transparent;
+    scrollbar-width: thin;
+  }
+
+  .mt-tour-profile__ticket-events::-webkit-scrollbar {
+    width: 0.35rem;
+  }
+
+  .mt-tour-profile__ticket-events::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .mt-tour-profile__ticket-events::-webkit-scrollbar-thumb {
+    background: var(--mt-line-strong);
+    border-radius: 999px;
+  }
+
+  .mt-tour-profile__ticket-events:focus-visible {
+    outline: 2px solid var(--mt-accent-red);
+    outline-offset: 4px;
   }
 
   .mt-video-rail-item:hover .mt-video-rail__image,

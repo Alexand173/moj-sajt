@@ -77,35 +77,42 @@ function TourTicketPanel({ data }: { data: TourPageData }) {
         <Ticket aria-hidden="true" className="size-4 text-accent-red" />
         <h2 id="tour-ticket-dates" className="text-[10px] font-black tracking-[0.25em] text-ink uppercase">Official ticket dates</h2>
       </div>
-      <ul className="divide-y divide-line">
-        {events.map((event) => {
-          const formattedDate = formatEventDate(event.date);
-          return (
-            <li key={event.id} className="flex items-center justify-between gap-3 py-4">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-black tabular-nums text-ink">{formattedDate.date}</span>
-                  <span className="text-[9px] font-bold tracking-widest text-muted uppercase">{formattedDate.weekday}</span>
+      <div
+        className="mt-tour-profile__ticket-events"
+        role="region"
+        aria-label="All official ticket dates"
+        tabIndex={0}
+      >
+        <ul className="divide-y divide-line">
+          {events.map((event) => {
+            const formattedDate = formatEventDate(event.date);
+            return (
+              <li key={event.id} className="flex items-center justify-between gap-3 py-4">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-black tabular-nums text-ink">{formattedDate.date}</span>
+                    <span className="text-[9px] font-bold tracking-widest text-muted uppercase">{formattedDate.weekday}</span>
+                  </div>
+                  <p className="mt-1 flex min-w-0 items-center gap-1.5 text-[10px] leading-tight text-muted">
+                    <MapPin aria-hidden="true" className="size-3 shrink-0 text-accent-blue" />
+                    <span className="truncate">{event.location}</span>
+                  </p>
                 </div>
-                <p className="mt-1 flex min-w-0 items-center gap-1.5 text-[10px] leading-tight text-muted">
-                  <MapPin aria-hidden="true" className="size-3 shrink-0 text-accent-blue" />
-                  <span className="truncate">{event.location}</span>
-                </p>
-              </div>
-              {event.ticket_link ? (
-                <SafeExternalLink
-                  href={generisiAffiliateLink(event.ticket_link)}
-                  className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-ink px-3 py-2 text-[9px] font-black tracking-[0.12em] text-white uppercase transition-colors hover:bg-accent-red focus-visible:outline-accent-red"
-                >
-                  <Ticket aria-hidden="true" className="size-3" /> Tickets <ArrowUpRight aria-hidden="true" className="size-3" />
-                </SafeExternalLink>
-              ) : (
-                <span className="shrink-0 text-[9px] font-black tracking-[0.12em] text-muted uppercase">Link pending</span>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+                {event.ticket_link ? (
+                  <SafeExternalLink
+                    href={generisiAffiliateLink(event.ticket_link)}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-ink px-3 py-2 text-[9px] font-black tracking-[0.12em] text-white uppercase transition-colors hover:bg-accent-red focus-visible:outline-accent-red"
+                  >
+                    <Ticket aria-hidden="true" className="size-3" /> Tickets <ArrowUpRight aria-hidden="true" className="size-3" />
+                  </SafeExternalLink>
+                ) : (
+                  <span className="shrink-0 text-[9px] font-black tracking-[0.12em] text-muted uppercase">Link pending</span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
       {events[0]?.ticket_link && (
         <SafeExternalLink
           href={generisiAffiliateLink(events[0].ticket_link)}
