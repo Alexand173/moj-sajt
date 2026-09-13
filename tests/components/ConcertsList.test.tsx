@@ -192,6 +192,7 @@ describe('ConcertsList filtering', () => {
     expect(videoRail.getAllByRole('option')).toHaveLength(2);
     expect(videoRail.getByRole('option', { name: 'Show The National live preview' })).toBeTruthy();
     expect(screen.getByRole('option', { name: 'Show The Weeknd live preview' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Open The National tour profile' }).getAttribute('href')).toBe('/tickets/us/artist/the-national');
     expect(screen.queryByRole('option', { name: 'Show Dua Lipa live preview' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Play The National live preview' })).toBeNull();
   });

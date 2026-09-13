@@ -10,6 +10,8 @@ export interface GroupedConcert {
   artist_name: string;
   image_url: string;
   video_url?: string | null;
+  artist_key?: string;
+  artist_slug?: string;
   events: TicketEvent[];
 }
 

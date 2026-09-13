@@ -1,8 +1,10 @@
 import Image from 'next/image';
+import Link from 'next/link';
 import { CalendarDays, MapPin, Ticket } from 'lucide-react';
 import { generisiAffiliateLink } from '@/lib/ticket-affiliate';
 import PaginationRail from '@/components/PaginationRail';
 import type { GroupedConcert } from '@/components/ticket-types';
+import { canonicalArtistPath, slugifyArtist } from '@/lib/tour-profile';
 
 interface OfficialTicketDatesProps {
   data: GroupedConcert[];
@@ -12,6 +14,7 @@ interface OfficialTicketDatesProps {
   currentPage: number;
   totalPages: number;
   totalResults: number;
+  regionName: string;
   onPageChange: (page: number) => void;
 }
 
@@ -40,6 +43,7 @@ export default function OfficialTicketDates({
   currentPage,
   totalPages,
   totalResults,
+  regionName,
   onPageChange,
 }: OfficialTicketDatesProps) {
   return (
@@ -59,7 +63,11 @@ export default function OfficialTicketDates({
         <div className="mt-ticket-card-rail gap-4 pb-2">
           {data.map((group) => (
             <article key={group.artist_name} className="mt-ticket-card group flex min-w-0 flex-col overflow-hidden border border-line bg-white transition-colors hover:border-ink">
-              <div className="relative h-48 overflow-hidden bg-ink sm:h-52">
+              <Link
+                href={canonicalArtistPath(regionName, group.artist_slug || slugifyArtist(group.artist_name))}
+                aria-label={`Open ${group.artist_name} tour profile`}
+                className="group/card relative block h-48 overflow-hidden bg-ink sm:h-52"
+              >
                 {group.image_url && (
                   <Image
                     src={group.image_url}
@@ -67,16 +75,16 @@ export default function OfficialTicketDates({
                     fill
                     sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 84vw"
                     onError={(event) => { event.currentTarget.style.display = 'none'; }}
-                    className="object-cover grayscale transition-all duration-700 group-hover:scale-105 group-hover:grayscale-0"
+                    className="object-cover grayscale transition-all duration-700 group-hover/card:scale-105 group-hover/card:grayscale-0"
                   />
                 )}
                 <div className="mt-image-overlay absolute inset-0" />
                 <div className="absolute inset-x-4 bottom-4">
-                  <p className="mt-meta text-white/60">Official tour</p>
+                  <p className="mt-meta text-white/60">Official tour · View profile</p>
                   <h3 className="mt-1.5 line-clamp-2 text-2xl font-black leading-[0.95] tracking-[-0.05em] text-white">{group.artist_name}</h3>
                 </div>
                 <span className="absolute right-4 top-4 bg-accent-red px-2.5 py-1 text-[9px] font-black tracking-[0.12em] text-white uppercase">{group.events.length} dates</span>
-              </div>
+              </Link>
               <ul className="max-h-64 overflow-y-auto overscroll-contain divide-y divide-line">
                 {group.events.map((event) => {
                   const formattedDate = formatEventDate(event.date);

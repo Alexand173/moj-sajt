@@ -2,6 +2,7 @@ import type { MetadataRoute } from 'next';
 import { EUROPA_SUBREGIONS } from '@/lib/region-navigation';
 import { hasValidatedAiContent } from '@/lib/news-indexability';
 import { getPublicSupabaseClient } from '@/lib/supabase-public';
+import { canonicalArtistPath, getPublishedTourProfileSlugs, getTicketGroups } from '@/lib/tour-profile';
 
 export const revalidate = 3600;
 
@@ -44,6 +45,21 @@ function isUpcomingDate(value: string | null): boolean {
   if (!value) return false;
   const timestamp = new Date(value).getTime();
   return !Number.isNaN(timestamp) && timestamp >= Date.now();
+}
+
+async function getArtistProfileRoutes(): Promise<SitemapRoute[]> {
+  const regions = Object.keys(siteStructure);
+  const [publishedSlugs, regionalGroups] = await Promise.all([
+    getPublishedTourProfileSlugs(),
+    Promise.all(regions.map((region) => getTicketGroups(region))),
+  ]);
+  const routes = regionalGroups.flatMap((groups, regionIndex) => groups
+    .filter((group) => publishedSlugs.has(group.artist_slug))
+    .map((group) => ({
+      url: canonicalArtistPath(regions[regionIndex], group.artist_slug),
+      priority: 0.8,
+    })));
+  return Array.from(new Map(routes.map((route) => [route.url, route])).values());
 }
 
 async function getContentRoutes(): Promise<SitemapRoute[]> {
@@ -140,6 +156,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...newsRoutes,
     ...ticketsRoutes,
     ...festivalsRoutes,
+    ...(await getArtistProfileRoutes()),
     ...(await getContentRoutes()),
   ];
   const fallbackLastModified = new Date();

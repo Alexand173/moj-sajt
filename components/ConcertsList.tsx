@@ -210,6 +210,7 @@ export default function ConcertsList({
         currentPage={safeCurrentPage}
         totalPages={totalPages}
         totalResults={filteredData.length}
+        regionName={regionName}
         onPageChange={handlePageChange}
       />
 

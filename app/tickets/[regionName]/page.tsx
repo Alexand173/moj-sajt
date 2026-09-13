@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import ConcertsList from '@/components/ConcertsList';
 import { getPublicSupabaseClient } from '@/lib/supabase-public';
 import { getNewsletterSignupUrl } from '@/lib/newsletter';
+import { getArtistIdentityDirectory, mergeTicketRows, type TicketSourceRow } from '@/lib/tour-profile';
 
 export const revalidate = 300;
 
@@ -17,13 +18,6 @@ type TicketRow = {
   location: string;
   city?: string | null;
   ticket_link?: string | null;
-};
-
-type GroupedTickets = {
-  artist_name: string;
-  image_url: string;
-  video_url?: string | null;
-  events: Array<Pick<TicketRow, 'id' | 'date' | 'location' | 'city' | 'ticket_link'>>;
 };
 
 const TICKET_COLUMNS = 'id, artist_name, image_url, video_url, date, location, city, ticket_link';
@@ -71,27 +65,14 @@ export default async function Page({ params, searchParams }: { params: Params; s
     }
   }
 
-  const grouped = data.reduce<Record<string, GroupedTickets>>((accumulator, item) => {
-    const key = item.artist_name;
-    if (!accumulator[key]) {
-      accumulator[key] = {
-        artist_name: item.artist_name,
-        image_url: item.image_url,
-        video_url: item.video_url || null,
-        events: [],
-      };
-    } else if (!accumulator[key].video_url && item.video_url) {
-      accumulator[key].video_url = item.video_url;
-    }
-    accumulator[key].events.push({ id: item.id, date: item.date, location: item.location, city: item.city, ticket_link: item.ticket_link });
-    return accumulator;
-  }, {});
+  const identityDirectory = await getArtistIdentityDirectory();
+  const grouped = mergeTicketRows(data as TicketSourceRow[], identityDirectory);
 
   return (
     <div className="mt-page mt-page--paper">
       <main>
         <ConcertsList
-          dataZaPrikaz={Object.values(grouped)}
+          dataZaPrikaz={grouped}
           initialSearchQuery={initialSearchQuery}
           initialCity={initialCity}
           initialPage={initialPage}

@@ -627,6 +627,29 @@
     opacity: 1;
   }
 
+  .mt-tour-profile__hero {
+    isolation: isolate;
+  }
+
+  .mt-tour-profile__venue-preview {
+    max-width: min(100%, 24rem);
+  }
+
+  @media (min-width: 640px) {
+    .mt-tour-profile__venue-preview {
+      box-shadow: 12px 12px 0 var(--mt-accent-blue);
+    }
+  }
+
+  @media (max-width: 639px) {
+    .mt-tour-profile__venue-preview {
+      position: relative;
+      top: auto;
+      margin-top: 0.5rem;
+      box-shadow: none;
+    }
+  }
+
   @media (min-width: 640px) {
     .mt-video-rail-region {
       right: 1.5rem;

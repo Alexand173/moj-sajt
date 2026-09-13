@@ -43,6 +43,14 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 's1.ticketm.net',
       },
+      {
+        protocol: 'https',
+        hostname: 'upload.wikimedia.org',
+      },
+      {
+        protocol: 'https',
+        hostname: 'thumb.wikimedia.org',
+      },
     ],
   },
   experimental: {
