@@ -29,6 +29,26 @@ class AiScraperFallbackTests(unittest.TestCase):
         FakeYoutubeDL.calls.clear()
         FakeYoutubeDL.responses.clear()
 
+    def test_storage_state_prefers_isolated_browser_when_mode_is_unset(self) -> None:
+        with patch.dict(
+            scraper.os.environ,
+            {
+                "AI_SCRAPER_BROWSER_MODE": "",
+                "AI_SCRAPER_BROWSER_STORAGE_STATE": "C:/temp/soundcharts-state.json",
+            },
+        ):
+            self.assertTrue(scraper.use_hosted_browser())
+
+    def test_explicit_local_mode_keeps_desktop_fallback(self) -> None:
+        with patch.dict(
+            scraper.os.environ,
+            {
+                "AI_SCRAPER_BROWSER_MODE": "local",
+                "AI_SCRAPER_BROWSER_STORAGE_STATE": "C:/temp/soundcharts-state.json",
+            },
+        ):
+            self.assertFalse(scraper.use_hosted_browser())
+
     def test_public_search_retries_query_variants_and_scores_result(self) -> None:
         FakeYoutubeDL.responses.extend(
             [

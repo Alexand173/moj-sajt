@@ -44,6 +44,7 @@ next-env.d.ts
 __pycache__/
 *.py[cod]
 .tmp/soundcharts-storage-state.json
+.tmp/ai-scraper.lock
 
 za_server/
 sajt.zip

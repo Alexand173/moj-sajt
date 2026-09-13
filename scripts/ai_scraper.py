@@ -21,6 +21,7 @@ import argparse
 import atexit
 import base64
 import json
+from contextlib import contextmanager
 from datetime import date
 import os
 import re
@@ -32,7 +33,7 @@ import time
 import webbrowser
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Iterator, Sequence
 from urllib.error import HTTPError, URLError
 
 try:
@@ -356,11 +357,60 @@ class ScraperConfig:
 
 
 def use_hosted_browser() -> bool:
-    return os.getenv("AI_SCRAPER_BROWSER_MODE", "local").strip().lower() in {
-        "hosted",
-        "playwright",
-        "github",
-    }
+    configured_mode = os.getenv("AI_SCRAPER_BROWSER_MODE", "").strip().lower()
+    if configured_mode:
+        return configured_mode in {"hosted", "playwright", "github"}
+
+    # A restored storage state is safe to use with the isolated Playwright
+    # browser. Prefer it over opening another desktop Chrome window, which can
+    # leave tabs and screen-capture resources behind during repeated runs.
+    return bool(os.getenv("AI_SCRAPER_BROWSER_STORAGE_STATE", "").strip())
+
+
+@contextmanager
+def scraper_run_lock() -> Iterator[None]:
+    """Allow only one local or hosted chart scraper process at a time."""
+    lock_path = Path(
+        os.getenv("AI_SCRAPER_LOCK_FILE", str(REPOSITORY_ROOT / ".tmp" / "ai-scraper.lock"))
+    ).expanduser().resolve()
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with lock_path.open("a+", encoding="utf-8") as lock_file:
+        if lock_file.tell() == 0:
+            lock_file.write("0")
+            lock_file.flush()
+        lock_file.seek(0)
+
+        try:
+            if os.name == "nt":
+                import msvcrt
+
+                msvcrt.locking(lock_file.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except (OSError, BlockingIOError) as error:
+            raise ScraperError(
+                "Another AI chart scraper is already running. "
+                f"Wait for it to finish or remove the stale lock at {lock_path}."
+            ) from error
+
+        try:
+            yield
+        finally:
+            try:
+                if os.name == "nt":
+                    import msvcrt
+
+                    lock_file.seek(0)
+                    msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
+                else:
+                    import fcntl
+
+                    fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+            except OSError:
+                pass
 
 
 
@@ -1731,6 +1781,12 @@ def fetch_chartmetric_data(
 
 
 
+def _run_scraper_with_lock(**kwargs: Any) -> list[dict[str, Any]]:
+    with scraper_run_lock():
+        return fetch_chartmetric_data(**kwargs)
+
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Extract a Soundcharts chart with OpenAI Vision.")
     parser.add_argument("--region", default="WORLD", help="MusicTop region/subregion for Supabase rows")
@@ -1790,7 +1846,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             preset_url, preset_genre = resolve_chart_preset(args.preset)
             preset_region = args.preset.split("-", 1)[0].upper()
 
-        rows = fetch_chartmetric_data(
+        rows = _run_scraper_with_lock(
             country=args.country,
             genre=args.genre or preset_genre or "Any",
             chart_url=args.chart_url or preset_url or DEFAULT_CHART_URL,
