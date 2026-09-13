@@ -13,8 +13,8 @@ import {
   Star,
   Ticket,
 } from 'lucide-react';
-import Image from 'next/image';
 import StructuredData from '@/components/StructuredData';
+import TourProfileHeroSlideshow from '@/components/TourProfileHeroSlideshow';
 import VenuePreviewCard from '@/components/VenuePreviewCard';
 import { generisiAffiliateLink } from '@/lib/ticket-affiliate';
 import { getYouTubeEmbedUrl } from '@/lib/news-media';
@@ -197,6 +197,12 @@ export default function TourProfilePage({ data }: { data: TourPageData }) {
   const { profile, group, regionName, pageUrl } = data;
   const cities = uniqueCities(group.events);
   const venues = createVenues(profile.venues, group.events);
+  const heroImages = Array.from(new Set([
+    profile.heroImageUrl,
+    ...profile.galleryImageUrls,
+    ...profile.members.map((member) => member.imageUrl),
+    ...profile.venues.map((venue) => venue.imageUrl || ''),
+  ].filter(Boolean))).slice(0, 5);
   const eventSummary = group.events.map((event) => `${formatEventDate(event.date).date} ${event.city || event.location}`).join(' · ');
   const breadcrumbSchema = createBreadcrumbListSchema([
     { name: 'Home', url: '/' },
@@ -238,8 +244,7 @@ export default function TourProfilePage({ data }: { data: TourPageData }) {
       {freshVideoSchema && <StructuredData data={freshVideoSchema} />}
 
       <header className="mt-tour-profile__hero relative min-h-[32rem] overflow-hidden bg-ink text-white sm:min-h-[38rem] lg:min-h-[44rem]">
-        <Image src={profile.heroImageUrl} alt={`${profile.canonicalName} live performance`} fill priority sizes="100vw" className="object-cover grayscale" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_top,rgb(8_9_10),rgb(8_9_10_/_0.62)_48%,rgb(8_9_10_/_0.18))]" />
+        <TourProfileHeroSlideshow artistName={profile.canonicalName} images={heroImages} />
         <div className="relative mx-auto flex min-h-[32rem] w-full max-w-[1600px] items-end px-6 pb-10 sm:min-h-[38rem] sm:px-10 sm:pb-14 lg:min-h-[44rem] lg:px-16">
           <div className="max-w-5xl">
             <Link href={`/tickets/${regionName}`} className="inline-flex border-b border-white/50 pb-2 text-[10px] font-black tracking-[0.25em] text-white/70 uppercase transition-colors hover:border-white hover:text-white">← All tours</Link>
