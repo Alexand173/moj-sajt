@@ -72,7 +72,7 @@ function EditorialHero({ region, article }: { region: string; article?: NewsEdit
         <div className="mt-container flex min-h-[25rem] items-end py-12 lg:min-h-[34rem]">
           <div>
             <p className="mt-kicker">{region} editorial desk</p>
-            <h1 className="mt-5 max-w-4xl text-[clamp(2rem,5.3vw,5rem)] font-black leading-[0.86] tracking-[-0.08em] text-white uppercase">News in motion</h1>
+            <h1 className="mt-5 max-w-4xl text-[clamp(2rem,4.2vw,4rem)] font-black leading-[0.96] tracking-[-0.02em] text-white uppercase">News in motion</h1>
             <p className="mt-5 max-w-xl text-sm leading-relaxed text-white/60">The latest stories from the {region.toUpperCase()} music scene.</p>
           </div>
         </div>
@@ -92,7 +92,7 @@ function EditorialHero({ region, article }: { region: string; article?: NewsEdit
             <span className="bg-accent-red px-2.5 py-1 text-[9px] font-black tracking-[0.22em] text-white uppercase">{article.category || 'Featured'}</span>
             <span className="mt-meta text-white/55">Long read · {formatDate(article.created_at)}</span>
           </div>
-          <h1 className="mt-5 max-w-5xl text-balance text-[clamp(2rem,5.3vw,5rem)] font-black leading-[0.88] tracking-[-0.08em] text-white uppercase sm:text-[clamp(2.5rem,5.3vw,5rem)]">{article.title}</h1>
+          <h1 className="mt-5 max-w-5xl text-balance text-[clamp(2rem,4.2vw,4rem)] font-black leading-[0.96] tracking-[-0.02em] text-white uppercase">{article.title}</h1>
           {article.excerpt && <p className="mt-5 max-w-2xl text-sm leading-relaxed text-white/70 sm:text-base">{article.excerpt}</p>}
           <div className="mt-7 flex flex-wrap items-center gap-4">
             <Link href={`/news/${region}/${article.id}`} className="group inline-flex items-center gap-2 bg-white px-5 py-3 text-[10px] font-black tracking-[0.2em] text-ink uppercase transition-colors hover:bg-accent-red hover:text-white">

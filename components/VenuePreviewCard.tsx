@@ -44,7 +44,7 @@ export default function VenuePreviewCard({ venue, index }: VenuePreviewCardProps
         className="mt-tour-profile__venue-preview absolute inset-x-0 top-[calc(100%+0.5rem)] z-30 overflow-hidden border border-line bg-white shadow-[12px_12px_0_var(--mt-accent-blue)]"
       >
         {venue.imageUrl ? (
-          <img src={venue.imageUrl} alt={venue.name} loading="lazy" decoding="async" className="h-36 w-full object-cover grayscale" />
+          <img src={venue.imageUrl} alt={venue.name} loading="lazy" decoding="async" className="h-36 w-full bg-ink object-contain grayscale" />
         ) : (
           <div className="flex h-36 items-center justify-center bg-ink text-white/50">
             <Building2 aria-hidden="true" className="size-8" />

@@ -276,7 +276,7 @@ export default function TourProfilePage({ data }: { data: TourPageData }) {
               {profile.members.map((member) => (
                 <article key={member.name} className="group overflow-hidden border border-line bg-white transition-colors hover:border-ink">
                   <div className="relative h-56 overflow-hidden bg-ink">
-                    <img src={member.imageUrl} alt={member.imageAlt} loading="lazy" decoding="async" className="h-full w-full object-cover grayscale transition-all duration-700 group-hover:scale-105 group-hover:grayscale-0" />
+                    <img src={member.imageUrl} alt={member.imageAlt} loading="lazy" decoding="async" className="h-full w-full bg-ink object-contain grayscale transition-all duration-700 group-hover:grayscale-0" />
                     <div className="absolute inset-0 bg-[linear-gradient(to_top,rgb(8_9_10_/_0.9),transparent_65%)]" />
                     <h3 className="absolute inset-x-4 bottom-3 text-sm font-black leading-tight text-white">{member.name}</h3>
                   </div>
