@@ -82,13 +82,17 @@ describe('news AI persistence', () => {
     expect(getAiNewsBatchSize()).toBe(20);
   });
 
-  it('retries rows whose rewrite previously fell back', async () => {
+  it('retries rows whose rewrite previously fell back, after a cooldown', async () => {
     delete process.env.OPENAI_API_KEY;
     const { supabase, statusFilter } = createNewsSupabaseMock();
 
     await enrichPendingNews(supabase);
 
-    expect(statusFilter).toHaveBeenCalledWith('ai_status.is.null,ai_status.eq.pending,ai_status.eq.fallback');
+    const filter = statusFilter.mock.calls[0][0] as string;
+    expect(filter).toContain('ai_status.is.null');
+    expect(filter).toContain('ai_status.eq.pending');
+    expect(filter).toContain('and(ai_status.eq.fallback,ai_generated_at.lt.');
+    expect(filter).toContain('and(ai_status.eq.fallback,ai_generated_at.is.null)');
   });
 
   it('defaults enrichment queries to LATEST NewsAPI rows', async () => {
@@ -129,6 +133,7 @@ describe('news AI persistence', () => {
         ai_similarity_score: expect.any(Number),
         ai_generated: true,
         ai_status: 'generated',
+        ai_generated_at: expect.any(String),
       },
     }]);
   });

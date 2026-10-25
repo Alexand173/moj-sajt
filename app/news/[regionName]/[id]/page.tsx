@@ -2,8 +2,10 @@ import { Fragment, cache } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import RelatedStories from '@/components/RelatedStories';
 import StructuredData from '@/components/StructuredData';
 import { getNewsSourceName } from '@/lib/ai-news';
+import { getRelatedNews } from '@/lib/related-news';
 import { getMediaIdentity, getSafeMediaUrl, getStoredNewsMediaUrl, getYouTubeEmbedUrl, getYouTubeVideoId, isLikelyEditorialImageUrl } from '@/lib/news-media';
 import { countWords, hasValidatedAiContent } from '@/lib/news-indexability';
 import { createBreadcrumbListSchema, createVideoObjectSchema } from '@/lib/seo-schema';
@@ -216,6 +218,11 @@ export default async function SingleNewsPage({
     && getMediaIdentity(storedLayout2) !== headlineImageIdentity
     ? storedLayout2
     : null;
+  // Related coverage of the artist this headline is about, shown between body
+  // paragraphs on rewritten LATEST stories.
+  const relatedStories = isLatestNews && hasValidatedRewrite && articleParagraphs.length >= 3
+    ? await getRelatedNews(getSupabase(), { id, title: article.title, region: regionName })
+    : [];
   const sourceUrl = getSafeSourceUrl(resolvedSource.sourceUrl);
   const pageUrl = getArticlePageUrl(regionName, id);
   const breadcrumbSchema = createBreadcrumbListSchema([
@@ -276,6 +283,7 @@ export default async function SingleNewsPage({
                 {articleParagraphs.map((paragraph, index) => (
                   <Fragment key={`${article.id}-paragraph-${index}`}>
                     <p>{paragraph}</p>
+                    {index === 1 && relatedStories.length > 0 && <RelatedStories stories={relatedStories} region={regionName} />}
                     {index === 2 && relatedVideoUrl && <RelatedNewsVideo videoUrl={relatedVideoUrl} />}
                     {index === 2 && !relatedVideoUrl && <RelatedNewsImage imageUrl={relatedImageAfterThird} captionId="related-image-after-third" />}
                     {index === 5 && <RelatedNewsImage imageUrl={relatedImageAfterSixth} captionId="related-image-after-sixth" />}

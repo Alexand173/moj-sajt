@@ -4,6 +4,8 @@ import { generateAiNewsArticle, getNewsSourceName, type AiNewsArticle } from './
 const DEFAULT_AI_NEWS_BATCH_SIZE = 20;
 const MAX_AI_NEWS_BATCH_SIZE = 20;
 const DEFAULT_AI_NEWS_WINDOW_DAYS = 5;
+/** A fallback rewrite is retried, but not before this cooldown has passed. */
+const FALLBACK_RETRY_HOURS = 6;
 
 export type AiNewsCategory = 'LATEST' | 'OFFICIAL';
 
@@ -61,15 +63,23 @@ export async function enrichPendingNews(
   const categories = options.categories?.length ? options.categories : (['LATEST'] as AiNewsCategory[]);
   const sinceDays = options.sinceDays ?? DEFAULT_AI_NEWS_WINDOW_DAYS;
   const windowStart = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000).toISOString();
+  const fallbackRetryBefore = new Date(Date.now() - FALLBACK_RETRY_HOURS * 60 * 60 * 1000).toISOString();
+  // `fallback` rows are rewrites that failed the similarity gate. They are
+  // retried so one bad generation cannot leave a story permanently without a
+  // brief, but only after a cooldown so a hard row cannot crowd fresh rows out
+  // of every batch.
+  const statusFilter = [
+    'ai_status.is.null',
+    'ai_status.eq.pending',
+    `and(ai_status.eq.fallback,ai_generated_at.lt.${fallbackRetryBefore})`,
+    'and(ai_status.eq.fallback,ai_generated_at.is.null)',
+  ].join(',');
   const { data, error } = await supabase
     .from('news')
     .select('id, title, excerpt, content, url, category')
     .in('category', categories)
     .gte('created_at', windowStart)
-    // `fallback` rows are rewrites that failed the similarity gate. They are
-    // retried so a single bad generation cannot leave a story permanently
-    // without a brief; a repeat failure simply lands back on `fallback`.
-    .or('ai_status.is.null,ai_status.eq.pending,ai_status.eq.fallback')
+    .or(statusFilter)
     .order('created_at', { ascending: false })
     .limit(Math.min(Math.max(Math.floor(requestedLimit), 1), MAX_AI_NEWS_BATCH_SIZE));
 
@@ -108,6 +118,8 @@ export async function enrichPendingNews(
           ai_similarity_score: aiResult.similarityScore,
           ai_generated: aiResult.isAiGenerated,
           ai_status: aiStatus,
+          // Records the last attempt so fallback rows respect the retry cooldown.
+          ai_generated_at: new Date().toISOString(),
         })
         .eq('id', article.id);
 
