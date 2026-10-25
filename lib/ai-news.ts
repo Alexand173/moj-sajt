@@ -318,6 +318,15 @@ interface SimilarityCheckResult {
   passed: boolean;
 }
 
+function getMaxWordJaccardSimilarity(): number {
+  // Production limit stays MAX_WORD_JACCARD_SIMILARITY. The env override only
+  // exists so threshold experiments can run without editing the shipped value.
+  const override = Number.parseFloat(process.env.AI_NEWS_SIMILARITY_MAX || '');
+  return Number.isFinite(override) && override > 0 && override <= 0.6
+    ? override
+    : MAX_WORD_JACCARD_SIMILARITY;
+}
+
 function checkSourceSimilarity(source: string, candidate: string): SimilarityCheckResult {
   const sourceTokens = tokenizeForSimilarity(source);
   const candidateTokens = tokenizeForSimilarity(candidate);
@@ -332,7 +341,7 @@ function checkSourceSimilarity(source: string, candidate: string): SimilarityChe
     jaccardSimilarity,
     longestConsecutiveSentenceMatch: sentenceMatch,
     sharedPhraseRatio,
-    passed: jaccardSimilarity <= MAX_WORD_JACCARD_SIMILARITY &&
+    passed: jaccardSimilarity <= getMaxWordJaccardSimilarity() &&
       sentenceMatch < MAX_CONSECUTIVE_SENTENCE_MATCHES &&
       sharedPhraseRatio <= MAX_SHARED_PHRASE_RATIO,
   };
