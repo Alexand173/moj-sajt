@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ArrowUpRight, Plus, Sparkles, TrendingUp } from 'lucide-react';
 import AddAlbumTrigger from '@/components/AddAlbumTrigger';
 import AddCommentTrigger from '@/components/AddCommentTrigger';
@@ -39,6 +40,8 @@ export type NewsEditorialItem = {
 
 export interface NewsEditorialViewProps {
   region: string;
+  /** Official brief that is already open on first load because the URL says so. */
+  initialOfficialId?: string | null;
   featuredNews?: NewsEditorialItem;
   latestNews: NewsEditorialItem[];
   communityNews: NewsEditorialItem[];
@@ -598,6 +601,7 @@ function StoriesByMass({ region, items }: { region: string; items: NewsEditorial
 
 export default function NewsEditorialView({
   region,
+  initialOfficialId,
   featuredNews,
   latestNews,
   communityNews,
@@ -611,7 +615,8 @@ export default function NewsEditorialView({
   activeAlbum,
 }: NewsEditorialViewProps) {
   const latestFeedItems = featuredNews ? latestNews.slice(1) : latestNews;
-  const [activeOfficialId, setActiveOfficialId] = useState<string | null>(null);
+  const router = useRouter();
+  const [activeOfficialId, setActiveOfficialId] = useState<string | null>(initialOfficialId ?? null);
   const isDesktop = useIsDesktop();
   const activeOfficialItem = activeOfficialId
     ? officialNews.find((item) => String(item.id) === activeOfficialId) || null
@@ -625,10 +630,27 @@ export default function NewsEditorialView({
     document.getElementById('official-brief-panel')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
   }, [activeOfficialId, isDesktop]);
 
-  const toggleOfficial = (id: string) => {
-    setActiveOfficialId((current) => (current === id ? null : id));
+  /**
+   * The open brief is mirrored into `?official=<id>`. That keeps the reader
+   * deep-linkable and, because both Vercel Analytics and GA4 listen to
+   * pathname/search params, it records the open exactly like a page view does
+   * for a regular article.
+   */
+  const syncOfficialUrl = (id: string | null) => {
+    const target = id ? `/news/${region}?official=${encodeURIComponent(id)}` : `/news/${region}`;
+    router.replace(target, { scroll: false });
   };
-  const closeOfficial = () => setActiveOfficialId(null);
+
+  const toggleOfficial = (id: string) => {
+    const nextActiveId = activeOfficialId === id ? null : id;
+    setActiveOfficialId(nextActiveId);
+    syncOfficialUrl(nextActiveId);
+  };
+
+  const closeOfficial = () => {
+    setActiveOfficialId(null);
+    syncOfficialUrl(null);
+  };
 
   return (
     <div className="mt-page mt-page--paper">

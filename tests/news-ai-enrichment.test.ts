@@ -13,7 +13,12 @@ vi.mock('openai', () => ({
   },
 }));
 
-import { enrichPendingNews, enrichPendingOfficialNews, getAiNewsStatus } from '@/lib/news-ai-enrichment';
+import {
+  enrichPendingNews,
+  enrichPendingOfficialNews,
+  getAiNewsBatchSize,
+  getAiNewsStatus,
+} from '@/lib/news-ai-enrichment';
 
 function createNewsSupabaseMock() {
   const updates: Array<{ payload: Record<string, unknown>; id: string | number }> = [];
@@ -51,7 +56,7 @@ function createNewsSupabaseMock() {
     }),
   } as unknown as SupabaseClient;
 
-  return { supabase, updates, categoryFilter: query.in };
+  return { supabase, updates, categoryFilter: query.in, statusFilter: query.or };
 }
 
 describe('news AI persistence', () => {
@@ -59,11 +64,31 @@ describe('news AI persistence', () => {
     mocks.responsesCreate.mockReset();
     process.env.OPENAI_API_KEY = 'test-openai-key';
     delete process.env.NEWS_API_KEY;
+    delete process.env.AI_NEWS_BATCH_SIZE;
   });
 
   it('maps a validated rewrite to the generated status', () => {
     expect(getAiNewsStatus({ isAiGenerated: true, similarityCheckPassed: true })).toBe('generated');
     expect(getAiNewsStatus({ isAiGenerated: false, similarityCheckPassed: false })).toBe('fallback');
+  });
+
+  it('defaults to a batch of twenty rows that can be overridden but never exceeded', () => {
+    expect(getAiNewsBatchSize()).toBe(20);
+
+    process.env.AI_NEWS_BATCH_SIZE = '7';
+    expect(getAiNewsBatchSize()).toBe(7);
+
+    process.env.AI_NEWS_BATCH_SIZE = '50';
+    expect(getAiNewsBatchSize()).toBe(20);
+  });
+
+  it('retries rows whose rewrite previously fell back', async () => {
+    delete process.env.OPENAI_API_KEY;
+    const { supabase, statusFilter } = createNewsSupabaseMock();
+
+    await enrichPendingNews(supabase);
+
+    expect(statusFilter).toHaveBeenCalledWith('ai_status.is.null,ai_status.eq.pending,ai_status.eq.fallback');
   });
 
   it('defaults enrichment queries to LATEST NewsAPI rows', async () => {

@@ -17,7 +17,10 @@ export async function GET(request: Request) {
   }
 
   try {
-    const result = await runNewsAiWorker();
+    // `?scope=official` spends the whole run on the scraped publisher rows that
+    // feed the official brief reader.
+    const scope = new URL(request.url).searchParams.get('scope');
+    const result = await runNewsAiWorker(undefined, scope === 'official' ? { officialOnly: true } : {});
 
     if (!result.configured) {
       return NextResponse.json(

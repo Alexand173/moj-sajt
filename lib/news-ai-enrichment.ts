@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { generateAiNewsArticle, getNewsSourceName, type AiNewsArticle } from './ai-news';
 
-const DEFAULT_AI_NEWS_BATCH_SIZE = 5;
+const DEFAULT_AI_NEWS_BATCH_SIZE = 20;
 const MAX_AI_NEWS_BATCH_SIZE = 20;
 const DEFAULT_AI_NEWS_WINDOW_DAYS = 5;
 
@@ -66,7 +66,10 @@ export async function enrichPendingNews(
     .select('id, title, excerpt, content, url, category')
     .in('category', categories)
     .gte('created_at', windowStart)
-    .or('ai_status.is.null,ai_status.eq.pending')
+    // `fallback` rows are rewrites that failed the similarity gate. They are
+    // retried so a single bad generation cannot leave a story permanently
+    // without a brief; a repeat failure simply lands back on `fallback`.
+    .or('ai_status.is.null,ai_status.eq.pending,ai_status.eq.fallback')
     .order('created_at', { ascending: false })
     .limit(Math.min(Math.max(Math.floor(requestedLimit), 1), MAX_AI_NEWS_BATCH_SIZE));
 

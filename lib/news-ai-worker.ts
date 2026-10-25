@@ -19,6 +19,8 @@ export interface NewsAiWorkerConfig {
 export interface NewsAiWorkerOptions {
   /** Also rewrite scraped OFFICIAL publisher rows in their own batch. */
   includeOfficial?: boolean;
+  /** Process only the scraped OFFICIAL publisher rows. */
+  officialOnly?: boolean;
 }
 
 const EMPTY_SUMMARY: AiNewsEnrichmentSummary = {
@@ -85,6 +87,15 @@ export async function runNewsAiWorker(
   }
 
   const client = createNewsAiWorkerClient(config);
+
+  if (options.officialOnly) {
+    return {
+      ...(await enrichPendingOfficialNews(client, requestedLimit)),
+      configured: true,
+      missing: [],
+    };
+  }
+
   const latestSummary = await enrichPendingNews(client, requestedLimit);
   const summary = options.includeOfficial
     ? sumSummaries(latestSummary, await enrichPendingOfficialNews(client, requestedLimit))

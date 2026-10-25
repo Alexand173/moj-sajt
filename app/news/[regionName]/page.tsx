@@ -112,7 +112,7 @@ export default async function BillboardNewsPage({
 }) {
   noStore();
   const { regionName } = await params;
-  const { blogId, albumId } = await searchParams;
+  const { blogId, albumId, official } = await searchParams;
   const region = regionName.toLowerCase();
   const supabase = getPublicSupabaseClient();
 
@@ -164,11 +164,15 @@ export default async function BillboardNewsPage({
   const storiesByMass = buildStoriesByMass(latestNews, officialNews, additionalLatestNews, additionalOfficialNews);
   const activeBlog = blogId ? communityPosts.find((post) => post.id.toString() === blogId) : null;
   const activeAlbum = albumId ? concertAlbums.find((album) => album.id.toString() === albumId) : null;
+  // `?official=<id>` is the address of an open official brief, so the reader is
+  // deep-linkable and every open registers as a page view in analytics.
+  const initialOfficialId = official && officialNews.some((item) => String(item.id) === official) ? official : null;
 
   return (
     <NewsEditorialView
       region={region}
       featuredNews={latestNews[0]}
+      initialOfficialId={initialOfficialId}
       latestNews={latestNews}
       communityNews={communityNews}
       officialNews={officialNews}

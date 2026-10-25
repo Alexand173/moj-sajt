@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/enrich-news",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/enrich-news?scope=official",
+      "schedule": "0 4 * * *"
     }
   ]
 }

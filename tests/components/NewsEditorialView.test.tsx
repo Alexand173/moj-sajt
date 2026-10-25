@@ -5,6 +5,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import NewsEditorialView from '@/components/NewsEditorialView';
 import type { NewsEditorialItem } from '@/components/NewsEditorialView';
 
+const routerReplace = vi.hoisted(() => vi.fn());
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ replace: routerReplace }),
+}));
+
 vi.mock('@/components/AddPostTrigger', () => ({ default: () => null }));
 vi.mock('@/components/AddCommentTrigger', () => ({ default: () => null }));
 vi.mock('@/components/AddAlbumTrigger', () => ({ default: () => null }));
@@ -52,10 +58,11 @@ function mockViewport(isDesktop: boolean) {
   })) as unknown as typeof window.matchMedia;
 }
 
-function renderView() {
+function renderView({ initialOfficialId = null }: { initialOfficialId?: string | null } = {}) {
   return render(
     <NewsEditorialView
       region="us"
+      initialOfficialId={initialOfficialId}
       latestNews={latestNews}
       communityNews={[]}
       officialNews={officialNews}
@@ -74,6 +81,7 @@ function openOfficialStory() {
 
 beforeEach(() => {
   Element.prototype.scrollIntoView = vi.fn();
+  routerReplace.mockClear();
   vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, json: async () => readyBrief })));
 });
 
@@ -101,6 +109,8 @@ describe('NewsEditorialView official brief', () => {
     expect(await screen.findByText(/guest-heavy finale/)).toBeTruthy();
     expect(screen.getByRole('button', { name: /Back to the feed/ })).toBeTruthy();
     expect(document.querySelector('#latest-news-heading')).toBeNull();
+    // The open brief is mirrored into the URL so analytics records a page view.
+    expect(routerReplace).toHaveBeenCalledWith('/news/us?official=official-1', { scroll: false });
   });
 
   it('returns the latest feed to the middle column when the brief is closed on desktop', async () => {
@@ -116,6 +126,21 @@ describe('NewsEditorialView official brief', () => {
       expect(screen.getByRole('heading', { name: 'Latest news' })).toBeTruthy();
     });
     expect(screen.queryByRole('heading', { level: 3, name: /Jay-Z brings his Jay-Z 30/ })).toBeNull();
+    expect(routerReplace).toHaveBeenLastCalledWith('/news/us', { scroll: false });
+  });
+
+  it('opens the brief on first render when the url names it', async () => {
+    mockViewport(true);
+    renderView({ initialOfficialId: 'official-1' });
+
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: 'Latest news' })).toBeNull();
+    });
+
+    expect(screen.getByRole('button', { name: /Back to the feed/ })).toBeTruthy();
+    expect(await screen.findByText(/guest-heavy finale/)).toBeTruthy();
+    // A deep link must not rewrite the url again.
+    expect(routerReplace).not.toHaveBeenCalled();
   });
 
   it('opens only an inline brief under the tapped headline on mobile and keeps the page in place', async () => {
