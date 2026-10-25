@@ -1,10 +1,14 @@
-import { Fragment } from 'react';
+'use client';
+
+import { Fragment, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowUpRight, Plus, TrendingUp } from 'lucide-react';
+import { ArrowUpRight, Plus, Sparkles, TrendingUp } from 'lucide-react';
 import AddAlbumTrigger from '@/components/AddAlbumTrigger';
 import AddCommentTrigger from '@/components/AddCommentTrigger';
 import AddPostTrigger from '@/components/AddPostTrigger';
 import AlbumGallery from '@/components/AlbumGallery';
+import OfficialNewsReader, { useOfficialBrief } from '@/components/OfficialNewsReader';
+import { getFeedCardLayout } from '@/lib/news-feed-layout';
 
 export type NewsProfile = {
   first_name?: string | null;
@@ -27,6 +31,10 @@ export type NewsEditorialItem = {
   url?: string | null;
   excerpt?: string | null;
   category?: string | null;
+  ai_content?: string | null;
+  ai_generated?: boolean | null;
+  ai_status?: string | null;
+  ai_similarity_score?: number | null;
 };
 
 export interface NewsEditorialViewProps {
@@ -55,14 +63,19 @@ function getProfile(item: NewsEditorialItem) {
   return Array.isArray(item.profiles) ? item.profiles[0] : item.profiles;
 }
 
-function SafeExternalLink({ item, children, className }: { item: NewsEditorialItem; children: React.ReactNode; className?: string }) {
-  if (!item.url) return <span className={className}>{children}</span>;
+function useIsDesktop() {
+  const [isDesktop, setIsDesktop] = useState(false);
 
-  return (
-    <a href={item.url} target="_blank" rel="noopener noreferrer" className={className}>
-      {children}
-    </a>
-  );
+  useEffect(() => {
+    const query = window.matchMedia('(min-width: 1024px)');
+    const update = () => setIsDesktop(query.matches);
+
+    update();
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
+
+  return isDesktop;
 }
 
 function EditorialHero({ region, article }: { region: string; article?: NewsEditorialItem }) {
@@ -107,7 +120,16 @@ function EditorialHero({ region, article }: { region: string; article?: NewsEdit
   );
 }
 
-function LiveFeed({ items }: { items: NewsEditorialItem[] }) {
+interface OfficialFeedProps {
+  items: NewsEditorialItem[];
+  activeId: string | null;
+  isDesktop: boolean;
+  briefState: ReturnType<typeof useOfficialBrief>;
+  onToggle: (id: string) => void;
+  onClose: () => void;
+}
+
+function OfficialLiveFeed({ items, activeId, isDesktop, briefState, onToggle, onClose }: OfficialFeedProps) {
   return (
     <section className="border-t-2 border-ink pt-4">
       <div className="mb-5 flex items-center justify-between gap-3">
@@ -115,17 +137,55 @@ function LiveFeed({ items }: { items: NewsEditorialItem[] }) {
         <span className="flex items-center gap-2 text-[9px] font-bold tracking-[0.18em] text-muted uppercase"><span className="mt-status-dot" />Streaming</span>
       </div>
       <div>
-        {items.length > 0 ? items.map((item) => (
-          <SafeExternalLink key={item.id} item={item} className="group block border-b border-line py-4 transition-colors hover:border-ink">
-            <div className="mb-1.5 flex items-center justify-between gap-3">
-              <span className={`text-[9px] font-black tracking-[0.2em] uppercase ${item.category === 'BREAKING' ? 'text-accent-red' : item.category === 'UPDATE' ? 'text-accent-blue' : 'text-muted'}`}>{item.category || 'Live feed'}</span>
-              <span className="shrink-0 text-[9px] font-bold tracking-widest text-muted uppercase">{formatDate(item.created_at)}</span>
+        {items.length > 0 ? items.map((item) => {
+          const itemId = String(item.id);
+          const isOpen = activeId === itemId;
+          const panelId = `official-brief-${itemId}`;
+          const hasBrief = item.ai_generated === true && item.ai_status === 'generated';
+
+          return (
+            <div key={item.id} className="border-b border-line">
+              <button
+                type="button"
+                aria-expanded={isOpen}
+                aria-controls={isDesktop ? 'official-brief-panel' : panelId}
+                onClick={() => onToggle(itemId)}
+                className="group flex w-full items-start justify-between gap-3 py-4 text-left"
+              >
+                <span className="min-w-0">
+                  <span className="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[9px] font-black tracking-[0.18em] uppercase">
+                    <span className={item.category === 'BREAKING' ? 'text-accent-red' : item.category === 'UPDATE' ? 'text-accent-blue' : 'text-muted'}>{item.category || 'Official'}</span>
+                    <span className="font-bold tracking-widest text-muted">{formatDate(item.created_at)}</span>
+                    {hasBrief && (
+                      <span className="inline-flex items-center gap-1 text-accent-blue">
+                        <Sparkles aria-hidden="true" className="size-2.5" />
+                        Brief
+                      </span>
+                    )}
+                  </span>
+                  <span className="block text-sm font-black leading-snug text-ink transition-colors group-hover:text-accent-blue">{item.title || item.text}</span>
+                </span>
+                <Plus
+                  aria-hidden="true"
+                  className={`mt-0.5 size-4 shrink-0 transition-transform ${isOpen ? 'rotate-45 text-accent-red' : 'text-muted'}`}
+                />
+              </button>
+
+              <div id={panelId} className={isOpen && !isDesktop ? 'pb-4' : 'hidden'}>
+                {isOpen && !isDesktop && (
+                  <OfficialNewsReader
+                    articleId={`${panelId}-article`}
+                    variant="inline"
+                    item={item}
+                    briefState={briefState}
+                    publishedLabel={formatDate(item.created_at)}
+                    onClose={onClose}
+                  />
+                )}
+              </div>
             </div>
-            <p className="text-sm font-black leading-snug text-ink transition-colors group-hover:text-accent-blue">{item.title || item.text}</p>
-            {item.excerpt && <p className="mt-1.5 line-clamp-2 text-[10px] font-medium leading-relaxed text-muted">{item.excerpt}</p>}
-            {item.url && <p className="mt-1.5 text-[9px] font-bold tracking-wide text-muted lowercase">source link ↗</p>}
-          </SafeExternalLink>
-        )) : (
+          );
+        }) : (
           <p className="border-b border-line py-6 text-[10px] font-bold tracking-[0.14em] text-muted uppercase">No live stories yet.</p>
         )}
       </div>
@@ -212,6 +272,45 @@ function CommunityNewsEditorialCard({ region, item }: { region: string; item: Ne
   );
 }
 
+function LatestNewsFeatureCard({ region, item }: { region: string; item: NewsEditorialItem }) {
+  const title = item.title || item.text || 'Untitled music story';
+  const image = item.image;
+
+  return (
+    <Link
+      href={`/news/${region}/${item.id}`}
+      className="group my-6 block overflow-hidden border border-line bg-white transition-colors hover:border-ink"
+    >
+      <div className="relative aspect-[16/9] overflow-hidden bg-paper-muted">
+        {image ? (
+          <img
+            src={image}
+            alt={title}
+            loading="lazy"
+            decoding="async"
+            className="news-feed-image h-full w-full object-cover grayscale transition-all duration-700 group-hover:scale-[1.02] group-hover:grayscale-0"
+          />
+        ) : (
+          <span className="flex h-full w-full items-center justify-center px-3 text-center text-[9px] font-black tracking-[0.14em] text-muted uppercase">No image</span>
+        )}
+        <span className="absolute left-0 top-0 bg-accent-red px-2.5 py-1 text-[9px] font-black tracking-[0.18em] text-white uppercase">{item.category || 'Latest'}</span>
+      </div>
+
+      <div className="p-5 sm:p-6">
+        <h3 className="text-2xl font-black leading-[1.04] tracking-[-0.04em] text-ink transition-colors group-hover:text-accent-blue sm:text-3xl">{title}</h3>
+        {item.excerpt && <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-muted">{item.excerpt}</p>}
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
+          <span className="text-[9px] font-bold tracking-[0.14em] text-muted uppercase">MusicTop editorial · {formatDate(item.created_at)}</span>
+          <span className="inline-flex items-center gap-1 text-[9px] font-black tracking-[0.16em] text-ink uppercase transition-colors group-hover:text-accent-blue">
+            Read full story
+            <ArrowUpRight aria-hidden="true" className="size-3.5" />
+          </span>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 function LatestNewsCard({ region, item, source = 'editorial' }: { region: string; item: NewsEditorialItem; source?: LatestNewsCardSource }) {
   if (source === 'community') {
     return <CommunityNewsEditorialCard region={region} item={item} />;
@@ -289,7 +388,9 @@ function LatestNewsFeed({ region, items, communityNews }: { region: string; item
           {feedItems.map(({ item, source, key }, index) => (
             <Fragment key={key}>
               {index === insertionIndex && <PublishPostPanel region={region} variant="inline" />}
-              <LatestNewsCard region={region} item={item} source={source} />
+              {getFeedCardLayout(index, source) === 'feature'
+                ? <LatestNewsFeatureCard region={region} item={item} />
+                : <LatestNewsCard region={region} item={item} source={source} />}
             </Fragment>
           ))}
           {insertionIndex === feedItems.length && <PublishPostPanel region={region} variant="inline" />}
@@ -510,6 +611,24 @@ export default function NewsEditorialView({
   activeAlbum,
 }: NewsEditorialViewProps) {
   const latestFeedItems = featuredNews ? latestNews.slice(1) : latestNews;
+  const [activeOfficialId, setActiveOfficialId] = useState<string | null>(null);
+  const isDesktop = useIsDesktop();
+  const activeOfficialItem = activeOfficialId
+    ? officialNews.find((item) => String(item.id) === activeOfficialId) || null
+    : null;
+  const officialBrief = useOfficialBrief(activeOfficialItem ? String(activeOfficialItem.id) : null);
+
+  // On desktop the brief replaces the middle column, so bring it into view when
+  // it is opened from the live feed.
+  useEffect(() => {
+    if (!activeOfficialId || !isDesktop) return;
+    document.getElementById('official-brief-panel')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }, [activeOfficialId, isDesktop]);
+
+  const toggleOfficial = (id: string) => {
+    setActiveOfficialId((current) => (current === id ? null : id));
+  };
+  const closeOfficial = () => setActiveOfficialId(null);
 
   return (
     <div className="mt-page mt-page--paper">
@@ -536,10 +655,31 @@ export default function NewsEditorialView({
           <Fragment>
             <div className="grid grid-cols-1 gap-10 lg:grid-cols-12 lg:items-start lg:gap-10 xl:gap-12">
               <div className="order-2 min-w-0 lg:order-1 lg:col-span-3">
-                <LiveFeed items={officialNews} />
+                <OfficialLiveFeed
+                  items={officialNews}
+                  activeId={activeOfficialId}
+                  isDesktop={isDesktop}
+                  briefState={officialBrief}
+                  onToggle={toggleOfficial}
+                  onClose={closeOfficial}
+                />
               </div>
               <div className="order-1 min-w-0 lg:order-2 lg:col-span-6">
-                <LatestNewsFeed region={region} items={latestFeedItems} communityNews={communityNews} />
+                <div id="official-brief-panel" className="scroll-mt-40">
+                  {activeOfficialItem && isDesktop && (
+                    <OfficialNewsReader
+                      articleId="official-brief-panel-article"
+                      variant="panel"
+                      item={activeOfficialItem}
+                      briefState={officialBrief}
+                      publishedLabel={formatDate(activeOfficialItem.created_at)}
+                      onClose={closeOfficial}
+                    />
+                  )}
+                </div>
+                {!(activeOfficialItem && isDesktop) && (
+                  <LatestNewsFeed region={region} items={latestFeedItems} communityNews={communityNews} />
+                )}
               </div>
               <div className="order-3 min-w-0 lg:order-3 lg:col-span-3">
                 <CommunityRail region={region} mostReadNews={mostReadNews} communityPosts={communityPosts} discussions={discussions} concertAlbums={concertAlbums} />

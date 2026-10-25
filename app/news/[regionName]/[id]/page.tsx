@@ -160,7 +160,7 @@ export async function generateMetadata({
     other: {
       'article:source': sourceName,
       ...(sourceUrl ? { 'article:source_url': sourceUrl } : {}),
-      'article:content_origin': article.category === 'LATEST' ? 'AI-synthesized report based on source reporting' : 'Official publisher link',
+      'article:content_origin': isIndexable ? 'AI-synthesized report based on source reporting' : 'Official publisher link',
     },
   };
 }
@@ -261,7 +261,7 @@ export default async function SingleNewsPage({
 
         <header className="border-b border-line pb-10">
           <div className="flex flex-wrap items-center gap-3"><span className="bg-accent-red px-2.5 py-1 text-[9px] font-black tracking-[0.2em] text-white uppercase">{article.category || 'Music industry'}</span><span className="mt-meta text-muted">Source: {sourceName}</span></div>
-          <h1 className="mt-6 max-w-6xl text-balance text-[clamp(3.25rem,8vw,8rem)] font-black leading-[0.85] tracking-[-0.08em] text-ink uppercase">{aiArticle.seoTitle}</h1>
+          <h1 className="mt-6 max-w-5xl text-balance text-[clamp(2rem,4.2vw,3.75rem)] font-black leading-[0.98] tracking-[-0.02em] text-ink uppercase">{aiArticle.seoTitle}</h1>
           <p className="mt-6 max-w-2xl text-sm leading-relaxed text-muted sm:text-base">Published {article.created_at ? new Date(article.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'recently'} · {regionName.toUpperCase()}</p>
         </header>
 

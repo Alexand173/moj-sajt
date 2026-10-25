@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import {
   enrichPendingNews,
+  enrichPendingOfficialNews,
   type AiNewsEnrichmentSummary,
 } from './news-ai-enrichment';
 
@@ -13,6 +14,11 @@ export interface NewsAiWorkerConfig {
   supabaseUrl: string;
   serviceRoleKey: string;
   openAiKey: string;
+}
+
+export interface NewsAiWorkerOptions {
+  /** Also rewrite scraped OFFICIAL publisher rows in their own batch. */
+  includeOfficial?: boolean;
 }
 
 const EMPTY_SUMMARY: AiNewsEnrichmentSummary = {
@@ -44,12 +50,25 @@ export function createNewsAiWorkerClient(config = getNewsAiWorkerConfig()): Supa
   });
 }
 
+function sumSummaries(first: AiNewsEnrichmentSummary, second: AiNewsEnrichmentSummary): AiNewsEnrichmentSummary {
+  return {
+    inspected: first.inspected + second.inspected,
+    generated: first.generated + second.generated,
+    fallback: first.fallback + second.fallback,
+    skipped: first.skipped + second.skipped,
+    failed: first.failed + second.failed,
+  };
+}
+
 /**
- * Runs the background worker that turns pending LATEST news rows into
- * persisted OpenAI editorial reports. It is intentionally independent of
- * request-time article rendering so an OpenAI outage never breaks a page.
+ * Runs the background worker that turns pending news rows into persisted
+ * OpenAI editorial reports. It is intentionally independent of request-time
+ * article rendering so an OpenAI outage never breaks a page.
  */
-export async function runNewsAiWorker(requestedLimit?: number): Promise<NewsAiWorkerResult> {
+export async function runNewsAiWorker(
+  requestedLimit?: number,
+  options: NewsAiWorkerOptions = {},
+): Promise<NewsAiWorkerResult> {
   const config = getNewsAiWorkerConfig();
   const missing: string[] = [];
 
@@ -65,7 +84,12 @@ export async function runNewsAiWorker(requestedLimit?: number): Promise<NewsAiWo
     };
   }
 
-  const summary = await enrichPendingNews(createNewsAiWorkerClient(config), requestedLimit);
+  const client = createNewsAiWorkerClient(config);
+  const latestSummary = await enrichPendingNews(client, requestedLimit);
+  const summary = options.includeOfficial
+    ? sumSummaries(latestSummary, await enrichPendingOfficialNews(client, requestedLimit))
+    : latestSummary;
+
   return {
     ...summary,
     configured: true,

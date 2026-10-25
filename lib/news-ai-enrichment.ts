@@ -3,6 +3,9 @@ import { generateAiNewsArticle, getNewsSourceName, type AiNewsArticle } from './
 
 const DEFAULT_AI_NEWS_BATCH_SIZE = 5;
 const MAX_AI_NEWS_BATCH_SIZE = 20;
+const DEFAULT_AI_NEWS_WINDOW_DAYS = 5;
+
+export type AiNewsCategory = 'LATEST' | 'OFFICIAL';
 
 type AiNewsStatus = 'generated' | 'fallback';
 
@@ -23,6 +26,13 @@ export interface AiNewsEnrichmentSummary {
   failed: number;
 }
 
+export interface EnrichPendingNewsOptions {
+  /** Categories that receive an independent rewrite. Defaults to LATEST. */
+  categories?: AiNewsCategory[];
+  /** Only rows created within this window are processed. Defaults to five days. */
+  sinceDays?: number;
+}
+
 export function getAiNewsStatus(result: Pick<AiNewsArticle, 'isAiGenerated' | 'similarityCheckPassed'>): AiNewsStatus {
   return result.isAiGenerated && result.similarityCheckPassed ? 'generated' : 'fallback';
 }
@@ -36,24 +46,28 @@ export function getAiNewsBatchSize(): number {
 }
 
 /**
- * Processes a small, budget-safe batch of LATEST NewsAPI rows waiting for an AI rewrite.
- * OFFICIAL rows are source links only and are intentionally excluded from this pipeline.
+ * Processes a small, budget-safe batch of news rows waiting for an AI rewrite.
+ * Both NewsAPI (LATEST) and scraped publisher (OFFICIAL) rows go through the
+ * same generation, similarity-score validation, and persistence path; callers
+ * choose the categories they can afford in the current run.
  * Rows remain pending when the server has no OpenAI key, so they can be processed
  * automatically after the deployment is configured correctly.
  */
 export async function enrichPendingNews(
   supabase: SupabaseClient,
   requestedLimit = getAiNewsBatchSize(),
+  options: EnrichPendingNewsOptions = {},
 ): Promise<AiNewsEnrichmentSummary> {
-  
-  const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString();
+  const categories = options.categories?.length ? options.categories : (['LATEST'] as AiNewsCategory[]);
+  const sinceDays = options.sinceDays ?? DEFAULT_AI_NEWS_WINDOW_DAYS;
+  const windowStart = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000).toISOString();
   const { data, error } = await supabase
     .from('news')
     .select('id, title, excerpt, content, url, category')
-    .eq('category', 'LATEST')
-    .gte('created_at', fiveDaysAgo) // 👈 2. Samo vesti mlađe od 5 dana
+    .in('category', categories)
+    .gte('created_at', windowStart)
     .or('ai_status.is.null,ai_status.eq.pending')
-    .order('created_at', { ascending: false }) // Promenjeno na desc da prve obradi najnovije!
+    .order('created_at', { ascending: false })
     .limit(Math.min(Math.max(Math.floor(requestedLimit), 1), MAX_AI_NEWS_BATCH_SIZE));
 
   if (error) throw new Error(`Could not load pending AI news rows: ${error.message}`);
@@ -109,4 +123,16 @@ export async function enrichPendingNews(
   }
 
   return summary;
+}
+
+/**
+ * Dedicated entry point for the scraped publisher rows. They use the same
+ * generation and similarity gates as LATEST, but are processed as their own
+ * batch so a large LATEST backlog cannot starve them.
+ */
+export async function enrichPendingOfficialNews(
+  supabase: SupabaseClient,
+  requestedLimit = getAiNewsBatchSize(),
+): Promise<AiNewsEnrichmentSummary> {
+  return enrichPendingNews(supabase, requestedLimit, { categories: ['OFFICIAL'] });
 }

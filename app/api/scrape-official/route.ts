@@ -376,7 +376,7 @@ export async function GET() {
     }
 
     console.log(`ℹ️ Skrejping završen: ${succeededSources}/${SOURCES.length} sajtova uspešno, ${failedSources} neuspešno.`);
-    console.log('ℹ️ Official news remains source-link-only; LATEST NewsAPI rows are the only AI-enriched records.');
+    console.log('ℹ️ Official source links synchronized. Pending OFFICIAL rows receive the same AI rewrite and similarity gate as LATEST news.');
 
     // Always resolve with 200 so a partial failure (some sources or one upsert
     // chunk) never fails the GitHub Actions step or blocks the next steps.
@@ -390,7 +390,7 @@ export async function GET() {
       failedUpsertChunks,
       failedUpsertRows,
       skippedConflicts,
-      message: 'Official source links synchronized. AI enrichment applies only to LATEST NewsAPI rows.',
+      message: 'Official source links synchronized. Pending OFFICIAL rows receive the same AI rewrite and similarity gate as LATEST news.',
     }), { status: 200 });
 
   } catch (error: unknown) {

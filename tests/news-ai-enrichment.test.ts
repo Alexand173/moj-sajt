@@ -13,7 +13,7 @@ vi.mock('openai', () => ({
   },
 }));
 
-import { enrichPendingNews, getAiNewsStatus } from '@/lib/news-ai-enrichment';
+import { enrichPendingNews, enrichPendingOfficialNews, getAiNewsStatus } from '@/lib/news-ai-enrichment';
 
 function createNewsSupabaseMock() {
   const updates: Array<{ payload: Record<string, unknown>; id: string | number }> = [];
@@ -28,7 +28,7 @@ function createNewsSupabaseMock() {
 
   const query = {
     select: vi.fn().mockReturnThis(),
-    eq: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
     gte: vi.fn().mockReturnThis(),
     or: vi.fn().mockReturnThis(),
     order: vi.fn().mockReturnThis(),
@@ -51,7 +51,7 @@ function createNewsSupabaseMock() {
     }),
   } as unknown as SupabaseClient;
 
-  return { supabase, updates, categoryFilter: query.eq };
+  return { supabase, updates, categoryFilter: query.in };
 }
 
 describe('news AI persistence', () => {
@@ -66,13 +66,22 @@ describe('news AI persistence', () => {
     expect(getAiNewsStatus({ isAiGenerated: false, similarityCheckPassed: false })).toBe('fallback');
   });
 
-  it('limits enrichment queries to LATEST NewsAPI rows', async () => {
+  it('defaults enrichment queries to LATEST NewsAPI rows', async () => {
     delete process.env.OPENAI_API_KEY;
     const { supabase, categoryFilter } = createNewsSupabaseMock();
 
     await enrichPendingNews(supabase);
 
-    expect(categoryFilter).toHaveBeenCalledWith('category', 'LATEST');
+    expect(categoryFilter).toHaveBeenCalledWith('category', ['LATEST']);
+  });
+
+  it('runs the same rewrite pipeline for official publisher rows on request', async () => {
+    delete process.env.OPENAI_API_KEY;
+    const { supabase, categoryFilter } = createNewsSupabaseMock();
+
+    await enrichPendingOfficialNews(supabase);
+
+    expect(categoryFilter).toHaveBeenCalledWith('category', ['OFFICIAL']);
   });
 
   it('persists generated content, similarity, boolean, and status fields', async () => {

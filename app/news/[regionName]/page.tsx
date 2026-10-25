@@ -5,6 +5,9 @@ import NewsEditorialView, { type NewsEditorialItem } from '@/components/NewsEdit
 
 const MOST_READ_LIMIT = 5;
 const NEWS_FEED_LIMIT = 50;
+// The long AI body is loaded on demand by the official-brief reader instead of
+// being serialized for every row in the feed.
+const NEWS_FEED_COLUMNS = 'id, title, excerpt, content, image, url, category, region, created_at, ai_status, ai_generated, ai_similarity_score';
 const STORIES_BY_MASS_LIMIT = 4;
 const STORIES_BY_MASS_OFFSET = NEWS_FEED_LIMIT;
 const STORIES_BY_MASS_FETCH_LIMIT = 50;
@@ -125,10 +128,10 @@ export default async function BillboardNewsPage({
   if (supabase) {
     try {
       const [officialRes, latestRes, additionalOfficialRes, additionalLatestRes, communityNewsRes, blogRes, discRes, concertRes] = await Promise.all([
-        supabase.from('news').select('*').eq('region', region).eq('category', 'OFFICIAL').order('created_at', { ascending: false }).limit(NEWS_FEED_LIMIT),
-        supabase.from('news').select('*').eq('region', region).eq('category', 'LATEST').order('created_at', { ascending: false }).limit(NEWS_FEED_LIMIT),
-        supabase.from('news').select('*').eq('region', region).eq('category', 'OFFICIAL').order('created_at', { ascending: false }).range(STORIES_BY_MASS_OFFSET, STORIES_BY_MASS_OFFSET + STORIES_BY_MASS_FETCH_LIMIT - 1),
-        supabase.from('news').select('*').eq('region', region).eq('category', 'LATEST').order('created_at', { ascending: false }).range(STORIES_BY_MASS_OFFSET, STORIES_BY_MASS_OFFSET + STORIES_BY_MASS_FETCH_LIMIT - 1),
+        supabase.from('news').select(NEWS_FEED_COLUMNS).eq('region', region).eq('category', 'OFFICIAL').order('created_at', { ascending: false }).limit(NEWS_FEED_LIMIT),
+        supabase.from('news').select(NEWS_FEED_COLUMNS).eq('region', region).eq('category', 'LATEST').order('created_at', { ascending: false }).limit(NEWS_FEED_LIMIT),
+        supabase.from('news').select(NEWS_FEED_COLUMNS).eq('region', region).eq('category', 'OFFICIAL').order('created_at', { ascending: false }).range(STORIES_BY_MASS_OFFSET, STORIES_BY_MASS_OFFSET + STORIES_BY_MASS_FETCH_LIMIT - 1),
+        supabase.from('news').select(NEWS_FEED_COLUMNS).eq('region', region).eq('category', 'LATEST').order('created_at', { ascending: false }).range(STORIES_BY_MASS_OFFSET, STORIES_BY_MASS_OFFSET + STORIES_BY_MASS_FETCH_LIMIT - 1),
         supabase.from('community_news').select(`
           id, title, content, created_at, region, post_image, author_id,
           profiles (first_name, avatar_url)

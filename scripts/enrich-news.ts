@@ -4,7 +4,9 @@ import { runNewsAiWorker } from '../lib/news-ai-worker';
 loadEnvConfig(process.cwd());
 
 async function main() {
-  const result = await runNewsAiWorker();
+  // The scheduled GitHub Action owns the news pipeline, so it also rewrites
+  // scraped OFFICIAL publisher rows with the same validation gate as LATEST.
+  const result = await runNewsAiWorker(undefined, { includeOfficial: true });
   console.log(JSON.stringify({ event: 'news_ai_worker_complete', ...result }));
 
   if (!result.configured) {
