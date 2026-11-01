@@ -38,7 +38,7 @@ export default function Header() {
 
   const pages = [
     { name: 'NEWS', href: '/news/us' },
-    { name: 'TICKETS', href: '/tickets/us' },
+    { name: 'TICKETS', href: '/tickets' },
     { name: 'FESTIVALS', href: '/festivals/us' },
     { name: 'REVIEWS', href: '/reviews' },
     { name: 'MTA', href: '/awards' },
