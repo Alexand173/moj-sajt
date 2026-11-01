@@ -110,35 +110,47 @@ async function getTicketRoutes(): Promise<TicketRouteBundle> {
 }
 
 const NEWS_COLUMNS = 'id, region, created_at, title, ai_content, ai_generated, ai_status';
+/** PostgREST caps one response at 1000 rows by default, so a page is never larger. */
 const NEWS_PAGE_SIZE = 1000;
-/** PostgREST cannot measure word count, so paging has a ceiling rather than being unbounded. */
+/** Ceiling for the walk itself, in case the rewritten subset ever explodes. */
 const NEWS_MAX_ROWS = 50000;
 /** Google rejects a sitemap above 50 000 URLs; leave headroom for the other routes. */
 const SITEMAP_URL_CAP = 49000;
 
 /**
- * Walks every rewritten article instead of trusting a first-page slice. The two
- * equality filters narrow the scan in Postgres (33k rows → the rewritten subset),
- * and paging then guarantees no valid article is skipped because it sat beyond a
- * single `limit()`. The word-count rule stays in `hasValidatedAiContent` because
- * it is the same rule the article page uses to decide `noindex` — the sitemap must
- * never advertise a URL the page asks Google to skip.
+ * Walks every rewritten article without ever holding the article bodies.
+ *
+ * The two equality filters narrow the scan in Postgres (33k rows → the rewritten
+ * subset), and `range()` windows keep each response to 1000 rows. Each page is
+ * reduced to `{ url, lastModified }` inside the loop and then dropped, so the only
+ * thing that accumulates is one small string per article — the 5–10 KB
+ * `ai_content` body of a whole page is garbage as soon as the next page loads.
+ *
+ * The retainer is the `routes` map, not the row buffer: ~6.6k articles cost on the
+ * order of a megabyte, whereas retaining the rows themselves would cost ~50 MB.
+ *
+ * The 200-word rule stays in `hasValidatedAiContent` because it is the same rule
+ * the article page uses to decide `noindex` — the sitemap must never advertise a
+ * URL the page asks Google to skip.
  */
-async function loadIndexableNewsRows(): Promise<NewsSitemapRow[]> {
+async function getNewsRoutes(): Promise<SitemapRoute[]> {
   const supabase = getPublicSupabaseClient();
   if (!supabase) return [];
 
-  const rows: NewsSitemapRow[] = [];
+  const routes = new Map<string, SitemapRoute>();
+  let scanned = 0;
 
-  try {
-    for (let from = 0; from < NEWS_MAX_ROWS; from += NEWS_PAGE_SIZE) {
+  for (let from = 0; from < NEWS_MAX_ROWS; from += NEWS_PAGE_SIZE) {
+    let batch: NewsSitemapRow[];
+
+    try {
       const { data, error } = await supabase
         .from('news')
         .select(NEWS_COLUMNS)
         .eq('ai_generated', true)
         .eq('ai_status', 'generated')
         .not('ai_content', 'is', null)
-        // A stable, unique sort is required for paging to be repeatable.
+        // A stable, unique sort is what makes offset paging repeatable.
         .order('id', { ascending: true })
         .range(from, from + NEWS_PAGE_SIZE - 1);
 
@@ -147,39 +159,41 @@ async function loadIndexableNewsRows(): Promise<NewsSitemapRow[]> {
         break;
       }
 
-      const batch = (data || []) as NewsSitemapRow[];
-      rows.push(...batch);
-      if (batch.length < NEWS_PAGE_SIZE) break;
+      batch = (data || []) as NewsSitemapRow[];
+    } catch (error) {
+      console.warn('Could not load news URLs for sitemap:', error);
+      break;
     }
-  } catch (error) {
-    console.warn('Could not load news URLs for sitemap:', error);
+
+    scanned += batch.length;
+
+    for (const article of batch) {
+      if (!article.region || !hasValidatedAiContent(article)) continue;
+
+      const url = buildNewsArticlePath(article.region, article.id, article.title);
+      if (routes.has(url)) continue;
+
+      routes.set(url, {
+        url,
+        priority: 0.75,
+        changeFrequency: 'daily',
+        lastModified: article.created_at || undefined,
+      });
+    }
+
+    // A short page means the rewritten subset is exhausted; a full one means there
+    // is probably another page behind it.
+    if (batch.length < NEWS_PAGE_SIZE) break;
   }
 
-  if (rows.length >= NEWS_MAX_ROWS) {
+  if (scanned >= NEWS_MAX_ROWS) {
     console.warn(`Sitemap news scan hit the ${NEWS_MAX_ROWS}-row ceiling; older articles may be missing.`);
   }
 
-  return rows;
-}
+  console.info(`Sitemap: ${scanned} rewritten news rows scanned, ${routes.size} indexable articles listed.`);
 
-async function getNewsRoutes(): Promise<SitemapRoute[]> {
-  const rows = await loadIndexableNewsRows();
-
-  const routes = rows
-    .filter((article) => Boolean(article.region) && hasValidatedAiContent(article))
-    .map((article) => ({
-      url: buildNewsArticlePath(article.region!, article.id, article.title),
-      priority: 0.75,
-      changeFrequency: 'daily' as const,
-      lastModified: article.created_at || undefined,
-    }));
-
-  if (rows.length > 0) {
-    console.info(`Sitemap: ${rows.length} rewritten news rows scanned, ${routes.length} indexable articles listed.`);
-  }
-
-  // Newest first, so a future URL cap trims the oldest stories rather than the freshest.
-  return Array.from(new Map(routes.map((route) => [route.url, route])).values())
+  // Newest first, so a future URL cap trims the oldest stories, never the freshest.
+  return Array.from(routes.values())
     .sort((a, b) => String(b.lastModified || '').localeCompare(String(a.lastModified || '')));
 }
 
