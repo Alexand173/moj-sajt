@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { RelatedNewsItem } from '@/lib/related-news';
+import { buildNewsArticlePath } from '@/lib/news-slug';
 
 export interface RelatedStoriesProps {
   stories: RelatedNewsItem[];
@@ -23,7 +24,7 @@ export default function RelatedStories({ stories, region, headingId = 'related-s
       <ul>
         {items.map((story) => {
           const title = story.title!.trim();
-          const href = `/news/${story.region || region}/${story.id}`;
+          const href = buildNewsArticlePath(story.region || region, story.id, title);
 
           return (
             <li key={`related-story-${story.id}`} className="border-b border-line">

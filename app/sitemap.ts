@@ -1,6 +1,7 @@
 import type { MetadataRoute } from 'next';
 import { EUROPA_SUBREGIONS } from '@/lib/region-navigation';
 import { hasValidatedAiContent } from '@/lib/news-indexability';
+import { buildNewsArticlePath } from '@/lib/news-slug';
 import { getPublicSupabaseClient } from '@/lib/supabase-public';
 import { loadConcertRegionRows } from '@/lib/ticket-regions';
 import { canonicalArtistPath, getArtistIdentityDirectory, isLiveTourDate, resolveArtistIdentity } from '@/lib/tour-profile';
@@ -39,6 +40,8 @@ type NewsSitemapRow = {
   id: string | number;
   region: string | null;
   created_at: string | null;
+  /** The article page derives its canonical slug from this field alone. */
+  title: string | null;
   ai_content: string | null;
   ai_generated: boolean | null;
   ai_status: string | null;
@@ -112,7 +115,7 @@ async function getNewsRoutes(): Promise<SitemapRoute[]> {
   try {
     const newsResult = await supabase
       .from('news')
-      .select('id, region, created_at, ai_content, ai_generated, ai_status')
+      .select('id, region, created_at, title, ai_content, ai_generated, ai_status')
       .limit(10000);
 
     if (newsResult.error) console.warn('Could not load news URLs for sitemap:', newsResult.error.message);
@@ -120,7 +123,7 @@ async function getNewsRoutes(): Promise<SitemapRoute[]> {
     return ((newsResult.data || []) as NewsSitemapRow[])
       .filter((article) => Boolean(article.region) && hasValidatedAiContent(article))
       .map((article) => ({
-        url: `/news/${encodeURIComponent(article.region!.toLowerCase())}/${encodeURIComponent(String(article.id))}`,
+        url: buildNewsArticlePath(article.region!, article.id, article.title),
         priority: 0.75,
         changeFrequency: 'daily' as const,
         lastModified: article.created_at || undefined,

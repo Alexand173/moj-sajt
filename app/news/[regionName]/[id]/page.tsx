@@ -1,7 +1,8 @@
 import { Fragment, cache } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
+import { buildNewsArticlePath, getNewsArticleSegment, parseNewsArticleSegment } from '@/lib/news-slug';
 import RelatedStories from '@/components/RelatedStories';
 import StructuredData from '@/components/StructuredData';
 import { getNewsSourceName } from '@/lib/ai-news';
@@ -42,8 +43,8 @@ function getSafeSourceUrl(value: string | null | undefined): string | null {
   }
 }
 
-function getArticlePageUrl(regionName: string, id: string): string {
-  return `https://musictop.net/news/${encodeURIComponent(regionName)}/${encodeURIComponent(id)}`;
+function getArticlePageUrl(regionName: string, segment: string): string {
+  return `https://musictop.net/news/${encodeURIComponent(regionName.toLowerCase())}/${segment}`;
 }
 
 const getNewsArticle = cache(async (id: string): Promise<NewsArticleRecord | null> => {
@@ -127,11 +128,15 @@ export async function generateMetadata({
 }: {
   params: Promise<{ regionName: string; id: string }>;
 }): Promise<Metadata> {
-  const { id, regionName } = await params;
-  const pageUrl = getArticlePageUrl(regionName, id);
+  const { id: idSegment, regionName } = await params;
+  const { id } = parseNewsArticleSegment(idSegment);
   const article = await getNewsArticle(id);
 
   if (!article) notFound();
+
+  // Metadata always points at the canonical headline slug, never at the segment
+  // the visitor happened to arrive on.
+  const pageUrl = getArticlePageUrl(regionName, getNewsArticleSegment(article.id, article.title));
 
   const resolvedSource = await getResolvedSource(article);
   const sourceName = resolvedSource.sourceName;
@@ -172,10 +177,18 @@ export default async function SingleNewsPage({
 }: {
   params: Promise<{ regionName: string; id: string }>;
 }) {
-  const { id, regionName } = await params;
+  const { id: idSegment, regionName } = await params;
+  const { id } = parseNewsArticleSegment(idSegment);
   const article = await getNewsArticle(id);
 
   if (!article) notFound();
+
+  // Legacy `/news/<region>/<id>` links and stale titles land on the current
+  // headline slug instead of rendering a second address for the same story.
+  const canonicalSegment = getNewsArticleSegment(article.id, article.title);
+  if (idSegment !== canonicalSegment) {
+    permanentRedirect(buildNewsArticlePath(regionName, article.id, article.title));
+  }
 
   const resolvedSource = await getResolvedSource(article);
   const sourceName = resolvedSource.sourceName;
@@ -224,7 +237,7 @@ export default async function SingleNewsPage({
     ? await getRelatedNews(getSupabase(), { id, title: article.title, region: regionName })
     : [];
   const sourceUrl = getSafeSourceUrl(resolvedSource.sourceUrl);
-  const pageUrl = getArticlePageUrl(regionName, id);
+  const pageUrl = getArticlePageUrl(regionName, canonicalSegment);
   const breadcrumbSchema = createBreadcrumbListSchema([
     { name: 'Home', url: '/' },
     { name: `${regionName.toUpperCase()} News`, url: `/news/${encodeURIComponent(regionName)}` },

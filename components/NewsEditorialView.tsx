@@ -10,6 +10,7 @@ import AddPostTrigger from '@/components/AddPostTrigger';
 import AlbumGallery from '@/components/AlbumGallery';
 import OfficialNewsReader, { useOfficialBrief } from '@/components/OfficialNewsReader';
 import { getFeedCardLayout } from '@/lib/news-feed-layout';
+import { buildNewsArticlePath } from '@/lib/news-slug';
 
 export type NewsProfile = {
   first_name?: string | null;
@@ -111,7 +112,7 @@ function EditorialHero({ region, article }: { region: string; article?: NewsEdit
           <h1 className="mt-5 max-w-5xl text-balance text-[clamp(2rem,4.2vw,4rem)] font-black leading-[0.96] tracking-[-0.02em] text-white uppercase">{article.title}</h1>
           {article.excerpt && <p className="mt-5 max-w-2xl text-[0.9625rem] leading-relaxed text-white/70 sm:text-base">{article.excerpt}</p>}
           <div className="mt-7 flex flex-wrap items-center gap-4">
-            <Link href={`/news/${region}/${article.id}`} className="group inline-flex items-center gap-2 bg-white px-5 py-3 text-[11px] font-black tracking-[0.2em] text-ink uppercase transition-colors hover:bg-accent-red hover:text-white sm:text-[10px]">
+            <Link href={buildNewsArticlePath(region, article.id, article.title)} className="group inline-flex items-center gap-2 bg-white px-5 py-3 text-[11px] font-black tracking-[0.2em] text-ink uppercase transition-colors hover:bg-accent-red hover:text-white sm:text-[10px]">
               Read the story
               <ArrowUpRight aria-hidden="true" className="size-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
             </Link>
@@ -281,7 +282,7 @@ function LatestNewsFeatureCard({ region, item }: { region: string; item: NewsEdi
 
   return (
     <Link
-      href={`/news/${region}/${item.id}`}
+      href={buildNewsArticlePath(region, item.id, item.title)}
       className="group my-6 block overflow-hidden border border-line bg-white transition-colors hover:border-ink"
     >
       <div className="relative aspect-[8/5] overflow-hidden bg-paper-muted sm:aspect-[16/9]">
@@ -321,7 +322,7 @@ function LatestNewsCard({ region, item, source = 'editorial' }: { region: string
 
   const title = item.title || item.text || 'Untitled music story';
   const image = item.image;
-  const articleHref = `/news/${region}/${item.id}`;
+  const articleHref = buildNewsArticlePath(region, item.id, item.title);
 
   return (
     <Link
@@ -426,7 +427,7 @@ function MostReadNewsRail({ region, items }: { region: string; items: NewsEditor
             return (
               <li key={`most-read-${item.id}`} className="border-t border-line first:border-t-0">
                 <Link
-                  href={`/news/${region}/${item.id}`}
+                  href={buildNewsArticlePath(region, item.id, item.title)}
                   aria-label={`Read ${title}`}
                   className="group grid grid-cols-[2rem_minmax(0,1fr)] gap-3 py-4"
                 >
@@ -541,7 +542,7 @@ function MassStoryCard({ region, item, variant }: { region: string; item: NewsEd
 
   return (
     <Link
-      href={`/news/${region}/${item.id}`}
+      href={buildNewsArticlePath(region, item.id, item.title)}
       aria-label={`Read ${title}`}
       className={`group relative block min-w-0 overflow-hidden bg-ink ${MASS_STORY_CARD_CLASSES[variant]}`}
     >
