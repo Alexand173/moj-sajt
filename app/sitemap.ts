@@ -6,7 +6,12 @@ import { getPublicSupabaseClient } from '@/lib/supabase-public';
 import { loadConcertRegionRows } from '@/lib/ticket-regions';
 import { canonicalArtistPath, getArtistIdentityDirectory, isLiveTourDate, resolveArtistIdentity } from '@/lib/tour-profile';
 
-export const revalidate = 3600;
+/**
+ * The sitemap is regenerated every 30 minutes. Published articles therefore enter
+ * it well within the same day, and `lastModified` stays a real value (the article's
+ * `created_at`) rather than a build timestamp.
+ */
+export const revalidate = 1800;
 
 const BASE_URL = 'https://musictop.net';
 
@@ -104,34 +109,78 @@ async function getTicketRoutes(): Promise<TicketRouteBundle> {
   };
 }
 
+const NEWS_COLUMNS = 'id, region, created_at, title, ai_content, ai_generated, ai_status';
+const NEWS_PAGE_SIZE = 1000;
+/** PostgREST cannot measure word count, so paging has a ceiling rather than being unbounded. */
+const NEWS_MAX_ROWS = 50000;
+/** Google rejects a sitemap above 50 000 URLs; leave headroom for the other routes. */
+const SITEMAP_URL_CAP = 49000;
+
 /**
- * Only the `/festivals/<region>` hubs are listed. Individual festival pages
- * (`/festivals/<region>/<id>`) are intentionally kept out of the sitemap.
+ * Walks every rewritten article instead of trusting a first-page slice. The two
+ * equality filters narrow the scan in Postgres (33k rows → the rewritten subset),
+ * and paging then guarantees no valid article is skipped because it sat beyond a
+ * single `limit()`. The word-count rule stays in `hasValidatedAiContent` because
+ * it is the same rule the article page uses to decide `noindex` — the sitemap must
+ * never advertise a URL the page asks Google to skip.
  */
-async function getNewsRoutes(): Promise<SitemapRoute[]> {
+async function loadIndexableNewsRows(): Promise<NewsSitemapRow[]> {
   const supabase = getPublicSupabaseClient();
   if (!supabase) return [];
 
+  const rows: NewsSitemapRow[] = [];
+
   try {
-    const newsResult = await supabase
-      .from('news')
-      .select('id, region, created_at, title, ai_content, ai_generated, ai_status')
-      .limit(10000);
+    for (let from = 0; from < NEWS_MAX_ROWS; from += NEWS_PAGE_SIZE) {
+      const { data, error } = await supabase
+        .from('news')
+        .select(NEWS_COLUMNS)
+        .eq('ai_generated', true)
+        .eq('ai_status', 'generated')
+        .not('ai_content', 'is', null)
+        // A stable, unique sort is required for paging to be repeatable.
+        .order('id', { ascending: true })
+        .range(from, from + NEWS_PAGE_SIZE - 1);
 
-    if (newsResult.error) console.warn('Could not load news URLs for sitemap:', newsResult.error.message);
+      if (error) {
+        console.warn('Could not load news URLs for sitemap:', error.message);
+        break;
+      }
 
-    return ((newsResult.data || []) as NewsSitemapRow[])
-      .filter((article) => Boolean(article.region) && hasValidatedAiContent(article))
-      .map((article) => ({
-        url: buildNewsArticlePath(article.region!, article.id, article.title),
-        priority: 0.75,
-        changeFrequency: 'daily' as const,
-        lastModified: article.created_at || undefined,
-      }));
+      const batch = (data || []) as NewsSitemapRow[];
+      rows.push(...batch);
+      if (batch.length < NEWS_PAGE_SIZE) break;
+    }
   } catch (error) {
     console.warn('Could not load news URLs for sitemap:', error);
-    return [];
   }
+
+  if (rows.length >= NEWS_MAX_ROWS) {
+    console.warn(`Sitemap news scan hit the ${NEWS_MAX_ROWS}-row ceiling; older articles may be missing.`);
+  }
+
+  return rows;
+}
+
+async function getNewsRoutes(): Promise<SitemapRoute[]> {
+  const rows = await loadIndexableNewsRows();
+
+  const routes = rows
+    .filter((article) => Boolean(article.region) && hasValidatedAiContent(article))
+    .map((article) => ({
+      url: buildNewsArticlePath(article.region!, article.id, article.title),
+      priority: 0.75,
+      changeFrequency: 'daily' as const,
+      lastModified: article.created_at || undefined,
+    }));
+
+  if (rows.length > 0) {
+    console.info(`Sitemap: ${rows.length} rewritten news rows scanned, ${routes.length} indexable articles listed.`);
+  }
+
+  // Newest first, so a future URL cap trims the oldest stories rather than the freshest.
+  return Array.from(new Map(routes.map((route) => [route.url, route])).values())
+    .sort((a, b) => String(b.lastModified || '').localeCompare(String(a.lastModified || '')));
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -208,7 +257,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // and the concert feed, for instance), so keep the first occurrence of each.
   const uniqueRoutes = Array.from(new Map(routes.map((route) => [route.url, route])).values());
 
-  return uniqueRoutes.map((route) => ({
+  if (uniqueRoutes.length > SITEMAP_URL_CAP) {
+    console.warn(`Sitemap has ${uniqueRoutes.length} URLs, above the ${SITEMAP_URL_CAP} cap. Switch to generateSitemaps() to shard it.`);
+  }
+
+  return uniqueRoutes.slice(0, SITEMAP_URL_CAP).map((route) => ({
     url: `${BASE_URL}${route.url}`,
     ...(route.lastModified ? { lastModified: route.lastModified } : {}),
     changeFrequency: route.changeFrequency,
