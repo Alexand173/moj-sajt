@@ -5,12 +5,12 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/tours',
-        destination: '/tickets/us',
+        destination: '/tickets',
         statusCode: 301,
       },
       {
         source: '/tours/',
-        destination: '/tickets/us',
+        destination: '/tickets',
         statusCode: 301,
       },
       {
