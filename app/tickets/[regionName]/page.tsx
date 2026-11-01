@@ -1,7 +1,10 @@
 import type { Metadata } from 'next';
 import ConcertsList from '@/components/ConcertsList';
+import StructuredData from '@/components/StructuredData';
 import { getPublicSupabaseClient } from '@/lib/supabase-public';
 import { getNewsletterSignupUrl } from '@/lib/newsletter';
+import { createBreadcrumbListSchema } from '@/lib/seo-schema';
+import { getTicketRegionLabel } from '@/lib/ticket-regions';
 import { getArtistIdentityDirectory, mergeTicketRows, type TicketSourceRow } from '@/lib/tour-profile';
 
 export const revalidate = 300;
@@ -34,12 +37,11 @@ function parsePage(value: string | undefined): number {
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { regionName } = await params;
   if (!regionName) return { title: 'Music Tickets | MusicTop' };
-  const region = regionName.toUpperCase();
-  const displayRegion = region === 'UK' ? 'the UK' : region;
+  const displayRegion = getTicketRegionLabel(regionName);
 
   return {
     title: `Live Music Tickets in ${displayRegion} (${new Date().getFullYear()}) | MusicTop`,
-    description: `Find upcoming concert dates, verified ticket links, and live event availability for top artists performing in ${displayRegion}. Check live ticket updates now!`,
+    description: `Concert tickets and tour dates for artists playing ${displayRegion}. Browse verified Ticketmaster links, presale codes and on-sale countdowns for every live date.`,
     alternates: { canonical: `https://musictop.net/tickets/${regionName.toLowerCase()}` },
   };
 }
@@ -68,8 +70,22 @@ export default async function Page({ params, searchParams }: { params: Params; s
   const identityDirectory = await getArtistIdentityDirectory();
   const grouped = mergeTicketRows(data as TicketSourceRow[], identityDirectory);
 
+  // Matches the visible trail rendered above the announcements heading.
+  const regionPagePath = `/tickets/${encodeURIComponent(regionName.toLowerCase())}`;
+  const breadcrumbs = [
+    { label: 'Home', href: '/' },
+    { label: 'Tickets', href: '/tickets' },
+    { label: getTicketRegionLabel(regionName) },
+  ];
+  const breadcrumbSchema = createBreadcrumbListSchema([
+    { name: 'Home', url: '/' },
+    { name: 'Tickets', url: '/tickets' },
+    { name: getTicketRegionLabel(regionName), url: regionPagePath },
+  ]);
+
   return (
     <div className="mt-page mt-page--paper">
+      <StructuredData data={breadcrumbSchema} />
       <main>
         <ConcertsList
           dataZaPrikaz={grouped}
@@ -78,6 +94,7 @@ export default async function Page({ params, searchParams }: { params: Params; s
           initialPage={initialPage}
           regionName={regionName}
           newsletterSignupUrl={getNewsletterSignupUrl()}
+          breadcrumbs={breadcrumbs}
         />
       </main>
     </div>

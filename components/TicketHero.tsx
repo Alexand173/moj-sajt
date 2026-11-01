@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { Maximize2, Pause, Play, Volume2 } from 'lucide-react';
 import { useState } from 'react';
 import { getYouTubeEmbedUrl, getYouTubeVideoId, getYouTubeWatchUrl } from '@/lib/news-media';
+import { getTicketRegionLabel } from '@/lib/region-navigation';
 import TicketHeroVideoRail, { type TicketHeroVideoRailVariant } from '@/components/TicketHeroVideoRail';
 import type { HeroItem } from '@/components/ticket-types';
 
@@ -23,7 +24,7 @@ export default function TicketHero({
   const [failedVideoId, setFailedVideoId] = useState<string | null>(null);
   const safeActiveIndex = Math.min(activeIndex, Math.max(heroItems.length - 1, 0));
   const activeItem = heroItems[safeActiveIndex] || heroItems[0];
-  const regionLabel = regionName.toLowerCase() === 'uk' ? 'the UK' : regionName.toUpperCase();
+  const regionLabel = getTicketRegionLabel(regionName);
 
   if (!activeItem) return null;
 

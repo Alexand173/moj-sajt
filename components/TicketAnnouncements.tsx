@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowUpRight, Bell, Clock3 } from 'lucide-react';
+import Breadcrumbs, { type BreadcrumbItem } from '@/components/Breadcrumbs';
 import type { GroupedConcert } from '@/components/ticket-types';
+import { getTicketRegionLabel } from '@/lib/region-navigation';
 
 type AnnouncementStatus = 'just-announced' | 'on-sale-now' | 'last-chance' | 'new-dates';
 
@@ -66,8 +68,37 @@ function formatCountdown(milliseconds: number | null): string {
   return `${String(days).padStart(2, '0')}d ${String(hours).padStart(2, '0')}h ${String(minutes).padStart(2, '0')}m ${String(seconds).padStart(2, '0')}s`;
 }
 
-export default function TicketAnnouncements({ groups }: { groups: GroupedConcert[] }) {
+/**
+ * Intro copy names the region and the first two artists actually on the page, so
+ * the paragraph carries the search terms without inventing names when the feed is
+ * thin.
+ */
+function getIntroCopy(groups: GroupedConcert[], regionLabel: string): string {
+  const artists = Array.from(new Set(groups.map((group) => group.artist_name?.trim()).filter(Boolean))) as string[];
+  const [first, second] = artists;
+
+  if (first && second) {
+    return `Find official concert tickets and tour dates for the biggest artists touring ${regionLabel} right now. From ${first} to ${second}, get verified Ticketmaster links, presale codes and live on-sale countdowns.`;
+  }
+
+  if (first) {
+    return `Find official concert tickets and tour dates for ${first} and the rest of the ${regionLabel} live schedule — verified Ticketmaster links, presale codes and live on-sale countdowns.`;
+  }
+
+  return `Find official concert tickets and tour dates for the biggest artists touring ${regionLabel} right now — verified Ticketmaster links, presale codes and live on-sale countdowns.`;
+}
+
+export default function TicketAnnouncements({
+  groups,
+  regionName = 'us',
+  breadcrumbs = [],
+}: {
+  groups: GroupedConcert[];
+  regionName?: string;
+  breadcrumbs?: BreadcrumbItem[];
+}) {
   const announcements = useMemo(() => getAnnouncements(groups), [groups]);
+  const introCopy = useMemo(() => getIntroCopy(groups, getTicketRegionLabel(regionName)), [groups, regionName]);
   const nextEvent = useMemo(() => getNextEventTimestamp(groups), [groups]);
   const [now, setNow] = useState(() => Date.now());
 
@@ -82,11 +113,13 @@ export default function TicketAnnouncements({ groups }: { groups: GroupedConcert
   return (
     <section aria-labelledby="ticket-announcements" className="bg-ink text-white">
       <div className="mt-container py-14 sm:py-16 lg:py-20">
+        <Breadcrumbs items={breadcrumbs} tone="dark" className="mb-7" />
+
         <div className="flex flex-col justify-between gap-8 lg:flex-row lg:items-end">
           <div className="max-w-2xl">
             <p className="mt-kicker text-accent-red"><Bell aria-hidden="true" className="size-3" /> Concert announcements</p>
             <h2 id="ticket-announcements" className="mt-4 text-balance text-4xl font-black leading-[0.95] tracking-[-0.06em] sm:text-5xl lg:text-6xl">On-sale alerts &amp; new tour dates</h2>
-            <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/55">Verified announcements straight from the promoters. The moment a tour drops, you&apos;ll see it here — with presale codes, on-sale countdowns and direct Ticketmaster links.</p>
+            <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/55 sm:text-base">{introCopy}</p>
           </div>
           <div className="w-fit border border-white/20 bg-white/[0.03] px-5 py-4 lg:min-w-40">
             <p className="flex items-center gap-2 text-[9px] font-bold tracking-[0.18em] text-white/45 uppercase"><Clock3 aria-hidden="true" className="size-3 text-accent-red" /> Next general on-sale</p>

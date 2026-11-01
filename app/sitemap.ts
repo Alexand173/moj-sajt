@@ -2,11 +2,25 @@ import type { MetadataRoute } from 'next';
 import { EUROPA_SUBREGIONS } from '@/lib/region-navigation';
 import { hasValidatedAiContent } from '@/lib/news-indexability';
 import { getPublicSupabaseClient } from '@/lib/supabase-public';
+import { loadConcertRegionRows } from '@/lib/ticket-regions';
 import { canonicalArtistPath, getArtistIdentityDirectory, isLiveTourDate, resolveArtistIdentity } from '@/lib/tour-profile';
 
 export const revalidate = 3600;
 
 const BASE_URL = 'https://musictop.net';
+
+type ChangeFrequency = NonNullable<MetadataRoute.Sitemap[number]['changeFrequency']>;
+
+type SitemapRoute = {
+  url: string;
+  priority: number;
+  changeFrequency: ChangeFrequency;
+  /**
+   * Only set when the page genuinely has a date. An invented `lastModified` is
+   * worse than none: Google discounts unreliable lastmod for the whole file.
+   */
+  lastModified?: string | Date;
+};
 
 const siteStructure: Record<string, string[]> = {
   us: ['rock', 'pop', 'hip-hop', 'rb-soul', 'country', 'dance-electronic'],
@@ -19,11 +33,7 @@ const siteStructure: Record<string, string[]> = {
   classical: ['classical'],
 };
 
-type SitemapRoute = {
-  url: string;
-  priority: number;
-  lastModified?: string | Date;
-};
+const SITE_REGIONS = Object.keys(siteStructure);
 
 type NewsSitemapRow = {
   id: string | number;
@@ -34,60 +44,61 @@ type NewsSitemapRow = {
   ai_status: string | null;
 };
 
-type ConcertArtistSitemapRow = {
-  region: string | null;
-  artist_name: string | null;
-  date: string | null;
+type TicketRouteBundle = {
+  /** `/tickets/<region>` hubs for regions found in the concert feed. */
+  hubs: SitemapRoute[];
+  /** `/tickets/<region>/artist/<slug>` for artists with a date still on sale. */
+  artists: SitemapRoute[];
 };
 
 /**
- * Every artist with a date still on sale gets a ticket profile URL. The slug is
- * resolved through the same identity directory the ticket pages use, so a sitemap
- * URL always matches the canonical `/tickets/<region>/artist/<slug>` the app
- * redirects to (aliases such as the Metallica variants included). Artists whose
- * whole run has already played stay out, because those pages are noindex.
+ * One pass over `koncerti` produces both the region hubs and the artist profiles.
+ * Slugs go through the same identity directory the ticket pages use, so a sitemap
+ * URL always matches the canonical page instead of a redirect. Artists whose whole
+ * run has played stay out, because those pages are noindex.
  */
-async function getTicketArtistRoutes(): Promise<SitemapRoute[]> {
-  const supabase = getPublicSupabaseClient();
-  if (!supabase) return [];
+async function getTicketRoutes(): Promise<TicketRouteBundle> {
+  const rows = await loadConcertRegionRows();
+  if (rows.length === 0) return { hubs: [], artists: [] };
 
-  try {
-    const { data, error } = await supabase
-      .from('koncerti')
-      .select('region, artist_name, date')
-      .limit(10000);
+  const directory = await getArtistIdentityDirectory();
+  const liveRegions = new Set<string>();
+  const artists = new Map<string, { url: string; live: boolean }>();
 
-    if (error) {
-      console.warn('Could not load artist ticket URLs for sitemap:', error.message);
-      return [];
-    }
+  for (const row of rows) {
+    const region = row.region?.trim().toLowerCase();
+    const artistName = row.artist_name?.trim();
+    if (!region || !artistName) continue;
 
-    const directory = await getArtistIdentityDirectory();
-    // An artist keeps one URL per region; it is kept when any of its rows still
-    // has a date on sale.
-    const found = new Map<string, { url: string; live: boolean }>();
+    const { canonicalSlug } = resolveArtistIdentity(artistName, directory);
+    if (!canonicalSlug) continue;
 
-    for (const row of (data || []) as ConcertArtistSitemapRow[]) {
-      const region = row.region?.trim().toLowerCase();
-      const artistName = row.artist_name?.trim();
-      if (!region || !artistName) continue;
+    const live = isLiveTourDate(row.date);
+    if (live) liveRegions.add(region);
 
-      const { canonicalSlug } = resolveArtistIdentity(artistName, directory);
-      if (!canonicalSlug) continue;
-
-      const url = canonicalArtistPath(region, canonicalSlug);
-      const entry = found.get(url) ?? { url, live: false };
-      if (!entry.live && isLiveTourDate(row.date)) entry.live = true;
-      found.set(url, entry);
-    }
-
-    return Array.from(found.values())
-      .filter((entry) => entry.live)
-      .map(({ url }) => ({ url, priority: 0.7 }));
-  } catch (error) {
-    console.warn('Could not load artist ticket URLs for sitemap:', error);
-    return [];
+    const url = canonicalArtistPath(region, canonicalSlug);
+    const entry = artists.get(url) ?? { url, live: false };
+    if (live) entry.live = true;
+    artists.set(url, entry);
   }
+
+  return {
+    hubs: Array.from(liveRegions)
+      .sort((a, b) => a.localeCompare(b))
+      .map((region) => ({
+        url: `/tickets/${encodeURIComponent(region)}`,
+        priority: 0.9,
+        changeFrequency: 'daily' as const,
+      })),
+    artists: Array.from(artists.values())
+      .filter((entry) => entry.live)
+      .sort((a, b) => a.url.localeCompare(b.url))
+      .map((entry) => ({
+        url: entry.url,
+        priority: 0.7,
+        changeFrequency: 'daily' as const,
+      })),
+  };
 }
 
 /**
@@ -111,6 +122,7 @@ async function getNewsRoutes(): Promise<SitemapRoute[]> {
       .map((article) => ({
         url: `/news/${encodeURIComponent(article.region!.toLowerCase())}/${encodeURIComponent(String(article.id))}`,
         priority: 0.75,
+        changeFrequency: 'daily' as const,
         lastModified: article.created_at || undefined,
       }));
   } catch (error) {
@@ -120,20 +132,33 @@ async function getNewsRoutes(): Promise<SitemapRoute[]> {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const ticketRoutes = await getTicketRoutes();
+
   const mainRoutes: SitemapRoute[] = [
-    { url: '', priority: 1.0 },
-    { url: '/about', priority: 0.6 },
-    { url: '/contact', priority: 0.5 },
-    { url: '/newsletter', priority: 0.5 },
-    { url: '/privacy', priority: 0.3 },
-    { url: '/terms', priority: 0.3 },
-    { url: '/awards', priority: 0.8 },
+    { url: '', priority: 1.0, changeFrequency: 'daily' },
+    { url: '/tickets', priority: 0.9, changeFrequency: 'daily' },
+    { url: '/awards', priority: 0.8, changeFrequency: 'weekly' },
+    { url: '/about', priority: 0.6, changeFrequency: 'monthly' },
+    { url: '/contact', priority: 0.5, changeFrequency: 'monthly' },
+    { url: '/newsletter', priority: 0.5, changeFrequency: 'monthly' },
+    { url: '/privacy', priority: 0.3, changeFrequency: 'yearly' },
+    { url: '/terms', priority: 0.3, changeFrequency: 'yearly' },
   ];
 
-  const dynamicRoutes: SitemapRoute[] = Object.entries(siteStructure).flatMap(([region, genres]) =>
+  // Bare regional chart pages (`/region/<region>`) exist and carry content.
+  // `/region` itself is deliberately excluded: it renders a hard-coded us/rock
+  // chart with a canonical of `/`, so listing it would submit a duplicate.
+  const regionRoutes: SitemapRoute[] = SITE_REGIONS.map((region) => ({
+    url: `/region/${region}`,
+    priority: 0.75,
+    changeFrequency: 'daily',
+  }));
+
+  const genreRoutes: SitemapRoute[] = Object.entries(siteStructure).flatMap(([region, genres]) =>
     genres.map((genre) => ({
       url: `/region/${region}/${genre}`,
       priority: 0.7,
+      changeFrequency: 'daily' as const,
     })),
   );
 
@@ -141,43 +166,49 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     siteStructure.europa.map((genre) => ({
       url: `/region/europa/${slug}/${genre}`,
       priority: 0.65,
+      changeFrequency: 'daily' as const,
     })),
   );
 
-  const ticketsRoutes: SitemapRoute[] = Object.keys(siteStructure).map((region) => ({
-    url: `/tickets/${region}`,
-    priority: 0.9,
-  }));
-
-  const newsRoutes: SitemapRoute[] = Object.keys(siteStructure).map((region) => ({
+  const newsHubRoutes: SitemapRoute[] = SITE_REGIONS.map((region) => ({
     url: `/news/${region}`,
     priority: 0.9,
+    changeFrequency: 'hourly',
   }));
 
-  const festivalsRoutes: SitemapRoute[] = Object.keys(siteStructure).map((region) => ({
+  const configuredTicketHubs: SitemapRoute[] = SITE_REGIONS.map((region) => ({
+    url: `/tickets/${region}`,
+    priority: 0.9,
+    changeFrequency: 'daily',
+  }));
+
+  const festivalHubRoutes: SitemapRoute[] = SITE_REGIONS.map((region) => ({
     url: `/festivals/${region}`,
     priority: 0.9,
+    changeFrequency: 'daily',
   }));
 
   const routes: SitemapRoute[] = [
     ...mainRoutes,
-    ...dynamicRoutes,
+    ...regionRoutes,
+    ...genreRoutes,
     ...europaSubregionRoutes,
-    ...newsRoutes,
-    ...ticketsRoutes,
-    ...festivalsRoutes,
-    ...(await getTicketArtistRoutes()),
+    ...newsHubRoutes,
+    ...configuredTicketHubs,
+    ...ticketRoutes.hubs,
+    ...festivalHubRoutes,
+    ...ticketRoutes.artists,
     ...(await getNewsRoutes()),
   ];
-  // A URL can be reached from several sources (a seeded profile is also a ticket
-  // row, for instance), so keep the first occurrence of each.
+
+  // A URL can arrive from several sources (a region in both the configured list
+  // and the concert feed, for instance), so keep the first occurrence of each.
   const uniqueRoutes = Array.from(new Map(routes.map((route) => [route.url, route])).values());
-  const fallbackLastModified = new Date();
 
   return uniqueRoutes.map((route) => ({
     url: `${BASE_URL}${route.url}`,
-    lastModified: route.lastModified || fallbackLastModified,
-    changeFrequency: 'daily' as const,
+    ...(route.lastModified ? { lastModified: route.lastModified } : {}),
+    changeFrequency: route.changeFrequency,
     priority: route.priority,
   }));
 }

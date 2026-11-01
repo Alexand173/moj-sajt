@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { resolveConcertCity } from '@/lib/concert-city';
+import type { BreadcrumbItem } from '@/components/Breadcrumbs';
 import type { GroupedConcert, HeroItem } from '@/components/ticket-types';
 import TicketAnnouncements from '@/components/TicketAnnouncements';
 import TicketAlertCta from '@/components/TicketAlertCta';
@@ -23,6 +24,7 @@ interface ConcertsListProps {
   initialPage?: number;
   regionName?: string;
   newsletterSignupUrl?: string | null;
+  breadcrumbs?: BreadcrumbItem[];
 }
 
 function normalizePage(value: number | undefined): number {
@@ -37,6 +39,7 @@ export default function ConcertsList({
   initialPage = 1,
   regionName = 'us',
   newsletterSignupUrl = null,
+  breadcrumbs = [],
 }: ConcertsListProps) {
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery.trim());
   const [selectedCity, setSelectedCity] = useState<string | null>(initialCity?.trim() || null);
@@ -192,7 +195,7 @@ export default function ConcertsList({
       />
 
       <TicketCityFilters cities={cities} activeCity={activeCity} onCityChange={handleCityChange} />
-      <TicketAnnouncements groups={dataZaPrikaz} />
+      <TicketAnnouncements groups={dataZaPrikaz} regionName={regionName} breadcrumbs={breadcrumbs} />
       <TicketSearchForm
         searchQuery={searchQuery}
         cities={cities}
