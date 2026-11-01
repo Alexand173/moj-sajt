@@ -2,7 +2,7 @@ import type { MetadataRoute } from 'next';
 import { EUROPA_SUBREGIONS } from '@/lib/region-navigation';
 import { hasValidatedAiContent } from '@/lib/news-indexability';
 import { getPublicSupabaseClient } from '@/lib/supabase-public';
-import { canonicalArtistPath, getArtistIdentityDirectory, resolveArtistIdentity } from '@/lib/tour-profile';
+import { canonicalArtistPath, getArtistIdentityDirectory, isLiveTourDate, resolveArtistIdentity } from '@/lib/tour-profile';
 
 export const revalidate = 3600;
 
@@ -37,13 +37,15 @@ type NewsSitemapRow = {
 type ConcertArtistSitemapRow = {
   region: string | null;
   artist_name: string | null;
+  date: string | null;
 };
 
 /**
- * Every artist that has a concert row in `koncerti` gets a ticket profile URL.
- * The slug is resolved through the same identity directory the ticket pages use,
- * so a sitemap URL always matches the canonical `/tickets/<region>/artist/<slug>`
- * the app redirects to (aliases such as the Metallica variants included).
+ * Every artist with a date still on sale gets a ticket profile URL. The slug is
+ * resolved through the same identity directory the ticket pages use, so a sitemap
+ * URL always matches the canonical `/tickets/<region>/artist/<slug>` the app
+ * redirects to (aliases such as the Metallica variants included). Artists whose
+ * whole run has already played stay out, because those pages are noindex.
  */
 async function getTicketArtistRoutes(): Promise<SitemapRoute[]> {
   const supabase = getPublicSupabaseClient();
@@ -52,7 +54,7 @@ async function getTicketArtistRoutes(): Promise<SitemapRoute[]> {
   try {
     const { data, error } = await supabase
       .from('koncerti')
-      .select('region, artist_name')
+      .select('region, artist_name, date')
       .limit(10000);
 
     if (error) {
@@ -61,7 +63,9 @@ async function getTicketArtistRoutes(): Promise<SitemapRoute[]> {
     }
 
     const directory = await getArtistIdentityDirectory();
-    const routes = new Map<string, SitemapRoute>();
+    // An artist keeps one URL per region; it is kept when any of its rows still
+    // has a date on sale.
+    const found = new Map<string, { url: string; live: boolean }>();
 
     for (const row of (data || []) as ConcertArtistSitemapRow[]) {
       const region = row.region?.trim().toLowerCase();
@@ -72,10 +76,14 @@ async function getTicketArtistRoutes(): Promise<SitemapRoute[]> {
       if (!canonicalSlug) continue;
 
       const url = canonicalArtistPath(region, canonicalSlug);
-      if (!routes.has(url)) routes.set(url, { url, priority: 0.7 });
+      const entry = found.get(url) ?? { url, live: false };
+      if (!entry.live && isLiveTourDate(row.date)) entry.live = true;
+      found.set(url, entry);
     }
 
-    return Array.from(routes.values());
+    return Array.from(found.values())
+      .filter((entry) => entry.live)
+      .map(({ url }) => ({ url, priority: 0.7 }));
   } catch (error) {
     console.warn('Could not load artist ticket URLs for sitemap:', error);
     return [];

@@ -220,6 +220,30 @@ export const getTourPageData = cache(async (
   };
 });
 
+/**
+ * A concert date counts as live when it is today or later. An unparseable date is
+ * treated as live so a formatting change in the scraper never silently de-indexes
+ * a real tour.
+ */
+export function isLiveTourDate(value: string | null | undefined, now: Date = new Date()): boolean {
+  if (!value) return false;
+
+  const timestamp = new Date(value).getTime();
+  if (Number.isNaN(timestamp)) return true;
+
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  return timestamp >= startOfToday;
+}
+
+/**
+ * True when the group still has a date on sale. Artist profiles are indexable on
+ * that basis: once the whole run has played out the page keeps existing for
+ * readers but stops advertising itself to search engines.
+ */
+export function hasLiveTourDates(group: ArtistTicketGroup, now: Date = new Date()): boolean {
+  return group.events.some((event) => isLiveTourDate(event.date, now));
+}
+
 export function getProfileVideoId(profile: TourProfileContent): string | null {
   return getYouTubeVideoId(profile.freshMusicVideoId ? `https://youtu.be/${profile.freshMusicVideoId}` : null);
 }

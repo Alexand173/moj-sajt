@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
 import TourProfilePage from '@/components/TourProfilePage';
 import StructuredData from '@/components/StructuredData';
-import { canonicalArtistPath, getTourPageData } from '@/lib/tour-profile';
+import { canonicalArtistPath, getTourPageData, hasLiveTourDates } from '@/lib/tour-profile';
 
 export const revalidate = 300;
 
@@ -16,7 +16,11 @@ export async function generateMetadata({ params }: TourProfilePageProps): Promis
   if (!data) return { title: 'Tour profile not found | MusicTop', robots: { index: false, follow: true } };
 
   const canonical = `https://musictop.net${canonicalArtistPath(regionName, data.canonicalSlug)}`;
-  const shouldIndex = data.profile.aiStatus === 'reviewed' || data.profile.contentOrigin === 'seeded';
+  // Indexable when the profile is approved, or when the artist still has dates on
+  // sale: the live schedule is the page's substantive content.
+  const shouldIndex = data.profile.aiStatus === 'reviewed'
+    || data.profile.contentOrigin === 'seeded'
+    || hasLiveTourDates(data.group);
   return {
     title: data.profile.seoTitle,
     description: data.profile.seoDescription,
