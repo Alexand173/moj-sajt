@@ -99,24 +99,7 @@ jobs:
           set -euo pipefail
           python -c "import playwright; print('Playwright:', playwright.__file__)"
 
-      # NOVO: Automatsko osvežavanje sesije pre scrapera
-      - name: Refresh Soundcharts session
-        shell: bash
-        env:
-          SOUNDCHARTS_USERNAME: ${{ secrets.SOUNDCHARTS_USERNAME }}
-          SOUNDCHARTS_PASSWORD: ${{ secrets.SOUNDCHARTS_PASSWORD }}
-          AI_SCRAPER_BROWSER_STORAGE_STATE: ${{ runner.temp }}/soundcharts-storage-state.json
-        run: |
-          set -euo pipefail
-          python scripts/refresh_soundcharts_session.py
-          
-          # Ažuriraj base64 secret direktno iz skripte preko GitHub API-ja
-          # (Ovo zahteva da imaš GITHUB_TOKEN u env-u, što je standardno)
-          if [ -n "${{ secrets.SOUNDCHARTS_STORAGE_STATE_B64 }}" ]; then
-            echo "Ažuriram sesiju u GitHub secret..."
-            # Opciono: Možeš dodati korak za automatsko ažuriranje secreta preko gh cli
-          fi
-
+     
       - name: Run OpenAI Vision chart updater
         env:
           AI_SCRAPER_BROWSER_STORAGE_STATE: ${{ runner.temp }}/soundcharts-storage-state.json
