@@ -163,6 +163,21 @@
     border-width: 1px 0 0;
   }
 
+  /*
+   * News pages run the small-caps labels ~10% larger on phones so the meta rows
+   * stay legible. Headlines keep their own scale and are never touched here.
+   */
+  @media (max-width: 639px) {
+    .mt-page--news .mt-meta,
+    .mt-page--news .mt-kicker {
+      font-size: 0.6875rem;
+    }
+
+    .mt-page--news .mt-kicker {
+      letter-spacing: 0.24em;
+    }
+  }
+
   .mt-image-overlay {
     background:
       linear-gradient(to top, rgb(8 9 10 / 0.96), rgb(8 9 10 / 0.3) 58%, transparent),
@@ -746,10 +761,6 @@
   .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
-  }
-
-  .vertical-text {
-    writing-mode: vertical-rl;
   }
 
   .text-balance {

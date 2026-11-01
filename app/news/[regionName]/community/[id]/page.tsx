@@ -137,7 +137,7 @@ export default async function CommunityNewsArticlePage({
   };
 
   return (
-    <div className="mt-page mt-page--paper pb-20 pt-10">
+    <div className="mt-page mt-page--paper mt-page--news pb-20 pt-10">
       <StructuredData data={structuredData} />
       <main className="mt-container">
         <Link href={`/news/${regionName}`} className="mb-10 inline-flex items-center gap-2 border-b border-ink pb-2 text-[10px] font-black tracking-[0.2em] text-ink uppercase transition-colors hover:border-accent-red hover:text-accent-red">

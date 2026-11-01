@@ -89,7 +89,7 @@ function EditorialHero({ region, article }: { region: string; article?: NewsEdit
           <div>
             <p className="mt-kicker">{region} editorial desk</p>
             <h1 className="mt-5 max-w-4xl text-[clamp(2rem,4.2vw,4rem)] font-black leading-[0.96] tracking-[-0.02em] text-white uppercase">News in motion</h1>
-            <p className="mt-5 max-w-xl text-sm leading-relaxed text-white/60">The latest stories from the {region.toUpperCase()} music scene.</p>
+            <p className="mt-5 max-w-xl text-[0.9625rem] leading-relaxed text-white/60 sm:text-sm">The latest stories from the {region.toUpperCase()} music scene.</p>
           </div>
         </div>
       </section>
@@ -109,9 +109,9 @@ function EditorialHero({ region, article }: { region: string; article?: NewsEdit
             <span className="mt-meta text-white/55">Long read · {formatDate(article.created_at)}</span>
           </div>
           <h1 className="mt-5 max-w-5xl text-balance text-[clamp(2rem,4.2vw,4rem)] font-black leading-[0.96] tracking-[-0.02em] text-white uppercase">{article.title}</h1>
-          {article.excerpt && <p className="mt-5 max-w-2xl text-sm leading-relaxed text-white/70 sm:text-base">{article.excerpt}</p>}
+          {article.excerpt && <p className="mt-5 max-w-2xl text-[0.9625rem] leading-relaxed text-white/70 sm:text-base">{article.excerpt}</p>}
           <div className="mt-7 flex flex-wrap items-center gap-4">
-            <Link href={`/news/${region}/${article.id}`} className="group inline-flex items-center gap-2 bg-white px-5 py-3 text-[10px] font-black tracking-[0.2em] text-ink uppercase transition-colors hover:bg-accent-red hover:text-white">
+            <Link href={`/news/${region}/${article.id}`} className="group inline-flex items-center gap-2 bg-white px-5 py-3 text-[11px] font-black tracking-[0.2em] text-ink uppercase transition-colors hover:bg-accent-red hover:text-white sm:text-[10px]">
               Read the story
               <ArrowUpRight aria-hidden="true" className="size-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
             </Link>
@@ -136,8 +136,8 @@ function OfficialLiveFeed({ items, activeId, isDesktop, briefState, onToggle, on
   return (
     <section className="border-t-2 border-ink pt-4">
       <div className="mb-5 flex items-center justify-between gap-3">
-        <h2 className="text-xs font-black tracking-[0.25em] text-ink uppercase">Live feed</h2>
-        <span className="flex items-center gap-2 text-[9px] font-bold tracking-[0.18em] text-muted uppercase"><span className="mt-status-dot" />Streaming</span>
+        <h2 className="text-[0.825rem] font-black tracking-[0.25em] text-ink uppercase sm:text-xs">Live feed</h2>
+        <span className="flex items-center gap-2 text-[10px] font-bold tracking-[0.18em] text-muted uppercase sm:text-[9px]"><span className="mt-status-dot" />Streaming</span>
       </div>
       <div>
         {items.length > 0 ? items.map((item) => {
@@ -156,7 +156,7 @@ function OfficialLiveFeed({ items, activeId, isDesktop, briefState, onToggle, on
                 className="group flex w-full items-start justify-between gap-3 py-4 text-left"
               >
                 <span className="min-w-0">
-                  <span className="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[9px] font-black tracking-[0.18em] uppercase">
+                  <span className="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-black tracking-[0.18em] uppercase sm:text-[9px]">
                     <span className={item.category === 'BREAKING' ? 'text-accent-red' : item.category === 'UPDATE' ? 'text-accent-blue' : 'text-muted'}>{item.category || 'Official'}</span>
                     <span className="font-bold tracking-widest text-muted">{formatDate(item.created_at)}</span>
                     {hasBrief && (
@@ -189,7 +189,7 @@ function OfficialLiveFeed({ items, activeId, isDesktop, briefState, onToggle, on
             </div>
           );
         }) : (
-          <p className="border-b border-line py-6 text-[10px] font-bold tracking-[0.14em] text-muted uppercase">No live stories yet.</p>
+          <p className="border-b border-line py-6 text-[11px] font-bold tracking-[0.14em] text-muted uppercase sm:text-[10px]">No live stories yet.</p>
         )}
       </div>
     </section>
@@ -209,7 +209,7 @@ function PublishPostPanel({ region, variant }: { region: string; variant: Publis
     >
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <p className="text-[9px] font-bold tracking-[0.22em] text-white/45 uppercase">Contributor</p>
+          <p className="text-[10px] font-bold tracking-[0.22em] text-white/45 uppercase sm:text-[9px]">Contributor</p>
           <h2 id={headingId} className="mt-1 text-sm font-black tracking-[0.08em] uppercase">{isRail ? 'Publish a new post' : 'Publish a news'}</h2>
         </div>
         <Plus aria-hidden="true" className="size-5 shrink-0 text-accent-red" />
@@ -258,17 +258,17 @@ function CommunityNewsEditorialCard({ region, item }: { region: string; item: Ne
             <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-ink text-[10px] font-black text-white">MT</span>
           )}
           <div className="min-w-0">
-            <p className="truncate text-[10px] font-black tracking-[0.12em] text-ink uppercase">{author}</p>
-            <p className="mt-1 text-[9px] font-bold tracking-[0.16em] text-muted uppercase">Community contributor · {formatDate(item.created_at)}</p>
+            <p className="truncate text-[11px] font-black tracking-[0.12em] text-ink uppercase sm:text-[10px]">{author}</p>
+            <p className="mt-1 text-[10px] font-bold tracking-[0.16em] text-muted uppercase sm:text-[9px]">Community contributor · {formatDate(item.created_at)}</p>
           </div>
         </div>
 
         <h3 className="mt-6 line-clamp-3 text-2xl font-black leading-[0.95] tracking-[-0.05em] text-ink uppercase transition-colors group-hover:text-accent-blue sm:text-3xl">{title}</h3>
-        <p className="mt-4 line-clamp-2 text-sm leading-relaxed text-muted sm:text-base">{excerpt}</p>
+        <p className="mt-4 line-clamp-2 text-[0.9625rem] leading-relaxed text-muted sm:text-base">{excerpt}</p>
 
         <div className="mt-7 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
           <span className="mt-meta">Community news · {formatDate(item.created_at)}</span>
-          <span className="inline-flex items-center gap-1 text-[9px] font-black tracking-[0.16em] text-ink uppercase transition-colors group-hover:text-accent-blue">Read full news <ArrowUpRight aria-hidden="true" className="size-3.5" /></span>
+          <span className="inline-flex items-center gap-1 text-[10px] font-black tracking-[0.16em] text-ink uppercase transition-colors group-hover:text-accent-blue sm:text-[9px]">Read full news <ArrowUpRight aria-hidden="true" className="size-3.5" /></span>
         </div>
       </div>
     </Link>
@@ -284,7 +284,7 @@ function LatestNewsFeatureCard({ region, item }: { region: string; item: NewsEdi
       href={`/news/${region}/${item.id}`}
       className="group my-6 block overflow-hidden border border-line bg-white transition-colors hover:border-ink"
     >
-      <div className="relative aspect-[16/9] overflow-hidden bg-paper-muted">
+      <div className="relative aspect-[3/2] overflow-hidden bg-paper-muted sm:aspect-[16/9]">
         {image ? (
           <img
             src={image}
@@ -294,17 +294,17 @@ function LatestNewsFeatureCard({ region, item }: { region: string; item: NewsEdi
             className="news-feed-image h-full w-full object-cover grayscale transition-all duration-700 group-hover:scale-[1.02] group-hover:grayscale-0"
           />
         ) : (
-          <span className="flex h-full w-full items-center justify-center px-3 text-center text-[9px] font-black tracking-[0.14em] text-muted uppercase">No image</span>
+          <span className="flex h-full w-full items-center justify-center px-3 text-center text-[10px] font-black tracking-[0.14em] text-muted uppercase sm:text-[9px]">No image</span>
         )}
-        <span className="absolute left-0 top-0 bg-accent-red px-2.5 py-1 text-[9px] font-black tracking-[0.18em] text-white uppercase">{item.category || 'Latest'}</span>
+        <span className="absolute left-0 top-0 bg-accent-red px-2.5 py-1 text-[10px] font-black tracking-[0.18em] text-white uppercase sm:text-[9px]">{item.category || 'Latest'}</span>
       </div>
 
       <div className="p-5 sm:p-6">
         <h3 className="text-2xl font-black leading-[1.04] tracking-[-0.04em] text-ink transition-colors group-hover:text-accent-blue sm:text-3xl">{title}</h3>
-        {item.excerpt && <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-muted">{item.excerpt}</p>}
+        {item.excerpt && <p className="mt-3 line-clamp-2 text-[0.9625rem] leading-relaxed text-muted sm:text-sm">{item.excerpt}</p>}
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
-          <span className="text-[9px] font-bold tracking-[0.14em] text-muted uppercase">MusicTop editorial · {formatDate(item.created_at)}</span>
-          <span className="inline-flex items-center gap-1 text-[9px] font-black tracking-[0.16em] text-ink uppercase transition-colors group-hover:text-accent-blue">
+          <span className="text-[10px] font-bold tracking-[0.14em] text-muted uppercase sm:text-[9px]">MusicTop editorial · {formatDate(item.created_at)}</span>
+          <span className="inline-flex items-center gap-1 text-[10px] font-black tracking-[0.16em] text-ink uppercase transition-colors group-hover:text-accent-blue sm:text-[9px]">
             Read full story
             <ArrowUpRight aria-hidden="true" className="size-3.5" />
           </span>
@@ -326,7 +326,7 @@ function LatestNewsCard({ region, item, source = 'editorial' }: { region: string
   return (
     <Link
       href={articleHref}
-      className="group grid grid-cols-[clamp(7rem,30%,14rem)_minmax(0,1fr)] gap-4 border-b border-line py-4 transition-colors hover:border-ink sm:gap-5 sm:py-5"
+      className="group grid grid-cols-[clamp(8rem,38%,14rem)_minmax(0,1fr)] gap-4 border-b border-line py-4 transition-colors hover:border-ink sm:grid-cols-[clamp(7rem,30%,14rem)_minmax(0,1fr)] sm:gap-5 sm:py-5"
     >
       <div className="aspect-[5/3] min-w-0 overflow-hidden bg-paper-muted">
         {image ? (
@@ -338,17 +338,17 @@ function LatestNewsCard({ region, item, source = 'editorial' }: { region: string
             className="news-feed-image h-full w-full object-cover grayscale transition-all duration-500 group-hover:scale-105 group-hover:grayscale-0"
           />
         ) : (
-          <span className="flex h-full w-full items-center justify-center px-2 text-center text-[9px] font-black tracking-[0.14em] text-muted uppercase">No image</span>
+          <span className="flex h-full w-full items-center justify-center px-2 text-center text-[10px] font-black tracking-[0.14em] text-muted uppercase sm:text-[9px]">No image</span>
         )}
       </div>
       <div className="min-w-0 self-center">
         <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span className="text-[9px] font-black tracking-[0.2em] text-accent-red uppercase">{item.category || 'Latest'}</span>
-          <span className="text-[9px] font-bold tracking-[0.12em] text-muted uppercase">{formatDate(item.created_at)}</span>
+          <span className="text-[10px] font-black tracking-[0.2em] text-accent-red uppercase sm:text-[9px]">{item.category || 'Latest'}</span>
+          <span className="text-[10px] font-bold tracking-[0.12em] text-muted uppercase sm:text-[9px]">{formatDate(item.created_at)}</span>
         </div>
         <h3 className="line-clamp-3 text-base font-black leading-tight tracking-[-0.025em] text-ink transition-colors group-hover:text-accent-blue sm:text-lg">{title}</h3>
-        {item.excerpt && <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-muted sm:text-sm">{item.excerpt}</p>}
-        <span className="mt-3 inline-flex items-center gap-1 text-[9px] font-black tracking-[0.16em] text-ink uppercase transition-colors group-hover:text-accent-blue">Read full news <ArrowUpRight aria-hidden="true" className="size-3.5" /></span>
+        {item.excerpt && <p className="mt-2 line-clamp-2 text-[0.825rem] leading-relaxed text-muted sm:text-sm">{item.excerpt}</p>}
+        <span className="mt-3 inline-flex items-center gap-1 text-[10px] font-black tracking-[0.16em] text-ink uppercase transition-colors group-hover:text-accent-blue sm:text-[9px]">Read full news <ArrowUpRight aria-hidden="true" className="size-3.5" /></span>
       </div>
     </Link>
   );
@@ -383,7 +383,7 @@ function LatestNewsFeed({ region, items, communityNews }: { region: string; item
           <p className="mt-kicker">Fresh from Supabase</p>
           <h2 id="latest-news-heading" className="mt-2 text-3xl font-black tracking-[-0.06em] text-ink uppercase sm:text-4xl">Latest news</h2>
         </div>
-        <span className="shrink-0 text-[9px] font-bold tracking-[0.16em] text-muted uppercase">{feedItems.length} stories</span>
+        <span className="shrink-0 text-[10px] font-bold tracking-[0.16em] text-muted uppercase sm:text-[9px]">{feedItems.length} stories</span>
       </div>
 
       {feedItems.length > 0 ? (
@@ -400,7 +400,7 @@ function LatestNewsFeed({ region, items, communityNews }: { region: string; item
         </div>
       ) : (
         <div className="border border-line bg-paper-muted px-5 py-10 text-center">
-          <p className="text-[10px] font-bold tracking-[0.16em] text-muted uppercase">No latest stories yet.</p>
+          <p className="text-[11px] font-bold tracking-[0.16em] text-muted uppercase sm:text-[10px]">No latest stories yet.</p>
           <div className="mt-6 text-left"><PublishPostPanel region={region} variant="inline" /></div>
         </div>
       )}
@@ -413,7 +413,7 @@ function MostReadNewsRail({ region, items }: { region: string; items: NewsEditor
 
   return (
     <section aria-labelledby={headingId} className="rounded-2xl border border-line bg-white p-5 sm:p-6">
-      <h3 id={headingId} className="flex items-center gap-2 text-[10px] font-black tracking-[0.22em] text-ink uppercase">
+      <h3 id={headingId} className="flex items-center gap-2 text-[11px] font-black tracking-[0.22em] text-ink uppercase sm:text-[10px]">
         <TrendingUp aria-hidden="true" className="size-4 text-accent-red" />
         Most read
       </h3>
@@ -435,7 +435,7 @@ function MostReadNewsRail({ region, items }: { region: string; items: NewsEditor
                   </span>
                   <span className="min-w-0">
                     <span className="block line-clamp-2 text-xs font-black leading-snug text-ink transition-colors group-hover:text-accent-blue">{title}</span>
-                    <span className="mt-1.5 block text-[9px] font-bold tracking-[0.14em] text-muted uppercase">{item.category || 'Music news'} · {formatDate(item.created_at)}</span>
+                    <span className="mt-1.5 block text-[10px] font-bold tracking-[0.14em] text-muted uppercase sm:text-[9px]">{item.category || 'Music news'} · {formatDate(item.created_at)}</span>
                   </span>
                 </Link>
               </li>
@@ -443,7 +443,7 @@ function MostReadNewsRail({ region, items }: { region: string; items: NewsEditor
           })}
         </ol>
       ) : (
-        <p className="mt-4 border-t border-line pt-4 text-[10px] font-bold tracking-[0.14em] text-muted uppercase">No news yet.</p>
+        <p className="mt-4 border-t border-line pt-4 text-[11px] font-bold tracking-[0.14em] text-muted uppercase sm:text-[10px]">No news yet.</p>
       )}
     </section>
   );
@@ -456,12 +456,12 @@ function CommunityRail({ region, mostReadNews, communityPosts, discussions, conc
 
       <section>
         <div className="mb-5 flex items-center justify-between gap-3">
-          <h2 className="text-xs font-black tracking-[0.25em] text-ink uppercase">Community hub</h2>
+          <h2 className="text-[0.825rem] font-black tracking-[0.25em] text-ink uppercase sm:text-xs">Community hub</h2>
           <Plus aria-hidden="true" className="size-4 text-accent-red" />
         </div>
         <div className="border-t-2 border-ink pt-4">
           <div className="mb-4 flex items-center justify-between gap-3">
-            <h3 className="text-[10px] font-black tracking-[0.2em] text-muted uppercase">Reader&apos;s blog</h3>
+            <h3 className="text-[11px] font-black tracking-[0.2em] text-muted uppercase sm:text-[10px]">Reader&apos;s blog</h3>
           </div>
           <div className="space-y-4">
             {communityPosts.map((post) => {
@@ -472,12 +472,12 @@ function CommunityRail({ region, mostReadNews, communityPosts, discussions, conc
                   {post.post_image ? <img src={post.post_image} alt="" loading="lazy" decoding="async" className="size-14 shrink-0 object-cover grayscale transition-all group-hover:grayscale-0" /> : <span className="flex size-14 shrink-0 items-center justify-center bg-paper-muted text-xs font-black text-muted">N/A</span>}
                   <span className="min-w-0">
                     <span className="block line-clamp-2 text-xs font-black leading-snug text-ink transition-colors group-hover:text-accent-blue">{post.title}</span>
-                    <span className="mt-1 block text-[9px] font-bold tracking-[0.12em] text-muted uppercase">@{author}</span>
+                    <span className="mt-1 block text-[10px] font-bold tracking-[0.12em] text-muted uppercase sm:text-[9px]">@{author}</span>
                   </span>
                 </Link>
               );
             })}
-            {communityPosts.length === 0 && <p className="text-[10px] font-bold tracking-[0.14em] text-muted uppercase">No posts yet.</p>}
+            {communityPosts.length === 0 && <p className="text-[11px] font-bold tracking-[0.14em] text-muted uppercase sm:text-[10px]">No posts yet.</p>}
           </div>
         </div>
       </section>
@@ -486,24 +486,24 @@ function CommunityRail({ region, mostReadNews, communityPosts, discussions, conc
 
       <section className="border-t-2 border-ink pt-4">
         <div className="mb-4 flex items-center justify-between gap-3">
-          <h3 className="text-[10px] font-black tracking-[0.2em] text-muted uppercase">Comments</h3>
+          <h3 className="text-[11px] font-black tracking-[0.2em] text-muted uppercase sm:text-[10px]">Comments</h3>
           <AddCommentTrigger region={region} />
         </div>
         <div className="space-y-4">
-          {discussions.map((discussion) => <div key={discussion.id} className="border-l-2 border-accent-red pl-3"><p className="text-xs font-bold leading-snug text-ink">&quot;{discussion.text}&quot;</p><span className="mt-1 block text-[9px] font-bold tracking-[0.12em] text-muted uppercase">{discussion.user_name || 'Anonymous'}</span></div>)}
-          {discussions.length === 0 && <p className="text-[10px] font-bold tracking-[0.14em] text-muted uppercase">No discussions yet.</p>}
+          {discussions.map((discussion) => <div key={discussion.id} className="border-l-2 border-accent-red pl-3"><p className="text-[0.825rem] font-bold leading-snug text-ink sm:text-xs">&quot;{discussion.text}&quot;</p><span className="mt-1 block text-[10px] font-bold tracking-[0.12em] text-muted uppercase sm:text-[9px]">{discussion.user_name || 'Anonymous'}</span></div>)}
+          {discussions.length === 0 && <p className="text-[11px] font-bold tracking-[0.14em] text-muted uppercase sm:text-[10px]">No discussions yet.</p>}
         </div>
       </section>
 
       <section className="border-t-2 border-ink pt-4">
         <div className="mb-4 flex items-center justify-between gap-3">
-          <h3 className="text-[10px] font-black tracking-[0.2em] text-muted uppercase">Concert albums</h3>
+          <h3 className="text-[11px] font-black tracking-[0.2em] text-muted uppercase sm:text-[10px]">Concert albums</h3>
           <AddAlbumTrigger region={region} />
         </div>
         <div className="grid grid-cols-2 gap-2">
           {concertAlbums.map((album) => (
             <Link key={album.id} href={`/news/${region}?albumId=${album.id}`} className="group aspect-square overflow-hidden bg-paper-muted">
-              {album.images?.[0] ? <img src={album.images[0]} alt={album.album_name || 'Concert album'} loading="lazy" decoding="async" className="h-full w-full object-cover grayscale transition-all duration-500 group-hover:scale-105 group-hover:grayscale-0" /> : <span className="flex h-full w-full items-center justify-center text-[9px] font-black tracking-[0.12em] text-muted uppercase">No image</span>}
+              {album.images?.[0] ? <img src={album.images[0]} alt={album.album_name || 'Concert album'} loading="lazy" decoding="async" className="h-full w-full object-cover grayscale transition-all duration-500 group-hover:scale-105 group-hover:grayscale-0" /> : <span className="flex h-full w-full items-center justify-center text-[10px] font-black tracking-[0.12em] text-muted uppercase sm:text-[9px]">No image</span>}
             </Link>
           ))}
         </div>
@@ -554,13 +554,13 @@ function MassStoryCard({ region, item, variant }: { region: string; item: NewsEd
           className="absolute inset-0 h-full w-full object-cover grayscale transition-all duration-700 group-hover:scale-105 group-hover:grayscale-0"
         />
       ) : (
-        <span className="absolute inset-0 flex items-center justify-center text-[9px] font-black tracking-[0.16em] text-white/50 uppercase">No image</span>
+        <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black tracking-[0.16em] text-white/50 uppercase sm:text-[9px]">No image</span>
       )}
       <div className="mt-image-overlay absolute inset-0" />
       <div className="absolute inset-x-0 bottom-0 z-10 p-4 sm:p-6">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="bg-accent-red px-2 py-1 text-[8px] font-black tracking-[0.18em] text-white uppercase">{category}</span>
-          <span className="text-[9px] font-bold tracking-[0.14em] text-white/55 uppercase">{formatDate(item.created_at)}</span>
+          <span className="bg-accent-red px-2 py-1 text-[9px] font-black tracking-[0.18em] text-white uppercase sm:text-[8px]">{category}</span>
+          <span className="text-[10px] font-bold tracking-[0.14em] text-white/55 uppercase sm:text-[9px]">{formatDate(item.created_at)}</span>
         </div>
         <h3 className={`mt-3 line-clamp-3 font-black leading-[0.94] tracking-[-0.045em] text-white uppercase transition-colors group-hover:text-accent-red ${MASS_STORY_TITLE_CLASSES[variant]}`}>{title}</h3>
       </div>
@@ -578,7 +578,7 @@ function StoriesByMass({ region, items }: { region: string; items: NewsEditorial
           <p className="mt-kicker">The intelligence feed</p>
           <h2 id="stories-by-mass-heading" className="mt-3 text-4xl font-black tracking-[-0.07em] text-ink uppercase sm:text-6xl">Stories by mass</h2>
         </div>
-        <Link href={`/news/${region}`} className="group inline-flex items-center gap-1.5 pb-1 text-[9px] font-black tracking-[0.2em] text-ink uppercase transition-colors hover:text-accent-red">
+        <Link href={`/news/${region}`} className="group inline-flex items-center gap-1.5 pb-1 text-[10px] font-black tracking-[0.2em] text-ink uppercase transition-colors hover:text-accent-red sm:text-[9px]">
           View all
           <ArrowUpRight aria-hidden="true" className="size-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
         </Link>
@@ -592,7 +592,7 @@ function StoriesByMass({ region, items }: { region: string; items: NewsEditorial
         </div>
       ) : (
         <div className="border border-line bg-paper-muted px-5 py-10 text-center">
-          <p className="text-[10px] font-bold tracking-[0.16em] text-muted uppercase">No mass stories yet.</p>
+          <p className="text-[11px] font-bold tracking-[0.16em] text-muted uppercase sm:text-[10px]">No mass stories yet.</p>
         </div>
       )}
     </section>
@@ -653,7 +653,7 @@ export default function NewsEditorialView({
   };
 
   return (
-    <div className="mt-page mt-page--paper">
+    <div className="mt-page mt-page--paper mt-page--news">
       <EditorialHero region={region} article={featuredNews} />
 
       <main className="mt-container py-12 sm:py-16 lg:py-20">

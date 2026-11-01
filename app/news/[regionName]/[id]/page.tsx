@@ -259,7 +259,7 @@ export default async function SingleNewsPage({
     : null;
 
   return (
-    <div className="mt-page mt-page--paper pb-20 pt-10">
+    <div className="mt-page mt-page--paper mt-page--news pb-20 pt-10">
       {hasValidatedRewrite && <StructuredData data={articleStructuredData} />}
       {relatedVideoStructuredData && <StructuredData data={relatedVideoStructuredData} />}
       <StructuredData data={breadcrumbSchema} />
