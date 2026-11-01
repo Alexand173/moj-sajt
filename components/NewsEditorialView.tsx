@@ -328,7 +328,7 @@ function LatestNewsCard({ region, item, source = 'editorial' }: { region: string
       href={articleHref}
       className="group grid grid-cols-[clamp(7.5rem,36%,14rem)_minmax(0,1fr)] gap-4 border-b border-line py-4 transition-colors hover:border-ink sm:grid-cols-[clamp(7rem,30%,14rem)_minmax(0,1fr)] sm:gap-5 sm:py-5"
     >
-      <div className="aspect-[5/3] min-w-0 overflow-hidden bg-paper-muted">
+      <div className="h-full min-h-20 min-w-0 self-stretch overflow-hidden bg-paper-muted sm:aspect-[5/3] sm:h-auto sm:self-auto">
         {image ? (
           <img
             src={image}
