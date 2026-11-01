@@ -140,7 +140,7 @@ export default async function CommunityNewsArticlePage({
     <div className="mt-page mt-page--paper mt-page--news pb-20 pt-10">
       <StructuredData data={structuredData} />
       <main className="mt-container">
-        <Link href={`/news/${regionName}`} className="mb-10 inline-flex items-center gap-2 border-b border-ink pb-2 text-[10px] font-black tracking-[0.2em] text-ink uppercase transition-colors hover:border-accent-red hover:text-accent-red">
+        <Link href={`/news/${regionName}`} className="mb-10 inline-flex items-center gap-2 border-b border-ink pb-2 text-[11px] font-black tracking-[0.2em] text-ink uppercase transition-colors hover:border-accent-red hover:text-accent-red sm:text-[10px]">
           ← Back to {regionName} news
         </Link>
 
@@ -148,7 +148,7 @@ export default async function CommunityNewsArticlePage({
           <div>
             <header className="border-b border-line pb-8">
               <div className="flex flex-wrap items-center gap-3">
-                <span className="bg-accent-red px-2.5 py-1 text-[9px] font-black tracking-[0.2em] text-white uppercase">Community news</span>
+                <span className="bg-accent-red px-2.5 py-1 text-[10px] font-black tracking-[0.2em] text-white uppercase sm:text-[9px]">Community news</span>
                 <span className="mt-meta text-muted">{formatDate(article.created_at)} · {regionName.toUpperCase()}</span>
               </div>
               <h1 className="mt-6 max-w-5xl text-balance text-[clamp(2.5rem,6vw,6.5rem)] font-black leading-[0.88] tracking-[-0.08em] text-ink uppercase">{article.title}</h1>
@@ -164,7 +164,7 @@ export default async function CommunityNewsArticlePage({
               {paragraphs[0]}
             </div>
             {paragraphs.length > 1 && (
-              <div className="mt-10 space-y-6 border-t border-line pt-6 text-base leading-relaxed text-ink sm:text-lg">
+              <div className="mt-10 space-y-6 border-t border-line pt-6 text-[1.1rem] leading-relaxed text-ink sm:text-lg">
                 {paragraphs.slice(1).map((paragraph, index) => <p key={`${article.id}-paragraph-${index}`}>{paragraph}</p>)}
               </div>
             )}
@@ -176,20 +176,20 @@ export default async function CommunityNewsArticlePage({
               {profile?.avatar_url ? (
                 <img src={profile.avatar_url} alt="" loading="lazy" decoding="async" className="size-12 rounded-full border border-line object-cover" />
               ) : (
-                <span className="flex size-12 items-center justify-center rounded-full bg-ink text-[10px] font-black text-white">MT</span>
+                <span className="flex size-12 items-center justify-center rounded-full bg-ink text-[11px] font-black text-white sm:text-[10px]">MT</span>
               )}
               <div>
-                <p className="text-sm font-black tracking-[0.08em] text-ink uppercase">{author}</p>
-                <p className="mt-1 text-[9px] font-bold tracking-[0.14em] text-muted uppercase">MusicTop community</p>
+                <p className="text-[0.9625rem] font-black tracking-[0.08em] text-ink uppercase sm:text-sm">{author}</p>
+                <p className="mt-1 text-[10px] font-bold tracking-[0.14em] text-muted uppercase sm:text-[9px]">MusicTop community</p>
               </div>
             </div>
             <div className="mt-8 border-t border-line pt-5">
               <p className="mt-meta text-muted">Region</p>
-              <p className="mt-3 text-sm font-black tracking-[0.14em] text-ink uppercase">{regionName}</p>
+              <p className="mt-3 text-[0.9625rem] font-black tracking-[0.14em] text-ink uppercase sm:text-sm">{regionName}</p>
             </div>
             <div className="mt-8 border-t border-line pt-5">
               <p className="mt-meta text-muted">Story type</p>
-              <p className="mt-3 text-sm font-black tracking-[0.08em] text-ink uppercase">Reader publication</p>
+              <p className="mt-3 text-[0.9625rem] font-black tracking-[0.08em] text-ink uppercase sm:text-sm">Reader publication</p>
             </div>
           </aside>
         </article>

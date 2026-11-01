@@ -100,13 +100,13 @@ function BriefLoading({ title }: { title: string }) {
 function BriefError({ onRetry }: { onRetry: () => void }) {
   return (
     <div role="status">
-      <p className="text-sm leading-relaxed text-muted">
+      <p className="text-[0.9625rem] leading-relaxed text-muted sm:text-sm">
         The brief did not load. Retry, or read the publisher&apos;s report below.
       </p>
       <button
         type="button"
         onClick={onRetry}
-        className="mt-3 inline-flex items-center gap-1.5 border border-line px-3 py-2 text-[9px] font-black tracking-[0.14em] text-ink uppercase transition-colors hover:border-accent-red hover:text-accent-red"
+        className="mt-3 inline-flex items-center gap-1.5 border border-line px-3 py-2 text-[10px] font-black tracking-[0.14em] text-ink uppercase transition-colors hover:border-accent-red hover:text-accent-red sm:text-[9px]"
       >
         <RotateCw aria-hidden="true" className="size-3.5" />
         Try again
@@ -117,7 +117,7 @@ function BriefError({ onRetry }: { onRetry: () => void }) {
 
 function BriefPending() {
   return (
-    <p className="flex gap-2 text-sm leading-relaxed text-muted">
+    <p className="flex gap-2 text-[0.9625rem] leading-relaxed text-muted sm:text-sm">
       <Sparkles aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-accent-blue" />
       <span>
         MusicTop is still preparing the independent brief for this story. The publisher&apos;s report is available now.
@@ -134,8 +134,8 @@ function BriefParagraphs({ articleId, paragraphs, isPanel }: { articleId: string
           <p
             key={`${articleId}-paragraph-${index}`}
             className={index === 0
-              ? 'text-base leading-[1.6] text-ink sm:text-lg'
-              : 'text-[15px] leading-[1.75] text-ink/80'}
+              ? 'text-[1.1rem] leading-[1.6] text-ink sm:text-lg'
+              : 'text-[1.05rem] leading-[1.75] text-ink/80 sm:text-[15px]'}
           >
             {paragraph}
           </p>
@@ -145,7 +145,7 @@ function BriefParagraphs({ articleId, paragraphs, isPanel }: { articleId: string
   }
 
   return (
-    <div className="space-y-3.5 text-sm leading-relaxed text-ink">
+    <div className="space-y-3.5 text-[0.9625rem] leading-relaxed text-ink sm:text-sm">
       {paragraphs.map((paragraph, index) => (
         <p key={`${articleId}-paragraph-${index}`}>{paragraph}</p>
       ))}
@@ -169,17 +169,17 @@ function BriefFooter({ url, sourceName, isReady, similarityScore, isPanel }: Bri
           href={url}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-[9px] font-black tracking-[0.14em] text-ink uppercase underline decoration-accent-red decoration-2 underline-offset-4 transition-colors hover:text-accent-red"
+          className="inline-flex items-center gap-1.5 text-[10px] font-black tracking-[0.14em] text-ink uppercase underline decoration-accent-red decoration-2 underline-offset-4 transition-colors hover:text-accent-red sm:text-[9px]"
         >
           Original report: {sourceName}
           <ArrowUpRight aria-hidden="true" className="size-3.5" />
         </a>
       ) : (
-        <span className="text-[9px] font-bold tracking-[0.14em] text-muted uppercase">Original link unavailable</span>
+        <span className="text-[10px] font-bold tracking-[0.14em] text-muted uppercase sm:text-[9px]">Original link unavailable</span>
       )}
 
       {isReady && similarityScore !== null && (
-        <span className="inline-flex items-center gap-1.5 text-[8px] font-bold tracking-[0.12em] text-muted uppercase">
+        <span className="inline-flex items-center gap-1.5 text-[9px] font-bold tracking-[0.12em] text-muted uppercase sm:text-[8px]">
           <Check aria-hidden="true" className="size-3 text-ticket-green" />
           Independent rewrite · {Math.round(similarityScore * 100)}% source overlap
         </span>
@@ -241,12 +241,12 @@ export default function OfficialNewsReader({
       <article id={articleId} aria-labelledby={headingId} className="mt-3 border-t-2 border-ink bg-paper-muted px-4 py-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="flex items-center gap-2 text-[9px] font-black tracking-[0.22em] text-accent-red uppercase">
+            <p className="flex items-center gap-2 text-[10px] font-black tracking-[0.22em] text-accent-red uppercase sm:text-[9px]">
               <Sparkles aria-hidden="true" className="size-3" />
               MusicTop brief
             </p>
             <h3 id={headingId} className="sr-only">{title}</h3>
-            <p className="mt-1.5 text-[9px] font-bold tracking-[0.14em] text-muted uppercase">{sourceName} · {publishedLabel}</p>
+            <p className="mt-1.5 text-[10px] font-bold tracking-[0.14em] text-muted uppercase sm:text-[9px]">{sourceName} · {publishedLabel}</p>
           </div>
           <button
             type="button"
@@ -265,14 +265,14 @@ export default function OfficialNewsReader({
   return (
     <article id={articleId} aria-labelledby={headingId} className="border-t-2 border-ink pt-5">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
-        <p className="flex items-center gap-2 text-[9px] font-black tracking-[0.22em] text-accent-red uppercase">
+        <p className="flex items-center gap-2 text-[10px] font-black tracking-[0.22em] text-accent-red uppercase sm:text-[9px]">
           <span aria-hidden="true" className="h-px w-5 bg-current" />
           MusicTop brief
         </p>
         <button
           type="button"
           onClick={onClose}
-          className="inline-flex items-center gap-1.5 border border-line px-3 py-2 text-[9px] font-black tracking-[0.14em] text-ink uppercase transition-colors hover:border-ink hover:bg-ink hover:text-white"
+          className="inline-flex items-center gap-1.5 border border-line px-3 py-2 text-[10px] font-black tracking-[0.14em] text-ink uppercase transition-colors hover:border-ink hover:bg-ink hover:text-white sm:text-[9px]"
         >
           <X aria-hidden="true" className="size-3" />
           Back to the feed
@@ -285,7 +285,7 @@ export default function OfficialNewsReader({
       >
         {title}
       </h3>
-      <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[9px] font-bold tracking-[0.16em] text-muted uppercase">
+      <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-bold tracking-[0.16em] text-muted uppercase sm:text-[9px]">
         <span className="text-accent-blue">Official source · {sourceName}</span>
         <span aria-hidden="true" className="text-line-strong">/</span>
         <span>{publishedLabel}</span>

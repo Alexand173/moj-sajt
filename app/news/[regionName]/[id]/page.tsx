@@ -83,9 +83,9 @@ function RelatedNewsVideo({ videoUrl }: { videoUrl: string }) {
         <div className="min-w-0">
           <p className="mt-meta text-accent-red">Recent video</p>
           <h2 id={headingId} className="mt-3 text-xl font-black leading-tight tracking-[-0.04em] text-ink uppercase sm:text-2xl">Related music video</h2>
-          <p className="mt-2 text-[10px] font-bold tracking-[0.12em] text-muted uppercase">Selected for this story · Published within the last two years</p>
+          <p className="mt-2 text-[11px] font-bold tracking-[0.12em] text-muted uppercase sm:text-[10px]">Selected for this story · Published within the last two years</p>
         </div>
-        <a href={videoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex shrink-0 items-center gap-1.5 text-[9px] font-black tracking-[0.16em] text-ink uppercase transition-colors hover:text-accent-red focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent-red">
+        <a href={videoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex shrink-0 items-center gap-1.5 text-[10px] font-black tracking-[0.16em] text-ink uppercase transition-colors hover:text-accent-red focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent-red sm:text-[9px]">
           Watch on YouTube <span aria-hidden="true">↗</span>
         </a>
       </div>
@@ -114,7 +114,7 @@ function RelatedNewsImage({ imageUrl, captionId }: { imageUrl?: string | null; c
       <div className="aspect-[16/9] overflow-hidden bg-ink">
         <img src={safeImageUrl} alt="Recent image related to this news story" loading="lazy" decoding="async" className="h-full w-full object-cover" />
       </div>
-      <figcaption id={captionId} className="mt-4 flex flex-wrap items-center justify-between gap-2 text-[9px] font-bold tracking-[0.14em] text-muted uppercase">
+      <figcaption id={captionId} className="mt-4 flex flex-wrap items-center justify-between gap-2 text-[10px] font-bold tracking-[0.14em] text-muted uppercase sm:text-[9px]">
         <span>Related subject image · {imageProvider}</span>
         <span>Distinct from the headline image</span>
       </figcaption>
@@ -264,12 +264,12 @@ export default async function SingleNewsPage({
       {relatedVideoStructuredData && <StructuredData data={relatedVideoStructuredData} />}
       <StructuredData data={breadcrumbSchema} />
       <article className="mt-container">
-        <Link href={`/news/${regionName}`} className="mb-12 inline-flex items-center gap-2 border-b border-ink pb-2 text-[10px] font-black tracking-[0.22em] text-ink uppercase transition-colors hover:border-accent-red hover:text-accent-red">← Back to {regionName} news feed</Link>
+        <Link href={`/news/${regionName}`} className="mb-12 inline-flex items-center gap-2 border-b border-ink pb-2 text-[11px] font-black tracking-[0.22em] text-ink uppercase transition-colors hover:border-accent-red hover:text-accent-red sm:text-[10px]">← Back to {regionName} news feed</Link>
 
         <header className="border-b border-line pb-10">
-          <div className="flex flex-wrap items-center gap-3"><span className="bg-accent-red px-2.5 py-1 text-[9px] font-black tracking-[0.2em] text-white uppercase">{article.category || 'Music industry'}</span><span className="mt-meta text-muted">Source: {sourceName}</span></div>
+          <div className="flex flex-wrap items-center gap-3"><span className="bg-accent-red px-2.5 py-1 text-[10px] font-black tracking-[0.2em] text-white uppercase sm:text-[9px]">{article.category || 'Music industry'}</span><span className="mt-meta text-muted">Source: {sourceName}</span></div>
           <h1 className="mt-6 max-w-5xl text-balance text-[clamp(2rem,4.2vw,3.75rem)] font-black leading-[0.98] tracking-[-0.02em] text-ink uppercase">{aiArticle.seoTitle}</h1>
-          <p className="mt-6 max-w-2xl text-sm leading-relaxed text-muted sm:text-base">Published {article.created_at ? new Date(article.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'recently'} · {regionName.toUpperCase()}</p>
+          <p className="mt-6 max-w-2xl text-[0.9625rem] leading-relaxed text-muted sm:text-base">Published {article.created_at ? new Date(article.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'recently'} · {regionName.toUpperCase()}</p>
         </header>
 
         {article.image && <div className="mt-10 aspect-[16/8] overflow-hidden bg-ink"><img src={article.image} alt={article.title} loading="eager" fetchPriority="high" decoding="async" className="news-feed-image h-full w-full object-cover grayscale transition-all duration-700 hover:grayscale-0" /></div>}
@@ -279,7 +279,7 @@ export default async function SingleNewsPage({
             <p className="border-l-4 border-accent-red pl-6 text-2xl font-black leading-[0.98] tracking-[-0.04em] text-muted sm:text-3xl">{aiArticle.seoDescription}</p>
             <div className="mt-10 border-t border-line pt-5">
               {!aiArticle.isAiGenerated && <p className="mt-meta text-accent-red">Editorial source report · {sourceName}</p>}
-              <div className="mt-7 space-y-6 text-base leading-relaxed text-ink sm:text-lg">
+              <div className="mt-7 space-y-6 text-[1.1rem] leading-relaxed text-ink sm:text-lg">
                 {articleParagraphs.map((paragraph, index) => (
                   <Fragment key={`${article.id}-paragraph-${index}`}>
                     <p>{paragraph}</p>
@@ -294,11 +294,11 @@ export default async function SingleNewsPage({
 
             <section className="mt-16 border-t-8 border-ink bg-paper-muted p-6 sm:p-10">
               <h2 className="text-xl font-black tracking-[-0.04em] text-ink uppercase sm:text-2xl">Full story & global impact</h2>
-              <p className="mt-4 text-sm leading-relaxed text-muted">{aiArticle.isAiGenerated ? `This article was synthesized and rewritten by MusicTop Editorial from reporting published by ${sourceName}. Read the publisher's report for the complete source context.` : `The independent rewrite is temporarily unavailable. The publisher's article is linked below and is not reproduced on this page.`}</p>
-              {sourceUrl ? <a href={sourceUrl} target="_blank" rel="noopener noreferrer" aria-label={`Read the original source from ${sourceName}`} className="mt-7 flex min-h-14 items-center justify-center gap-2 bg-ink px-4 py-4 text-center text-[10px] font-black tracking-[0.16em] text-white uppercase transition-colors hover:bg-accent-red focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent-red">Read original source: {sourceName} <span aria-hidden="true">↗</span></a> : <p className="mt-7 bg-line px-4 py-4 text-center text-[10px] font-black tracking-[0.16em] text-muted uppercase">Original source link unavailable · Source: {sourceName}</p>}
+              <p className="mt-4 text-[0.9625rem] leading-relaxed text-muted sm:text-sm">{aiArticle.isAiGenerated ? `This article was synthesized and rewritten by MusicTop Editorial from reporting published by ${sourceName}. Read the publisher's report for the complete source context.` : `The independent rewrite is temporarily unavailable. The publisher's article is linked below and is not reproduced on this page.`}</p>
+              {sourceUrl ? <a href={sourceUrl} target="_blank" rel="noopener noreferrer" aria-label={`Read the original source from ${sourceName}`} className="mt-7 flex min-h-14 items-center justify-center gap-2 bg-ink px-4 py-4 text-center text-[11px] font-black tracking-[0.16em] text-white uppercase transition-colors hover:bg-accent-red focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent-red sm:text-[10px]">Read original source: {sourceName} <span aria-hidden="true">↗</span></a> : <p className="mt-7 bg-line px-4 py-4 text-center text-[11px] font-black tracking-[0.16em] text-muted uppercase sm:text-[10px]">Original source link unavailable · Source: {sourceName}</p>}
             </section>
           </div>
-          <aside className="border-t border-line pt-5 lg:border-l lg:border-t-0 lg:pl-6"><p className="mt-meta text-muted">Filed under</p><p className="mt-3 text-xl font-black tracking-[-0.04em] text-ink uppercase">{article.category || 'Music news'}</p><div className="mt-8 border-t border-line pt-5"><p className="mt-meta text-muted">Region</p><p className="mt-3 text-sm font-black tracking-[0.14em] text-ink uppercase">{regionName}</p></div></aside>
+          <aside className="border-t border-line pt-5 lg:border-l lg:border-t-0 lg:pl-6"><p className="mt-meta text-muted">Filed under</p><p className="mt-3 text-xl font-black tracking-[-0.04em] text-ink uppercase">{article.category || 'Music news'}</p><div className="mt-8 border-t border-line pt-5"><p className="mt-meta text-muted">Region</p><p className="mt-3 text-[0.9625rem] font-black tracking-[0.14em] text-ink uppercase sm:text-sm">{regionName}</p></div></aside>
         </div>
       </article>
     </div>

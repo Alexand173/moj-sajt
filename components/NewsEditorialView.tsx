@@ -105,7 +105,7 @@ function EditorialHero({ region, article }: { region: string; article?: NewsEdit
       <div className="relative z-10 flex min-h-[36rem] items-end sm:min-h-[42rem] lg:min-h-[calc(78vh-8rem)]">
         <div className="mt-container pb-10 sm:pb-14 lg:pb-16">
           <div className="flex flex-wrap items-center gap-3">
-            <span className="bg-accent-red px-2.5 py-1 text-[9px] font-black tracking-[0.22em] text-white uppercase">{article.category || 'Featured'}</span>
+            <span className="bg-accent-red px-2.5 py-1 text-[10px] font-black tracking-[0.22em] text-white uppercase sm:text-[9px]">{article.category || 'Featured'}</span>
             <span className="mt-meta text-white/55">Long read · {formatDate(article.created_at)}</span>
           </div>
           <h1 className="mt-5 max-w-5xl text-balance text-[clamp(2rem,4.2vw,4rem)] font-black leading-[0.96] tracking-[-0.02em] text-white uppercase">{article.title}</h1>
@@ -244,10 +244,10 @@ function CommunityNewsEditorialCard({ region, item }: { region: string; item: Ne
             className="h-full w-full object-cover grayscale transition-all duration-700 group-hover:scale-[1.02] group-hover:grayscale-0"
           />
         ) : (
-          <span className="flex h-full w-full items-center justify-center text-[9px] font-black tracking-[0.14em] text-white/60 uppercase">No image</span>
+          <span className="flex h-full w-full items-center justify-center text-[10px] font-black tracking-[0.14em] text-white/60 uppercase sm:text-[9px]">No image</span>
         )}
         <div className="mt-image-overlay absolute inset-0 opacity-80" />
-        <span className="absolute left-4 top-4 bg-accent-red px-2.5 py-1 text-[9px] font-black tracking-[0.22em] text-white uppercase">From the writers</span>
+        <span className="absolute left-4 top-4 bg-accent-red px-2.5 py-1 text-[10px] font-black tracking-[0.22em] text-white uppercase sm:text-[9px]">From the writers</span>
       </div>
 
       <div className="p-5 sm:p-6 lg:p-8">
@@ -255,7 +255,7 @@ function CommunityNewsEditorialCard({ region, item }: { region: string; item: Ne
           {profile?.avatar_url ? (
             <img src={profile.avatar_url} alt="" loading="lazy" decoding="async" className="size-10 shrink-0 rounded-full border border-line object-cover" />
           ) : (
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-ink text-[10px] font-black text-white">MT</span>
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-ink text-[11px] font-black text-white sm:text-[10px]">MT</span>
           )}
           <div className="min-w-0">
             <p className="truncate text-[11px] font-black tracking-[0.12em] text-ink uppercase sm:text-[10px]">{author}</p>
@@ -284,7 +284,7 @@ function LatestNewsFeatureCard({ region, item }: { region: string; item: NewsEdi
       href={`/news/${region}/${item.id}`}
       className="group my-6 block overflow-hidden border border-line bg-white transition-colors hover:border-ink"
     >
-      <div className="relative aspect-[3/2] overflow-hidden bg-paper-muted sm:aspect-[16/9]">
+      <div className="relative aspect-[8/5] overflow-hidden bg-paper-muted sm:aspect-[16/9]">
         {image ? (
           <img
             src={image}
@@ -326,7 +326,7 @@ function LatestNewsCard({ region, item, source = 'editorial' }: { region: string
   return (
     <Link
       href={articleHref}
-      className="group grid grid-cols-[clamp(8rem,38%,14rem)_minmax(0,1fr)] gap-4 border-b border-line py-4 transition-colors hover:border-ink sm:grid-cols-[clamp(7rem,30%,14rem)_minmax(0,1fr)] sm:gap-5 sm:py-5"
+      className="group grid grid-cols-[clamp(7.5rem,36%,14rem)_minmax(0,1fr)] gap-4 border-b border-line py-4 transition-colors hover:border-ink sm:grid-cols-[clamp(7rem,30%,14rem)_minmax(0,1fr)] sm:gap-5 sm:py-5"
     >
       <div className="aspect-[5/3] min-w-0 overflow-hidden bg-paper-muted">
         {image ? (
@@ -659,18 +659,18 @@ export default function NewsEditorialView({
       <main className="mt-container py-12 sm:py-16 lg:py-20">
         {activeAlbum ? (
           <section className="border border-line bg-white p-5 sm:p-8">
-            <Link href={`/news/${region}`} className="mb-6 inline-flex items-center gap-2 text-[10px] font-black tracking-[0.2em] text-ink uppercase transition-colors hover:text-accent-red">← Back to feed</Link>
+            <Link href={`/news/${region}`} className="mb-6 inline-flex items-center gap-2 text-[11px] font-black tracking-[0.2em] text-ink uppercase transition-colors hover:text-accent-red sm:text-[10px]">← Back to feed</Link>
             <h1 className="mb-7 text-3xl font-black tracking-[-0.06em] text-ink uppercase sm:text-5xl">{activeAlbum.album_name || 'Concert album'}</h1>
             <AlbumGallery images={activeAlbum.images || []} albumName={activeAlbum.album_name || 'Concert album'} />
           </section>
         ) : activeBlog ? (
           <section className="border border-line bg-white p-5 sm:p-8">
-            <Link href={`/news/${region}`} className="mb-6 inline-flex items-center gap-2 text-[10px] font-black tracking-[0.2em] text-ink uppercase transition-colors hover:text-accent-red">← Back to feed</Link>
+            <Link href={`/news/${region}`} className="mb-6 inline-flex items-center gap-2 text-[11px] font-black tracking-[0.2em] text-ink uppercase transition-colors hover:text-accent-red sm:text-[10px]">← Back to feed</Link>
             <p className="mt-kicker">Reader&apos;s blog</p>
             <h1 className="mt-5 text-3xl font-black tracking-[-0.06em] text-ink uppercase sm:text-5xl">{activeBlog.title}</h1>
             <div className="mt-7 flex flex-col gap-6 sm:flex-row">
               {activeBlog.post_image && <img src={activeBlog.post_image} alt={activeBlog.title || 'Reader post'} loading="lazy" decoding="async" className="size-32 object-cover grayscale" />}
-              <p className="max-w-2xl whitespace-pre-line text-base leading-relaxed text-muted">{activeBlog.content}</p>
+              <p className="max-w-2xl whitespace-pre-line text-[1.1rem] leading-relaxed text-muted sm:text-base">{activeBlog.content}</p>
             </div>
           </section>
         ) : (

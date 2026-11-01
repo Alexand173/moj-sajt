@@ -41,7 +41,7 @@ export default function RelatedStories({ stories, region, headingId = 'related-s
                       className="h-full w-full object-cover grayscale transition-all duration-500 group-hover:scale-105 group-hover:grayscale-0"
                     />
                   ) : (
-                    <span className="flex h-full w-full items-center justify-center text-[8px] font-black tracking-[0.12em] text-muted uppercase">No image</span>
+                    <span className="flex h-full w-full items-center justify-center text-[9px] font-black tracking-[0.12em] text-muted uppercase sm:text-[8px]">No image</span>
                   )}
                 </span>
                 <span className="min-w-0 block text-sm font-black leading-[1.2] tracking-[-0.015em] text-ink transition-colors group-hover:text-accent-blue sm:text-base">
