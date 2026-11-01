@@ -2,7 +2,7 @@ import type { MetadataRoute } from 'next';
 import { EUROPA_SUBREGIONS } from '@/lib/region-navigation';
 import { hasValidatedAiContent } from '@/lib/news-indexability';
 import { getPublicSupabaseClient } from '@/lib/supabase-public';
-import { canonicalArtistPath, getPublishedTourProfileSlugs, getTicketGroups } from '@/lib/tour-profile';
+import { canonicalArtistPath, getArtistIdentityDirectory, resolveArtistIdentity } from '@/lib/tour-profile';
 
 export const revalidate = 3600;
 
@@ -34,76 +34,79 @@ type NewsSitemapRow = {
   ai_status: string | null;
 };
 
-type FestivalSitemapRow = {
-  id: string | number;
+type ConcertArtistSitemapRow = {
   region: string | null;
-  date_start: string | null;
-  is_deleted: boolean | null;  // ← DODATO!
+  artist_name: string | null;
 };
 
-function isUpcomingDate(value: string | null): boolean {
-  if (!value) return false;
-  const timestamp = new Date(value).getTime();
-  return !Number.isNaN(timestamp) && timestamp >= Date.now();
-}
-
-async function getArtistProfileRoutes(): Promise<SitemapRoute[]> {
-  const regions = Object.keys(siteStructure);
-  const [publishedSlugs, regionalGroups] = await Promise.all([
-    getPublishedTourProfileSlugs(),
-    Promise.all(regions.map((region) => getTicketGroups(region))),
-  ]);
-  const routes = regionalGroups.flatMap((groups, regionIndex) => groups
-    .filter((group) => publishedSlugs.has(group.artist_slug))
-    .map((group) => ({
-      url: canonicalArtistPath(regions[regionIndex], group.artist_slug),
-      priority: 0.8,
-    })));
-  return Array.from(new Map(routes.map((route) => [route.url, route])).values());
-}
-
-async function getContentRoutes(): Promise<SitemapRoute[]> {
+/**
+ * Every artist that has a concert row in `koncerti` gets a ticket profile URL.
+ * The slug is resolved through the same identity directory the ticket pages use,
+ * so a sitemap URL always matches the canonical `/tickets/<region>/artist/<slug>`
+ * the app redirects to (aliases such as the Metallica variants included).
+ */
+async function getTicketArtistRoutes(): Promise<SitemapRoute[]> {
   const supabase = getPublicSupabaseClient();
   if (!supabase) return [];
 
   try {
-    const [newsResult, festivalResult] = await Promise.all([
-      supabase
-        .from('news')
-        .select('id, region, created_at, ai_content, ai_generated, ai_status')
-        .limit(10000),
-      supabase
-        .from('festivals')
-        .select('id, region, date_start')
-        .limit(10000),
-    ]);
+    const { data, error } = await supabase
+      .from('koncerti')
+      .select('region, artist_name')
+      .limit(10000);
+
+    if (error) {
+      console.warn('Could not load artist ticket URLs for sitemap:', error.message);
+      return [];
+    }
+
+    const directory = await getArtistIdentityDirectory();
+    const routes = new Map<string, SitemapRoute>();
+
+    for (const row of (data || []) as ConcertArtistSitemapRow[]) {
+      const region = row.region?.trim().toLowerCase();
+      const artistName = row.artist_name?.trim();
+      if (!region || !artistName) continue;
+
+      const { canonicalSlug } = resolveArtistIdentity(artistName, directory);
+      if (!canonicalSlug) continue;
+
+      const url = canonicalArtistPath(region, canonicalSlug);
+      if (!routes.has(url)) routes.set(url, { url, priority: 0.7 });
+    }
+
+    return Array.from(routes.values());
+  } catch (error) {
+    console.warn('Could not load artist ticket URLs for sitemap:', error);
+    return [];
+  }
+}
+
+/**
+ * Only the `/festivals/<region>` hubs are listed. Individual festival pages
+ * (`/festivals/<region>/<id>`) are intentionally kept out of the sitemap.
+ */
+async function getNewsRoutes(): Promise<SitemapRoute[]> {
+  const supabase = getPublicSupabaseClient();
+  if (!supabase) return [];
+
+  try {
+    const newsResult = await supabase
+      .from('news')
+      .select('id, region, created_at, ai_content, ai_generated, ai_status')
+      .limit(10000);
 
     if (newsResult.error) console.warn('Could not load news URLs for sitemap:', newsResult.error.message);
-    if (festivalResult.error) console.warn('Could not load festival URLs for sitemap:', festivalResult.error.message);
 
-    const newsRoutes = ((newsResult.data || []) as NewsSitemapRow[])
+    return ((newsResult.data || []) as NewsSitemapRow[])
       .filter((article) => Boolean(article.region) && hasValidatedAiContent(article))
       .map((article) => ({
         url: `/news/${encodeURIComponent(article.region!.toLowerCase())}/${encodeURIComponent(String(article.id))}`,
         priority: 0.75,
         lastModified: article.created_at || undefined,
       }));
-
-    const festivalRoutes = ((festivalResult.data || []) as FestivalSitemapRow[])
-  .filter((festival) => 
-    Boolean(festival.region) && 
-    isUpcomingDate(festival.date_start) &&
-    festival.is_deleted !== true  // ← DODATO!
-  )
-  .map((festival) => ({
-    url: `/festivals/${encodeURIComponent(festival.region!.toLowerCase())}/${encodeURIComponent(String(festival.id))}`,
-    priority: 0.7,
-    lastModified: festival.date_start || undefined,
-  }));
-
-    return [...newsRoutes, ...festivalRoutes];
   } catch (error) {
-    console.warn('Could not load content URLs for sitemap:', error);
+    console.warn('Could not load news URLs for sitemap:', error);
     return [];
   }
 }
@@ -116,7 +119,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: '/newsletter', priority: 0.5 },
     { url: '/privacy', priority: 0.3 },
     { url: '/terms', priority: 0.3 },
-    { url: '/reviews', priority: 0.8 },
     { url: '/awards', priority: 0.8 },
   ];
 
@@ -156,12 +158,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...newsRoutes,
     ...ticketsRoutes,
     ...festivalsRoutes,
-    ...(await getArtistProfileRoutes()),
-    ...(await getContentRoutes()),
+    ...(await getTicketArtistRoutes()),
+    ...(await getNewsRoutes()),
   ];
+  // A URL can be reached from several sources (a seeded profile is also a ticket
+  // row, for instance), so keep the first occurrence of each.
+  const uniqueRoutes = Array.from(new Map(routes.map((route) => [route.url, route])).values());
   const fallbackLastModified = new Date();
 
-  return routes.map((route) => ({
+  return uniqueRoutes.map((route) => ({
     url: `${BASE_URL}${route.url}`,
     lastModified: route.lastModified || fallbackLastModified,
     changeFrequency: 'daily' as const,
