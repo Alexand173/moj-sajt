@@ -17,7 +17,7 @@ export default function RelatedStories({ stories, region, headingId = 'related-s
 
   return (
     <section aria-labelledby={headingId} className="my-10 sm:my-12">
-      <h2 id={headingId} className="border-b-2 border-ink pb-3 text-xl font-black tracking-[-0.02em] text-ink uppercase sm:text-2xl">
+      <h2 id={headingId} className="border-b-2 border-ink pb-3 text-xl font-black tracking-[-0.01em] text-ink sm:text-2xl">
         Related stories
       </h2>
       <ul>
@@ -31,7 +31,7 @@ export default function RelatedStories({ stories, region, headingId = 'related-s
                 href={href}
                 className="group grid grid-cols-[5.5rem_minmax(0,1fr)] items-center gap-4 py-4 transition-colors sm:grid-cols-[8.5rem_minmax(0,1fr)] sm:gap-5 sm:py-5"
               >
-                <span className="block aspect-[16/10] overflow-hidden bg-paper-muted">
+                <span className="block aspect-[4/3] overflow-hidden bg-paper-muted">
                   {story.image ? (
                     <img
                       src={story.image}
