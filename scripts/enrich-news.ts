@@ -5,25 +5,46 @@ loadEnvConfig(process.cwd());
 
 /**
  * `--official-only` rewrites just the scraped OFFICIAL publisher rows, which is
- * the queue that feeds the official brief reader. `--limit=<n>` overrides the
- * batch size (capped at 20 by the enrichment module).
+ * the queue that feeds the official brief reader.
+ *
+ * `--limit=<n>`       rows per batch (capped at 20 by the enrichment module).
+ * `--batches=<n>`     batches attempted by this invocation (default 10).
+ * `--since-days=<n>`  lookback window in days (default 21).
+ * `--concurrency=<n>` parallel rewrites per batch (default 4).
+ *
+ * A local run has no wall-clock limit, so the time budget is disabled here; the
+ * cron route keeps the 270s guard because Vercel kills the function at 300s.
  */
-function readOptions() {
-  const officialOnly = process.argv.includes('--official-only');
-  const limitArg = process.argv.find((argument) => argument.startsWith('--limit='));
-  const parsedLimit = limitArg ? Number.parseInt(limitArg.slice('--limit='.length), 10) : Number.NaN;
+function readNumberFlag(flag: string): number | undefined {
+  const argument = process.argv.find((value) => value.startsWith(`${flag}=`));
+  if (!argument) return undefined;
 
+  const parsed = Number.parseInt(argument.slice(flag.length + 1), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function readOptions() {
   return {
-    officialOnly,
-    limit: Number.isFinite(parsedLimit) ? parsedLimit : undefined,
+    officialOnly: process.argv.includes('--official-only'),
+    limit: readNumberFlag('--limit'),
+    maxBatches: readNumberFlag('--batches'),
+    sinceDays: readNumberFlag('--since-days'),
+    concurrency: readNumberFlag('--concurrency'),
   };
 }
 
 async function main() {
   // The scheduled cron owns the news pipeline, so it also rewrites scraped
   // OFFICIAL publisher rows with the same validation gate as LATEST.
-  const { officialOnly, limit } = readOptions();
-  const result = await runNewsAiWorker(limit, { includeOfficial: !officialOnly, officialOnly });
+  const { officialOnly, limit, maxBatches, sinceDays, concurrency } = readOptions();
+  const result = await runNewsAiWorker(limit, {
+    includeOfficial: !officialOnly,
+    officialOnly,
+    maxBatches,
+    sinceDays,
+    concurrency,
+    timeBudgetMs: Number.POSITIVE_INFINITY,
+  });
   console.log(JSON.stringify({ event: 'news_ai_worker_complete', officialOnly, ...result }));
 
   if (!result.configured) {

@@ -3,6 +3,12 @@ import { runNewsAiWorker } from '@/lib/news-ai-worker';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+/**
+ * A run now loops batches inside one invocation, so it needs the full ceiling.
+ * Vercel allows 300s on Hobby and Pro alike with fluid compute; the worker stops
+ * itself at 270s so the summary still has time to leave.
+ */
+export const maxDuration = 300;
 
 function isAuthorized(request: Request): boolean {
   const cronSecret = process.env.CRON_SECRET?.trim();

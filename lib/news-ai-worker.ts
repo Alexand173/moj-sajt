@@ -1,11 +1,10 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import {
-  enrichPendingNews,
-  enrichPendingOfficialNews,
-  type AiNewsEnrichmentSummary,
-} from './news-ai-enrichment';
+  runEnrichmentBatches,
+  type NewsAiBatchLoopResult,
+} from './news-ai-batch-loop';
 
-export interface NewsAiWorkerResult extends AiNewsEnrichmentSummary {
+export interface NewsAiWorkerResult extends NewsAiBatchLoopResult {
   configured: boolean;
   missing: string[];
 }
@@ -17,18 +16,30 @@ export interface NewsAiWorkerConfig {
 }
 
 export interface NewsAiWorkerOptions {
-  /** Also rewrite scraped OFFICIAL publisher rows in their own batch. */
+  /** Also rewrite scraped OFFICIAL publisher rows, in their own sequence of batches. */
   includeOfficial?: boolean;
   /** Process only the scraped OFFICIAL publisher rows. */
   officialOnly?: boolean;
+  /** Batches attempted per invocation. Defaults to 10. */
+  maxBatches?: number;
+  /** Wall-clock budget for the run. Defaults to 270s. */
+  timeBudgetMs?: number;
+  /** Lookback window in days. Defaults to 21. */
+  sinceDays?: number;
+  /** Articles rewritten in parallel per batch. Defaults to 4. */
+  concurrency?: number;
 }
 
-const EMPTY_SUMMARY: AiNewsEnrichmentSummary = {
+const EMPTY_RESULT: NewsAiBatchLoopResult = {
   inspected: 0,
   generated: 0,
   fallback: 0,
   skipped: 0,
   failed: 0,
+  deferred: 0,
+  batches: 0,
+  stopReason: 'queue-empty',
+  durationMs: 0,
 };
 
 export function getNewsAiWorkerConfig(): NewsAiWorkerConfig {
@@ -52,13 +63,23 @@ export function createNewsAiWorkerClient(config = getNewsAiWorkerConfig()): Supa
   });
 }
 
-function sumSummaries(first: AiNewsEnrichmentSummary, second: AiNewsEnrichmentSummary): AiNewsEnrichmentSummary {
+function sumResults(first: NewsAiBatchLoopResult, second: NewsAiBatchLoopResult): NewsAiBatchLoopResult {
+  const firstWasCutShort = first.stopReason === 'time-budget' ||
+    first.stopReason === 'quota-exhausted' ||
+    first.stopReason === 'no-progress';
+
   return {
     inspected: first.inspected + second.inspected,
     generated: first.generated + second.generated,
     fallback: first.fallback + second.fallback,
     skipped: first.skipped + second.skipped,
     failed: first.failed + second.failed,
+    deferred: first.deferred + second.deferred,
+    batches: first.batches + second.batches,
+    // If the LATEST pass was cut short, that is the reason worth reporting: the
+    // queue is still longer than one invocation can serve.
+    stopReason: firstWasCutShort ? first.stopReason : second.stopReason,
+    durationMs: first.durationMs + second.durationMs,
   };
 }
 
@@ -66,6 +87,10 @@ function sumSummaries(first: AiNewsEnrichmentSummary, second: AiNewsEnrichmentSu
  * Runs the background worker that turns pending news rows into persisted
  * OpenAI editorial reports. It is intentionally independent of request-time
  * article rendering so an OpenAI outage never breaks a page.
+ *
+ * One invocation now runs a sequence of batches rather than a single one, which
+ * is what lets the twice-daily cron actually drain a backlog instead of
+ * chipping at it.
  */
 export async function runNewsAiWorker(
   requestedLimit?: number,
@@ -80,29 +105,38 @@ export async function runNewsAiWorker(
 
   if (missing.length > 0) {
     return {
-      ...EMPTY_SUMMARY,
+      ...EMPTY_RESULT,
       configured: false,
       missing,
     };
   }
 
   const client = createNewsAiWorkerClient(config);
+  const tuning = {
+    maxBatches: options.maxBatches,
+    timeBudgetMs: options.timeBudgetMs,
+    sinceDays: options.sinceDays,
+    concurrency: options.concurrency,
+  };
 
   if (options.officialOnly) {
     return {
-      ...(await enrichPendingOfficialNews(client, requestedLimit)),
+      ...(await runEnrichmentBatches(client, { ...tuning, categories: ['OFFICIAL'], batchSize: requestedLimit })),
       configured: true,
       missing: [],
     };
   }
 
-  const latestSummary = await enrichPendingNews(client, requestedLimit);
-  const summary = options.includeOfficial
-    ? sumSummaries(latestSummary, await enrichPendingOfficialNews(client, requestedLimit))
-    : latestSummary;
+  const latestResult = await runEnrichmentBatches(client, { ...tuning, categories: ['LATEST'], batchSize: requestedLimit });
+
+  if (!options.includeOfficial) {
+    return { ...latestResult, configured: true, missing: [] };
+  }
+
+  const officialResult = await runEnrichmentBatches(client, { ...tuning, categories: ['OFFICIAL'], batchSize: requestedLimit });
 
   return {
-    ...summary,
+    ...sumResults(latestResult, officialResult),
     configured: true,
     missing: [],
   };

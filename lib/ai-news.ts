@@ -29,6 +29,12 @@ export interface AiNewsArticle {
   similarityScore: number;
   similarityCheckPassed: boolean;
   retryCount: number;
+  /**
+   * Why the rewrite came back as a fallback. `quota` is transient and must not
+   * be treated like a rejected rewrite, so the caller can leave the row pending
+   * instead of locking it out for the retry cooldown.
+   */
+  failureReason?: 'quota' | 'validation' | 'provider' | 'insufficient-source';
 }
 
 interface GenerateAiNewsArticleInput {
@@ -507,6 +513,7 @@ function fallbackArticle(
   input: GenerateAiNewsArticleInput,
   retryCount = 0,
   similarityScore = 0,
+  failureReason: AiNewsArticle['failureReason'] = 'validation',
 ): AiNewsArticle {
   // Never expose scraped publisher prose as a fallback. Doing so would turn a
   // provider timeout or model failure into an accidental copy of the source.
@@ -523,6 +530,7 @@ function fallbackArticle(
     similarityScore,
     similarityCheckPassed: false,
     retryCount,
+    failureReason,
   };
 }
 
@@ -620,8 +628,10 @@ export async function generateAiNewsArticle(
   const sourceMaterial = combineSourceMaterial(resolvedInput);
   const apiKey = process.env.OPENAI_API_KEY?.trim();
 
-  if (wordCount(sourceMaterial) < MIN_SOURCE_WORDS_FOR_AI) return fallbackArticle(resolvedInput);
-  if (!apiKey) return fallbackArticle(resolvedInput);
+  if (wordCount(sourceMaterial) < MIN_SOURCE_WORDS_FOR_AI) {
+    return fallbackArticle(resolvedInput, 0, 0, 'insufficient-source');
+  }
+  if (!apiKey) return fallbackArticle(resolvedInput, 0, 0, 'provider');
 
   try {
     const configuredModel = process.env.OPENAI_MODEL?.trim() || DEFAULT_OPENAI_MODEL;
@@ -732,7 +742,7 @@ Editorial requirements:
             reason: 'provider_quota_exhausted',
             retryCount: attempt,
           }));
-          return fallbackArticle(resolvedInput, attempt, lastSimilarityScore);
+          return fallbackArticle(resolvedInput, attempt, lastSimilarityScore, 'quota');
         }
         console.warn(`AI rewrite attempt ${attempt + 1} failed validation:`, error);
       }
@@ -744,6 +754,6 @@ Editorial requirements:
     return fallbackArticle(resolvedInput, 2, lastSimilarityScore);
   } catch (error) {
     console.warn('AI news article generation failed; source text will not be shown as article content:', error);
-    return fallbackArticle(resolvedInput);
+    return fallbackArticle(resolvedInput, 0, 0, 'provider');
   }
 }
