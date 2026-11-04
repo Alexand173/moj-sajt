@@ -132,7 +132,9 @@ export async function runEnrichmentBatches(
       order: 'oldest',
       concurrency,
       deadlineAt: enrichmentDeadline,
-      excludeIds: failedIds,
+      // Copied, not shared: the batch must see the failures known *before* it
+      // started, not the ones its own siblings add while it is still running.
+      excludeIds: [...failedIds],
     });
 
     batches += 1;
