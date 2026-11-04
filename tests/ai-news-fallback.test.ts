@@ -136,4 +136,49 @@ describe('generateAiNewsArticle safe fallback', () => {
     expect(result.articleContent).toContain('Synthetic Publisher');
     expect(result.articleContent).toContain('intentionally not reproduced here');
   });
+
+  // The length floor is what rejected clean rewrites during the backlog cleanup:
+  // 437, 431, 430 and 408-word outputs were discarded while every similarity
+  // metric passed. These two cases pin the 400-word boundary from both sides.
+  const longSource = Array.from({ length: 500 }, (_, index) => `sourceword${index}`).join(' ');
+  const rewriteOf = (wordCount: number) =>
+    Array.from({ length: wordCount }, (_, index) => `rewriteword${index}`).join(' ');
+  const boundaryInput = {
+    title: 'Harbor Lights Ensemble Announces Fictional October Album',
+    excerpt: 'The fictional group is preparing a new studio release after a summer recording session.',
+    existingContent: 'The fictional group is preparing a new studio release after a summer recording session.',
+    sourceUrl: 'https://example.com/fictional-harbor-lights-album',
+    sourceArticleText: longSource,
+    sourceName: 'Synthetic Publisher',
+  };
+
+  it('accepts a clean rewrite that only just clears the 400-word floor', async () => {
+    mocks.responsesCreate.mockResolvedValue({
+      output_text: JSON.stringify({
+        seoTitle: 'Harbor Lights Album Update',
+        seoDescription: 'The band is preparing a new studio release.',
+        articleContent: rewriteOf(410),
+      }),
+    });
+
+    const result = await generateAiNewsArticle(boundaryInput);
+
+    expect(mocks.responsesCreate).toHaveBeenCalledOnce();
+    expect(result).toMatchObject({ isAiGenerated: true, similarityCheckPassed: true, retryCount: 0 });
+  });
+
+  it('still rejects a clean rewrite that falls short of the floor', async () => {
+    mocks.responsesCreate.mockResolvedValue({
+      output_text: JSON.stringify({
+        seoTitle: 'Harbor Lights Album Update',
+        seoDescription: 'The band is preparing a new studio release.',
+        articleContent: rewriteOf(380),
+      }),
+    });
+
+    const result = await generateAiNewsArticle(boundaryInput);
+
+    expect(mocks.responsesCreate).toHaveBeenCalledTimes(2);
+    expect(result).toMatchObject({ isAiGenerated: false, similarityCheckPassed: false, retryCount: 2 });
+  });
 });

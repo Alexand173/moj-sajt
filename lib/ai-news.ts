@@ -6,7 +6,16 @@ import * as cheerio from 'cheerio';
 const MAX_SOURCE_CHARACTERS = 14_000;
 const MAX_SOURCE_RESPONSE_BYTES = 2_000_000;
 const MIN_SOURCE_WORDS_FOR_AI = 20;
-const MIN_PROFESSIONAL_WORDS = 450;
+/**
+ * Floor for a rewrite that the model was asked for 700–1,000 words of.
+ *
+ * A backlog cleanup showed the model routinely lands at 400–450 words, and this
+ * gate was rejecting those while every similarity metric passed: 437, 431, 430
+ * and 408-word rewrites were thrown away as if they had copied the source. 400
+ * is still twice the 200 words the article page requires before it lifts
+ * `noindex`, so nothing accepted here is thin enough to hurt indexing.
+ */
+const MIN_PROFESSIONAL_WORDS = 400;
 const MAX_GENERATED_ARTICLE_CHARACTERS = 24_000;
 const MAX_MODEL_RESPONSE_CHARACTERS = 30_000;
 const MAX_WORD_JACCARD_SIMILARITY = 0.35;

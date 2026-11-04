@@ -105,8 +105,8 @@ describe('news AI persistence', () => {
     expect(getAiNewsWindowDays()).toBe(90);
   });
 
-  it('rewrites four articles at a time by default', () => {
-    expect(getAiNewsConcurrency()).toBe(4);
+  it('rewrites three articles at a time by default', () => {
+    expect(getAiNewsConcurrency()).toBe(3);
 
     process.env.AI_NEWS_CONCURRENCY = '50';
     expect(getAiNewsConcurrency()).toBe(8);
