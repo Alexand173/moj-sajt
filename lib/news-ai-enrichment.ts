@@ -15,8 +15,16 @@ export const MAX_AI_NEWS_BATCH_SIZE = 20;
 export const DEFAULT_AI_NEWS_WINDOW_DAYS = 21;
 export const MAX_AI_NEWS_WINDOW_DAYS = 90;
 const MIN_AI_NEWS_WINDOW_DAYS = 1;
-/** Articles rewritten in parallel inside one batch. */
-export const DEFAULT_AI_NEWS_CONCURRENCY = 4;
+/**
+ * Articles rewritten in parallel inside one batch.
+ *
+ * Capped at three rather than higher: a long run at four concurrent rewrites
+ * tripped an undici parser assertion inside Node's HTTP client
+ * (`Parser.finish` on `TLSSocket.onHttpSocketEnd`), which kills the process
+ * outright because it is thrown from a socket handler, not a promise. Fewer
+ * sockets in flight is the only lever available from application code.
+ */
+export const DEFAULT_AI_NEWS_CONCURRENCY = 3;
 export const MAX_AI_NEWS_CONCURRENCY = 8;
 /** A fallback rewrite is retried, but not before this cooldown has passed. */
 const FALLBACK_RETRY_HOURS = 6;

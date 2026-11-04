@@ -727,12 +727,25 @@ Editorial requirements:
           };
         }
 
-        console.warn(
-          `AI rewrite failed validation on attempt ${attempt + 1}: ` +
-          `Jaccard=${similarity.jaccardSimilarity.toFixed(3)}, ` +
-          `consecutiveSentences=${similarity.longestConsecutiveSentenceMatch}, ` +
-          `sharedPhrases=${similarity.sharedPhraseRatio.toFixed(3)}.`,
-        );
+        if (!meetsLengthRequirement) {
+          // Reported separately because the similarity numbers are clean in this
+          // case; folding the two causes into one message sent us looking at the
+          // wrong gate during a backlog cleanup.
+          console.warn(
+            `AI rewrite was rejected for length on attempt ${attempt + 1}: ` +
+            `${wordCount(articleContent)} words written, ${MIN_PROFESSIONAL_WORDS} required ` +
+            `(source was ${sourceWords} words).`,
+          );
+        }
+
+        if (!similarity.passed) {
+          console.warn(
+            `AI rewrite failed the similarity gate on attempt ${attempt + 1}: ` +
+            `Jaccard=${similarity.jaccardSimilarity.toFixed(3)}, ` +
+            `consecutiveSentences=${similarity.longestConsecutiveSentenceMatch}, ` +
+            `sharedPhrases=${similarity.sharedPhraseRatio.toFixed(3)}.`,
+          );
+        }
       } catch (error) {
         lastAttemptError = error;
         if (isProviderQuotaError(error)) {
