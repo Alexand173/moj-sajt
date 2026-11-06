@@ -23,9 +23,16 @@ const MAX_CONSECUTIVE_SENTENCE_MATCHES = 3;
 const MAX_SHARED_PHRASE_RATIO = 0.08;
 const AI_REQUEST_TIMEOUT_MS = 20_000;
 const AI_TOTAL_TIMEOUT_MS = 35_000;
-const SOURCE_FETCH_TIMEOUT_MS = 10_000;
-const SOURCE_TOTAL_TIMEOUT_MS = 10_000;
-const DNS_LOOKUP_TIMEOUT_MS = 2_000;
+const SOURCE_FETCH_TIMEOUT_MS = 15_000;
+const SOURCE_TOTAL_TIMEOUT_MS = 20_000;
+/**
+ * Two seconds was too tight: publisher sources are resolved three at a time, and
+ * a slow lookup made a legitimate URL look like a private host, which produced a
+ * permanent fallback for an otherwise fine OFFICIAL row.
+ */
+const DNS_LOOKUP_TIMEOUT_MS = 5_000;
+/** One retry, because these are ordinary transient network failures. */
+const SOURCE_FETCH_ATTEMPTS = 2;
 const NEWS_API_TIMEOUT_MS = 8_000;
 const MAX_SOURCE_REDIRECTS = 3;
 const DEFAULT_OPENAI_MODEL = 'gpt-4.1-mini';
@@ -400,53 +407,84 @@ function extractParagraphs($: cheerio.CheerioAPI, selector: string): string[] {
   );
 }
 
+/** One read of a publisher page, reduced to readable paragraphs. */
+async function readSourceDocument(parsedUrl: URL): Promise<string> {
+  const response = await fetchPublicSourceResponse(parsedUrl);
+
+  if (!response.ok) return '';
+
+  const contentType = response.headers.get('content-type')?.toLowerCase() || '';
+  if (contentType && !contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) return '';
+
+  const html = await readResponseTextWithLimit(response, MAX_SOURCE_RESPONSE_BYTES);
+  const $ = cheerio.load(html);
+  $(
+    'script, style, noscript, nav, footer, header, aside, form, iframe, ' +
+    '[class*="comment"], [id*="comment"], [class*="newsletter"], [id*="newsletter"], ' +
+    '[class*="social"], [id*="social"], [class*="share"], [id*="share"], ' +
+    '[class*="related"], [id*="related"], [class*="recommended"], [id*="recommended"], ' +
+    '[class*="subscribe"], [id*="subscribe"]',
+  ).remove();
+
+  const selectors = [
+    'article',
+    '[itemprop="articleBody"]',
+    '[class*="article-body"]',
+    '[class*="article-content"]',
+    '[class*="story-body"]',
+    '[class*="entry-content"]',
+    'main',
+  ];
+
+  const candidates = selectors
+    .map((selector) => extractParagraphs($, selector).join('\n\n'))
+    .filter(Boolean);
+
+  const bestCandidate = candidates.sort((a, b) => b.length - a.length)[0] || extractParagraphs($, 'body').join('\n\n');
+  return trimToSourceLimit(bestCandidate);
+}
+
 /**
  * NewsAPI frequently exposes only a truncated `content` field. When an
  * original URL is available, retrieve the readable article body before asking
  * OpenAI to write the editorial version.
+ *
+ * This is the single point of failure for scraped OFFICIAL rows: they are stored
+ * with a stub `content` ("Music update from pizzicato.lu"), so if the publisher
+ * page cannot be read there is no material to rewrite and the row falls back.
+ * These are ordinary transient failures, so one retry — and a wider DNS/fetch
+ * budget — recovers a large share of them that a single attempt used to lose.
  */
 export async function fetchNewsSourceText(sourceUrl: string | null | undefined): Promise<string> {
   const parsedUrl = getSafeHttpUrl(sourceUrl);
   if (!parsedUrl || isPrivateOrLocalHostname(parsedUrl.hostname)) return '';
 
-  try {
-    const response = await fetchPublicSourceResponse(parsedUrl);
+  let best = '';
 
-    if (!response.ok) return '';
+  for (let attempt = 1; attempt <= SOURCE_FETCH_ATTEMPTS; attempt += 1) {
+    const isLastAttempt = attempt === SOURCE_FETCH_ATTEMPTS;
 
-    const contentType = response.headers.get('content-type')?.toLowerCase() || '';
-    if (contentType && !contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) return '';
+    try {
+      const candidate = await readSourceDocument(parsedUrl);
+      if (wordCount(candidate) >= MIN_SOURCE_WORDS_FOR_AI) return candidate;
 
-    const html = await readResponseTextWithLimit(response, MAX_SOURCE_RESPONSE_BYTES);
-    const $ = cheerio.load(html);
-    $(
-      'script, style, noscript, nav, footer, header, aside, form, iframe, ' +
-      '[class*="comment"], [id*="comment"], [class*="newsletter"], [id*="newsletter"], ' +
-      '[class*="social"], [id*="social"], [class*="share"], [id*="share"], ' +
-      '[class*="related"], [id*="related"], [class*="recommended"], [id*="recommended"], ' +
-      '[class*="subscribe"], [id*="subscribe"]',
-    ).remove();
+      if (candidate) best = candidate;
+      if (isLastAttempt) return best;
 
-    const selectors = [
-      'article',
-      '[itemprop="articleBody"]',
-      '[class*="article-body"]',
-      '[class*="article-content"]',
-      '[class*="story-body"]',
-      '[class*="entry-content"]',
-      'main',
-    ];
+      console.warn(
+        `${parsedUrl.hostname} returned ${wordCount(candidate)} usable words; retrying once.`,
+      );
+    } catch (error) {
+      if (isLastAttempt) {
+        console.warn('Could not retrieve the original news article:', error);
+        return best;
+      }
 
-    const candidates = selectors
-      .map((selector) => extractParagraphs($, selector).join('\n\n'))
-      .filter(Boolean);
-
-    const bestCandidate = candidates.sort((a, b) => b.length - a.length)[0] || extractParagraphs($, 'body').join('\n\n');
-    return trimToSourceLimit(bestCandidate);
-  } catch (error) {
-    console.warn('Could not retrieve the original news article:', error);
-    return '';
+      console.warn(`Could not retrieve ${parsedUrl.hostname}; retrying once:`, error);
+    }
   }
+
+  return best;
 }
 
 /** Resolve a NewsAPI article URL and, when needed, recover the source URL by headline. */

@@ -49,3 +49,6 @@ __pycache__/
 za_server/
 sajt.zip
 *.zip
+
+# scratch diagnostics
+.kombai/tmp/

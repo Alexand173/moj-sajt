@@ -84,7 +84,16 @@ async function scrapeSource(source: NewsSource, scrapedData: ScrapedArticle[]): 
       const link = $(el).find('a').attr('href') || $(el).closest('a').attr('href');
 
       if (title.length > 25 && link) {
-        const fullLink = link.startsWith('http') ? link : new URL(source.url).origin + link;
+        // Resolved against the source URL, not concatenated: protocol-relative
+        // hrefs ("//host/path") used to become "https://host//host/path", which
+        // produced hosts like "www.classical-music.comnews" — rows that can
+        // never be fetched, so they could never be rewritten.
+        let fullLink: string;
+        try {
+          fullLink = new URL(link, source.url).toString();
+        } catch {
+          return false;
+        }
 
         scrapedData.push({
           title,
