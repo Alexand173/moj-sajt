@@ -127,16 +127,32 @@ export async function runNewsAiWorker(
     };
   }
 
-  const latestResult = await runEnrichmentBatches(client, { ...tuning, categories: ['LATEST'], batchSize: requestedLimit });
-
   if (!options.includeOfficial) {
-    return { ...latestResult, configured: true, missing: [] };
+    return {
+      ...(await runEnrichmentBatches(client, { ...tuning, categories: ['LATEST'], batchSize: requestedLimit })),
+      configured: true,
+      missing: [],
+    };
   }
 
-  const officialResult = await runEnrichmentBatches(client, { ...tuning, categories: ['OFFICIAL'], batchSize: requestedLimit });
+  // OFFICIAL goes first. Those rows are the scraped publisher items, they are
+  // what the official brief reader depends on, and they arrive with a stub
+  // `content` field ("Music update from pizzicato.lu"), so they are worthless
+  // until rewritten. Running LATEST first meant a run that died mid-flight left
+  // the official queue untouched for another whole cycle.
+  const officialResult = await runEnrichmentBatches(client, {
+    ...tuning,
+    categories: ['OFFICIAL'],
+    batchSize: requestedLimit,
+  });
+  const latestResult = await runEnrichmentBatches(client, {
+    ...tuning,
+    categories: ['LATEST'],
+    batchSize: requestedLimit,
+  });
 
   return {
-    ...sumResults(latestResult, officialResult),
+    ...sumResults(officialResult, latestResult),
     configured: true,
     missing: [],
   };

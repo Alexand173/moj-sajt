@@ -5,12 +5,15 @@ loadEnvConfig(process.cwd());
 
 /**
  * `--official-only` rewrites just the scraped OFFICIAL publisher rows, which is
- * the queue that feeds the official brief reader.
+ * the queue that feeds the official brief reader. `--latest-only` rewrites just
+ * the NewsAPI rows. The scheduled workflow runs them as two separate steps so
+ * neither queue can be starved by a failure in the other; without a flag the
+ * script does both, official first (see runNewsAiWorker).
  *
  * `--limit=<n>`       rows per batch (capped at 20 by the enrichment module).
  * `--batches=<n>`     batches attempted by this invocation (default 10).
  * `--since-days=<n>`  lookback window in days (default 21).
- * `--concurrency=<n>` parallel rewrites per batch (default 4).
+ * `--concurrency=<n>` parallel rewrites per batch (default 3).
  *
  * A local run has no wall-clock limit, so the time budget is disabled here; the
  * cron route keeps the 270s guard because Vercel kills the function at 300s.
@@ -24,8 +27,11 @@ function readNumberFlag(flag: string): number | undefined {
 }
 
 function readOptions() {
+  const officialOnly = process.argv.includes('--official-only');
+
   return {
-    officialOnly: process.argv.includes('--official-only'),
+    officialOnly,
+    includeOfficial: !officialOnly && !process.argv.includes('--latest-only'),
     limit: readNumberFlag('--limit'),
     maxBatches: readNumberFlag('--batches'),
     sinceDays: readNumberFlag('--since-days'),
@@ -36,9 +42,9 @@ function readOptions() {
 async function main() {
   // The scheduled cron owns the news pipeline, so it also rewrites scraped
   // OFFICIAL publisher rows with the same validation gate as LATEST.
-  const { officialOnly, limit, maxBatches, sinceDays, concurrency } = readOptions();
+  const { officialOnly, includeOfficial, limit, maxBatches, sinceDays, concurrency } = readOptions();
   const result = await runNewsAiWorker(limit, {
-    includeOfficial: !officialOnly,
+    includeOfficial,
     officialOnly,
     maxBatches,
     sinceDays,

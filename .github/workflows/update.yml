@@ -25,7 +25,11 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       NEWS_API_KEY: ${{ secrets.NEWS_API_KEY }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      AI_NEWS_BATCH_SIZE: 5
+      # 20 rows per batch x 10 batches = up to 200 rewrites per category per run.
+      # At 5 the official queue could not keep up with scraped inflow
+      # (~114 rows/day) and recent stories sat pending with no AI brief.
+      AI_NEWS_BATCH_SIZE: 20
+      AI_NEWS_MAX_BATCHES: 10
 
     steps:
       - name: Checkout code
@@ -64,6 +68,14 @@ jobs:
         if: ${{ !cancelled() && inputs.enrichment_only != true }}
         run: npx tsx app/api/scrape-official/route.ts
 
-      - name: Run AI enrichment worker
+      # Two separate steps, official first. A single combined step meant a crash
+      # in the LATEST pass (or in the fetch-heavy official pass) could leave the
+      # other queue untouched for a whole cycle; each step is its own process, so
+      # whatever survives still commits its work.
+      - name: Run OFFICIAL AI enrichment worker
         if: ${{ !cancelled() }}
-        run: npx tsx scripts/enrich-news.ts
+        run: npx tsx scripts/enrich-news.ts --official-only
+
+      - name: Run LATEST AI enrichment worker
+        if: ${{ !cancelled() }}
+        run: npx tsx scripts/enrich-news.ts --latest-only

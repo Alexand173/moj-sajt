@@ -113,6 +113,10 @@ describe('news AI worker', () => {
     const result = await runNewsAiWorker(undefined, { includeOfficial: true });
 
     expect(mocks.runEnrichmentBatches).toHaveBeenCalledTimes(2);
+    // Official first: those rows are worthless until rewritten, and a run that
+    // dies mid-flight must not leave them for another whole cycle.
+    expect(mocks.runEnrichmentBatches.mock.calls.map((call) => (call[1] as { categories: string[] }).categories[0]))
+      .toEqual(['OFFICIAL', 'LATEST']);
     expect(result).toMatchObject({
       batches: 3,
       generated: 50,
