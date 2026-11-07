@@ -132,7 +132,7 @@ function ArtistThumb({ src, artist }: { src: string | null; artist: string }) {
  * shared cache and no visitor's location ends up in the HTML we serve everyone.
  */
 export default function NearbyEventsRail({ className = '' }: { className?: string }) {
-  const [status, setStatus] = useState<'loading' | 'ready' | 'hidden'>('loading');
+  const [status, setStatus] = useState<'loading' | 'ready' | 'empty'>('loading');
   const [events, setEvents] = useState<NearbyEvent[]>([]);
   const [location, setLocation] = useState<NearbyResponse['location']>(null);
   const [edges, setEdges] = useState({ start: true, end: false });
@@ -148,9 +148,9 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
         const nextEvents = payload.events || [];
         setLocation(payload.location || null);
         setEvents(nextEvents);
-        setStatus(nextEvents.length > 0 ? 'ready' : 'hidden');
+        setStatus(nextEvents.length > 0 ? 'ready' : 'empty');
       })
-      .catch(() => setStatus('hidden'));
+      .catch(() => setStatus('empty'));
 
     return () => controller.abort();
   }, []);
@@ -182,20 +182,25 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
     rail.scrollBy({ left: direction * step, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
   };
 
-  if (status === 'hidden') return null;
-
   const isNearYou = Boolean(location?.city);
-  // One heading in both cases: the city is already named in the kicker and subline.
+  // One heading in every case: the city is already named in the kicker and subline.
   const heading = 'Concerts nearby';
   const subline = isNearYou
     ? `Shows within reach of ${location?.city} — plus the rest of the ${location?.regionLabel ?? 'world'} schedule.`
     : 'The soonest dates on sale right now, across every region we track.';
-  // Announced once when the rail resolves, so the count is not silent to screen readers.
+  // The rail sits above the page title, so it keeps its slot even when the feed
+  // returns nothing: an empty section here would drag the title of the page up.
+  const emptyCopy = isNearYou
+    ? `No dates are on sale within reach of ${location?.city} right now. Every date we track is listed by region below.`
+    : 'The promoter feed has no dates on sale right now. Every date we track is listed by region below.';
+  // Announced once the rail resolves, so neither a count nor an empty result is silent.
   const countAnnouncement = status === 'ready'
     ? (isNearYou
       ? `${events.length} concerts near ${location?.city}.`
       : `${events.length} concerts on sale across every region we track.`)
-    : '';
+    : status === 'empty'
+      ? (isNearYou ? `No concerts on sale near ${location?.city} right now.` : 'No concerts on sale right now.')
+      : '';
 
   return (
     <section aria-labelledby="nearby-events" className={className}>
@@ -220,7 +225,9 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
           )}
         </div>
 
-        <div className="flex items-center gap-2 sm:shrink-0">
+        {/* `min-h-9` holds the row on phones where it stacks under the heading,
+            so dropping the arrows in the empty state cannot shorten the section. */}
+        <div className="flex min-h-9 items-center gap-2 sm:shrink-0">
           {location && location.regionKey !== 'world' && (
             <Link
               href={`/tickets/${location.regionKey}`}
@@ -230,35 +237,54 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
               <ArrowUpRight aria-hidden="true" className="size-3" />
             </Link>
           )}
-          <button
-            type="button"
-            onClick={() => scrollRail(-1)}
-            disabled={edges.start}
-            aria-label="Previous nearby events"
-            className="inline-flex size-9 items-center justify-center rounded-full border border-line text-ink transition-colors hover:border-ink disabled:cursor-not-allowed disabled:text-placeholder"
-          >
-            <ChevronLeft aria-hidden="true" className="size-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => scrollRail(1)}
-            disabled={edges.end}
-            aria-label="More nearby events"
-            className="inline-flex size-9 items-center justify-center rounded-full border border-line text-ink transition-colors hover:border-ink disabled:cursor-not-allowed disabled:text-placeholder"
-          >
-            <ChevronRight aria-hidden="true" className="size-4" />
-          </button>
+          {status === 'ready' && (
+            <>
+              <button
+                type="button"
+                onClick={() => scrollRail(-1)}
+                disabled={edges.start}
+                aria-label="Previous nearby events"
+                className="inline-flex size-9 items-center justify-center rounded-full border border-line text-ink transition-colors hover:border-ink disabled:cursor-not-allowed disabled:text-placeholder"
+              >
+                <ChevronLeft aria-hidden="true" className="size-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollRail(1)}
+                disabled={edges.end}
+                aria-label="More nearby events"
+                className="inline-flex size-9 items-center justify-center rounded-full border border-line text-ink transition-colors hover:border-ink disabled:cursor-not-allowed disabled:text-placeholder"
+              >
+                <ChevronRight aria-hidden="true" className="size-4" />
+              </button>
+            </>
+          )}
         </div>
       </div>
 
-      <ul
-        // Preflight removes list markers, and Safari drops list semantics when it
-        // does; the explicit role keeps the rail announced as a list in VoiceOver.
-        role="list"
-        ref={railRef}
-        onScroll={syncEdges}
-        className="mt-7 -mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-2 no-scrollbar"
-      >
+      {status === 'empty' && (
+        // Sized to the rail it replaces (312px on phones, 328px from sm, plus the
+        // same mt-7/pb-2), so an empty feed leaves the page exactly where it was.
+        <div className="mt-7 pb-2">
+          <div className="flex h-[19.5rem] flex-col justify-center gap-4 border border-dashed border-line-strong bg-paper-muted/40 px-6 sm:h-[20.5rem]">
+            <CalendarDays aria-hidden="true" className="size-5 text-placeholder" />
+            <span className="text-[10px] font-black tracking-[0.2em] text-ink uppercase">
+              {isNearYou ? 'Nothing on sale nearby' : 'Nothing on sale right now'}
+            </span>
+            <p className="max-w-md text-sm leading-relaxed text-muted">{emptyCopy}</p>
+          </div>
+        </div>
+      )}
+
+      {status !== 'empty' && (
+        <ul
+          // Preflight removes list markers, and Safari drops list semantics when it
+          // does; the explicit role keeps the rail announced as a list in VoiceOver.
+          role="list"
+          ref={railRef}
+          onScroll={syncEdges}
+          className="mt-7 -mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-2 no-scrollbar"
+        >
         {status === 'loading' &&
           [0, 1, 2].map((placeholder) => (
             <li
@@ -344,7 +370,8 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
               </li>
             );
           })}
-      </ul>
+        </ul>
+      )}
     </section>
   );
 }
