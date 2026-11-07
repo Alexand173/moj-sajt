@@ -6,18 +6,26 @@ import { useState } from 'react';
 import { getYouTubeEmbedUrl, getYouTubeVideoId, getYouTubeWatchUrl } from '@/lib/news-media';
 import { getTicketRegionLabel } from '@/lib/region-navigation';
 import TicketHeroVideoRail, { type TicketHeroVideoRailVariant } from '@/components/TicketHeroVideoRail';
+import Breadcrumbs, { type BreadcrumbItem } from '@/components/Breadcrumbs';
 import type { HeroItem } from '@/components/ticket-types';
+import { getTicketRegionHeadline } from '@/lib/ticket-copy';
 
 interface TicketHeroProps {
   regionName: string;
   heroItems: HeroItem[];
   videoRailVariant?: TicketHeroVideoRailVariant;
+  /** Visible trail, rendered above the kicker so the page keeps one entry point. */
+  breadcrumbs?: BreadcrumbItem[];
+  /** Region blurb naming the artists actually on the page; falls back to generic copy. */
+  introCopy?: string;
 }
 
 export default function TicketHero({
   regionName,
   heroItems,
   videoRailVariant = 'ticket-strip',
+  breadcrumbs = [],
+  introCopy,
 }: TicketHeroProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -25,6 +33,9 @@ export default function TicketHero({
   const safeActiveIndex = Math.min(activeIndex, Math.max(heroItems.length - 1, 0));
   const activeItem = heroItems[safeActiveIndex] || heroItems[0];
   const regionLabel = getTicketRegionLabel(regionName);
+  const regionHeadline = getTicketRegionHeadline(regionName);
+  const description = introCopy?.trim()
+    || `Explore current live event schedules, verified ticket links and availability across ${regionLabel}. Buy official concert tickets for 2026 tours — every date is cross-checked against the promoter's schedule.`;
 
   if (!activeItem) return null;
 
@@ -41,8 +52,15 @@ export default function TicketHero({
   return (
     <section className="border-b border-line bg-paper text-ink">
       <div className="mt-container py-10 sm:py-14 lg:py-16">
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <p className="mt-kicker">On the road · 2026</p>
+        {breadcrumbs.length > 0 && <Breadcrumbs items={breadcrumbs} tone="light" className="mb-6" />}
+
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+          <div className="min-w-0">
+            <p className="mt-kicker">On the road · 2026</p>
+            <h1 className="mt-3 text-balance text-[clamp(1.85rem,3.6vw,3rem)] font-black leading-[0.94] tracking-[-0.05em] text-ink uppercase">
+              Concert tickets in {regionHeadline}
+            </h1>
+          </div>
           <p className="mt-meta flex items-center gap-2 text-[9px] text-muted">
             <span className="mt-status-dot" aria-hidden="true" />
             {regionLabel} live desk
@@ -129,7 +147,7 @@ export default function TicketHero({
         </div>
 
         <p className="mt-5 max-w-xl text-sm leading-relaxed text-muted sm:text-base">
-          Explore current live event schedules, verified ticket links and availability across {regionLabel}. Buy official concert tickets for 2026 tours — every date is cross-checked against the promoter&apos;s schedule.
+          {description}
         </p>
 
       </div>

@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 import { resolveConcertCity } from '@/lib/concert-city';
 import type { BreadcrumbItem } from '@/components/Breadcrumbs';
 import type { GroupedConcert, HeroItem } from '@/components/ticket-types';
-import TicketAnnouncements from '@/components/TicketAnnouncements';
 import TicketAlertCta from '@/components/TicketAlertCta';
 import TicketCityFilters from '@/components/TicketCityFilters';
 import TicketFaqGuides from '@/components/TicketFaqGuides';
@@ -14,6 +13,7 @@ import LivePreviewRail from '@/components/LivePreviewRail';
 import OfficialTicketDates from '@/components/OfficialTicketDates';
 import TrendingOnSale from '@/components/TrendingOnSale';
 import { getYouTubeVideoId } from '@/lib/news-media';
+import { getTicketIntroCopy } from '@/lib/ticket-copy';
 
 const ARTISTS_PER_PAGE = 12;
 
@@ -181,6 +181,10 @@ export default function ConcertsList({
 
   const trendingArtists = useMemo(() => Array.from(new Set(dataZaPrikaz.map((group) => group.artist_name))), [dataZaPrikaz]);
 
+  // Names the artists on the page, so the region blurb keeps its search terms
+  // now that the announcements band no longer carries the intro copy.
+  const introCopy = useMemo(() => getTicketIntroCopy(trendingArtists, regionName), [trendingArtists, regionName]);
+
   const handleArtistShortcut = (artist: string) => {
     handleSearchChange(artist);
     const section = document.getElementById('official-ticket-dates');
@@ -192,10 +196,11 @@ export default function ConcertsList({
       <TicketHero
         regionName={regionName}
         heroItems={heroItems}
+        breadcrumbs={breadcrumbs}
+        introCopy={introCopy}
       />
 
       <TicketCityFilters cities={cities} activeCity={activeCity} onCityChange={handleCityChange} />
-      <TicketAnnouncements groups={dataZaPrikaz} regionName={regionName} breadcrumbs={breadcrumbs} />
       <TicketSearchForm
         searchQuery={searchQuery}
         cities={cities}
