@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowUpRight } from 'lucide-react';
 import Breadcrumbs from '@/components/Breadcrumbs';
+import NearbyEventsRail from '@/components/NearbyEventsRail';
 import StructuredData from '@/components/StructuredData';
 import { getTicketRegionSummaries, loadConcertRegionRows } from '@/lib/ticket-regions';
 import { createBreadcrumbListSchema } from '@/lib/seo-schema';
@@ -140,6 +141,8 @@ export default async function TicketRegionsPage() {
             </Link>
           </div>
         )}
+
+        <NearbyEventsRail />
 
         <section aria-labelledby="ticket-regions-note" className="mt-14 border-t-2 border-ink pt-5">
           <h2 id="ticket-regions-note" className="text-[10px] font-black tracking-[0.24em] text-ink uppercase">How listings are verified</h2>
