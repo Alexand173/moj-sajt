@@ -67,7 +67,7 @@ function formatShowDate(value: string): { label: string; iso: string } {
   return { label: weekdayMonthDayFormatter.format(eventDay), iso: value };
 }
 
-/** At most two initials: `Koncert przy świecach` → KP, `Aitana` → AI. */
+/** First and last initial, at most two: `Koncert przy świecach` → KŚ, `Aitana` → AI. */
 function artistInitials(name: string): string {
   const words = name.replace(/[^\p{L}\p{N}]+/gu, ' ').trim().split(/\s+/).filter(Boolean);
   if (words.length === 0) return 'MT';
@@ -88,9 +88,29 @@ const IMAGE_FALLBACK_MS = 6000;
  */
 function ArtistThumb({ src, artist }: { src: string | null; artist: string }) {
   const [status, setStatus] = useState<'loading' | 'loaded' | 'failed'>('loading');
+  // The watchdog must not run for cards the browser has not reached yet:
+  // `loading="lazy"` defers the request, and a timer started at mount would
+  // replace a perfectly good poster with initials before it was ever fetched.
+  const [nearViewport, setNearViewport] = useState(() => typeof IntersectionObserver === 'undefined');
+  const imageRef = useRef<HTMLImageElement | null>(null);
 
   useEffect(() => {
-    if (!src) return undefined;
+    const image = imageRef.current;
+    if (!src || !image || typeof IntersectionObserver === 'undefined') return undefined;
+
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        setNearViewport(true);
+        observer.disconnect();
+      }
+    }, { rootMargin: '240px 0px' });
+
+    observer.observe(image);
+    return () => observer.disconnect();
+  }, [src]);
+
+  useEffect(() => {
+    if (!src || !nearViewport) return undefined;
 
     const timer = window.setTimeout(() => {
       // A photo that already painted is never replaced by the timeout.
@@ -98,7 +118,7 @@ function ArtistThumb({ src, artist }: { src: string | null; artist: string }) {
     }, IMAGE_FALLBACK_MS);
 
     return () => window.clearTimeout(timer);
-  }, [src]);
+  }, [src, nearViewport]);
 
   if (!src || status === 'failed') {
     return (
@@ -115,6 +135,7 @@ function ArtistThumb({ src, artist }: { src: string | null; artist: string }) {
 
   return (
     <img
+      ref={imageRef}
       src={src}
       alt=""
       loading="lazy"
