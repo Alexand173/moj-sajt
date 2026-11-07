@@ -14,6 +14,12 @@ type NearbyResponse = {
 
 const SAVED_EVENTS_KEY = 'musictop:saved-events';
 
+type SavedResponse = {
+  authenticated: boolean;
+  ids: string[];
+  persisted: boolean;
+};
+
 function readSavedEvents(): Set<string> {
   try {
     const raw = window.localStorage.getItem(SAVED_EVENTS_KEY);
@@ -22,6 +28,15 @@ function readSavedEvents(): Set<string> {
     return Array.isArray(parsed) ? new Set(parsed.map(String)) : new Set();
   } catch {
     return new Set();
+  }
+}
+
+/** Guest fallback: the star still works without an account, on this device only. */
+function persistLocalSavedEvents(ids: Set<string>): void {
+  try {
+    window.localStorage.setItem(SAVED_EVENTS_KEY, JSON.stringify(Array.from(ids)));
+  } catch {
+    // Private mode or a full quota: the star still works for this session.
   }
 }
 
@@ -62,6 +77,7 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
   const [events, setEvents] = useState<NearbyEvent[]>([]);
   const [location, setLocation] = useState<NearbyResponse['location']>(null);
   const [saved, setSaved] = useState<Set<string>>(() => new Set());
+  const [savedSource, setSavedSource] = useState<'account' | 'device'>('device');
   const [edges, setEdges] = useState({ start: true, end: false });
   const railRef = useRef<HTMLUListElement | null>(null);
 
@@ -72,14 +88,37 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
       .then((response) => (response.ok ? response.json() : { location: null, events: [] }))
       .then((payload: NearbyResponse) => {
         const nextEvents = payload.events || [];
-        // localStorage only exists in the browser, so the saved ids are read once
-        // the rail has data — that keeps the server-rendered markup deterministic.
-        setSaved(readSavedEvents());
         setLocation(payload.location || null);
         setEvents(nextEvents);
         setStatus(nextEvents.length > 0 ? 'ready' : 'hidden');
       })
       .catch(() => setStatus('hidden'));
+
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    // Saved ids come from the account when there is one. Guests, and accounts on a
+    // database that has not run the saved_events migration, fall back to this device.
+    fetch('/api/saved-events', { signal: controller.signal, headers: { Accept: 'application/json' } })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: SavedResponse | null) => {
+        if (controller.signal.aborted) return;
+
+        if (payload?.authenticated && payload.persisted) {
+          setSaved(new Set(payload.ids));
+          setSavedSource('account');
+          return;
+        }
+
+        setSaved(readSavedEvents());
+      })
+      .catch(() => {
+        if (controller.signal.aborted) return;
+        setSaved(readSavedEvents());
+      });
 
     return () => controller.abort();
   }, []);
@@ -112,25 +151,35 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
   };
 
   const toggleSaved = (event: NearbyEvent) => {
-    setSaved((current) => {
-      const next = new Set(current);
-      if (next.has(event.id)) next.delete(event.id);
-      else next.add(event.id);
+    const next = new Set(saved);
+    if (next.has(event.id)) next.delete(event.id);
+    else next.add(event.id);
 
-      try {
-        window.localStorage.setItem(SAVED_EVENTS_KEY, JSON.stringify(Array.from(next)));
-      } catch {
-        // Private mode or a full quota: the star still works for this session.
-      }
+    setSaved(next);
 
-      return next;
-    });
+    if (savedSource === 'device') {
+      persistLocalSavedEvents(next);
+      return;
+    }
+
+    void fetch('/api/saved-events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: Array.from(next) }),
+    })
+      .then((response) => {
+        if (!response.ok) throw new Error(`Saved events request failed with ${response.status}.`);
+      })
+      .catch((error: unknown) => {
+        // The star stays optimistic; the next toggle re-sends the whole list.
+        console.warn('Could not persist saved events:', error);
+      });
   };
 
   if (status === 'hidden') return null;
 
   const isNearYou = Boolean(location?.city);
-  const heading = isNearYou ? 'Trending near you' : 'Trending on sale';
+  const heading = isNearYou ? 'Trending near you' : 'Concerts nearby';
   const subline = isNearYou
     ? `Shows within reach of ${location?.city} — plus the rest of the ${location?.regionLabel ?? 'world'} schedule.`
     : 'The soonest dates on sale right now, across every region we track.';

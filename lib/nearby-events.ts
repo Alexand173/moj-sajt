@@ -37,7 +37,8 @@ type ConcertRow = {
   ticket_link: string | null;
 };
 
-const ROW_LIMIT = 800;
+/** The rail shows 12 cards; 120 upcoming rows is plenty to fill it after dedupe. */
+const ROW_LIMIT = 120;
 const RESULT_LIMIT = 12;
 
 /**
