@@ -6,65 +6,17 @@ import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, CalendarDays, ChevronLeft, ChevronRight, MapPin, Star, Ticket } from 'lucide-react';
 import type { NearbyEvent } from '@/lib/nearby-events';
+import useSavedEvents from '@/hooks/useSavedEvents';
 
 type NearbyResponse = {
   location: { city: string | null; regionKey: string; regionLabel: string } | null;
   events: NearbyEvent[];
 };
 
-const SAVED_EVENTS_KEY = 'musictop:saved-events';
-
-/**
- * `pending` means the account lookup is still in flight. A click made in that
- * window has to survive hydration, so it is recorded as an intent rather than
- * written straight to the account list.
- */
-type SavedSource = 'pending' | 'account' | 'device';
-
-type SavedResponse = {
-  authenticated: boolean;
-  ids: string[];
-  persisted: boolean;
-};
-
-function readSavedEvents(): Set<string> {
-  try {
-    const raw = window.localStorage.getItem(SAVED_EVENTS_KEY);
-    if (!raw) return new Set();
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? new Set(parsed.map(String)) : new Set();
-  } catch {
-    return new Set();
-  }
-}
-
-/** Guest fallback: the star still works without an account, on this device only. */
-function persistLocalSavedEvents(ids: Set<string>): void {
-  try {
-    window.localStorage.setItem(SAVED_EVENTS_KEY, JSON.stringify(Array.from(ids)));
-  } catch {
-    // Private mode or a full quota: the star still works for this session.
-  }
-}
-
 /** Honoured by the arrows only; scrolling a list is motion too. */
 function prefersReducedMotion(): boolean {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-}
-
-/**
- * Replays toggles made before the account list was known on top of it, so the
- * pre-hydration click is not overwritten by the server's answer.
- */
-function applyPendingToggles(base: Set<string>, pending: Map<string, boolean>): Set<string> {
-  const merged = new Set(base);
-  for (const [id, shouldSave] of pending) {
-    if (shouldSave) merged.add(id);
-    else merged.delete(id);
-  }
-  pending.clear();
-  return merged;
 }
 
 const weekdayMonthDayFormatter = new Intl.DateTimeFormat('en-US', {
@@ -183,12 +135,9 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
   const [status, setStatus] = useState<'loading' | 'ready' | 'hidden'>('loading');
   const [events, setEvents] = useState<NearbyEvent[]>([]);
   const [location, setLocation] = useState<NearbyResponse['location']>(null);
-  const [saved, setSaved] = useState<Set<string>>(() => new Set());
-  const [savedSource, setSavedSource] = useState<SavedSource>('pending');
-  const [saveIssue, setSaveIssue] = useState<string | null>(null);
-  const pendingTogglesRef = useRef<Map<string, boolean>>(new Map());
   const [edges, setEdges] = useState({ start: true, end: false });
   const railRef = useRef<HTMLUListElement | null>(null);
+  const { ids: saved, failedEvent, toggle: toggleSaved } = useSavedEvents();
 
   useEffect(() => {
     const controller = new AbortController();
@@ -205,80 +154,6 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
 
     return () => controller.abort();
   }, []);
-
-  /**
-   * Writes the whole list to the account. On failure the star is rolled back to
-   * `previous`, because a filled star that saved nothing is a lie. When the column
-   * is missing (migration not applied) the star keeps working on this device.
-   */
-  const persistToAccount = useCallback(async (next: Set<string>, previous: Set<string>, artist: string) => {
-    try {
-      const response = await fetch('/api/saved-events', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: Array.from(next) }),
-      });
-
-      if (!response.ok) throw new Error(`Saved events request failed with ${response.status}.`);
-
-      const payload = (await response.json().catch(() => null)) as { persisted?: boolean } | null;
-
-      if (payload?.persisted === false) {
-        setSavedSource('device');
-        persistLocalSavedEvents(next);
-      }
-    } catch (error: unknown) {
-      console.warn('Could not persist saved events:', error);
-      setSaved(previous);
-      setSaveIssue(`Couldn't save ${artist}. Check your connection and try again.`);
-    }
-  }, []);
-
-  useEffect(() => {
-    const controller = new AbortController();
-
-    // Saved ids come from the account when there is one. Guests, and accounts on a
-    // database that has not run the saved_events migration, fall back to this device.
-    fetch('/api/saved-events', { signal: controller.signal, headers: { Accept: 'application/json' } })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((payload: SavedResponse | null) => {
-        if (controller.signal.aborted) return;
-
-        if (payload?.authenticated && payload.persisted) {
-          const accountIds = new Set(payload.ids);
-          const pending = new Map(pendingTogglesRef.current);
-          setSavedSource('account');
-
-          if (pending.size === 0) {
-            setSaved(accountIds);
-            return;
-          }
-
-          const merged = applyPendingToggles(accountIds, pending);
-          setSaved(merged);
-          void persistToAccount(merged, accountIds, 'this event');
-          return;
-        }
-
-        // Guest: pending toggles were already written to this device.
-        setSaved(readSavedEvents());
-        setSavedSource('device');
-      })
-      .catch(() => {
-        if (controller.signal.aborted) return;
-        setSaved(readSavedEvents());
-        setSavedSource('device');
-      });
-
-    return () => controller.abort();
-  }, [persistToAccount]);
-
-  // The failure note is feedback, not a permanent label.
-  useEffect(() => {
-    if (!saveIssue) return undefined;
-    const timer = window.setTimeout(() => setSaveIssue(null), 8000);
-    return () => window.clearTimeout(timer);
-  }, [saveIssue]);
 
   const syncEdges = useCallback(() => {
     const rail = railRef.current;
@@ -305,33 +180,6 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
     const card = rail.querySelector('[data-nearby-card]') as HTMLElement | null;
     const step = card ? card.offsetWidth + 16 : rail.clientWidth * 0.8;
     rail.scrollBy({ left: direction * step, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
-  };
-
-  const toggleSaved = (event: NearbyEvent) => {
-    const previous = saved;
-    const shouldSave = !previous.has(event.id);
-    const next = new Set(previous);
-
-    if (shouldSave) next.add(event.id);
-    else next.delete(event.id);
-
-    setSaved(next);
-    setSaveIssue(null);
-
-    if (savedSource === 'pending') {
-      // Record the intent and keep the device copy in step, so the click survives
-      // whichever answer the account lookup returns.
-      pendingTogglesRef.current.set(event.id, shouldSave);
-      persistLocalSavedEvents(next);
-      return;
-    }
-
-    if (savedSource === 'device') {
-      persistLocalSavedEvents(next);
-      return;
-    }
-
-    void persistToAccount(next, previous, event.artist);
   };
 
   if (status === 'hidden') return null;
@@ -363,8 +211,12 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
             {heading}
           </h2>
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">{subline}</p>
-          {saveIssue && (
-            <p role="status" className="mt-2 max-w-xl text-[11px] font-bold tracking-[0.04em] text-accent-red">{saveIssue}</p>
+          {failedEvent && (
+            <p role="status" className="mt-2 max-w-xl text-[11px] font-bold tracking-[0.04em] text-accent-red">
+              {failedEvent.label
+                ? `Couldn't save ${failedEvent.label}. Check your connection and try again.`
+                : "Couldn't sync your saved events. Check your connection and try again."}
+            </p>
           )}
         </div>
 
@@ -400,6 +252,9 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
       </div>
 
       <ul
+        // Preflight removes list markers, and Safari drops list semantics when it
+        // does; the explicit role keeps the rail announced as a list in VoiceOver.
+        role="list"
         ref={railRef}
         onScroll={syncEdges}
         className="mt-7 -mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-2 no-scrollbar"
@@ -451,7 +306,7 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
                       <h3 className="line-clamp-2 text-sm font-black leading-tight tracking-[-0.02em] text-ink">{event.artist}</h3>
                       <button
                         type="button"
-                        onClick={() => toggleSaved(event)}
+                        onClick={() => toggleSaved({ id: event.id, label: event.artist })}
                         aria-pressed={isSaved}
                         aria-label={isSaved ? `Remove ${event.artist} from saved events` : `Save ${event.artist} to saved events`}
                         className={`shrink-0 rounded-full p-1 transition-colors ${isSaved ? 'text-accent-red' : 'text-placeholder hover:text-ink'}`}

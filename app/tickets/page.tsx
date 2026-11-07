@@ -108,8 +108,10 @@ export default async function TicketRegionsPage() {
           Ticketmaster, and each date is cross-checked against the promoter&apos;s published schedule before it is listed.
         </p>
 
+        {/* `role="list"` is required, not redundant: Preflight's `list-style: none`
+            makes Safari drop list semantics, and VoiceOver then skips the count. */}
         {regions.length > 0 ? (
-          <ul className="mt-10 grid grid-cols-1 gap-px bg-line sm:grid-cols-2 lg:grid-cols-4">
+          <ul role="list" className="mt-10 grid grid-cols-1 gap-px bg-line sm:grid-cols-2 lg:grid-cols-4">
             {regions.map((region) => (
               <li key={region.region}>
                 <Link
