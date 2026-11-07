@@ -8,16 +8,25 @@
  * repeat requests from the same address do not hit the provider again.
  */
 
+import { parseCoordinate, type Coordinate } from '@/lib/geo-distance';
+
 export type GeoLocation = {
   city: string | null;
   countryCode: string | null;
   countryName: string | null;
   /** Region key used by the `/tickets/<region>` routes. */
   regionKey: string;
+  /** Decimal degrees used to rank nearby concerts by air distance. */
+  latitude: number | null;
+  longitude: number | null;
 };
 
-/** Countries grouped by the region keys the ticket pages use. */
-const REGION_COUNTRIES: Record<string, readonly string[]> = {
+/**
+ * Countries grouped by the region keys the ticket pages use. Exported so the
+ * city geocoder can prefer a candidate on the right continent: `Milano` must not
+ * resolve to Milano, Texas.
+ */
+export const REGION_COUNTRIES: Record<string, readonly string[]> = {
   us: ['US', 'CA'],
   uk: ['GB', 'IE'],
   latino: ['MX', 'BR', 'AR', 'CO', 'CL', 'PE', 'VE', 'EC', 'GT', 'CU', 'DO', 'PR', 'CR', 'PA', 'UY', 'PY', 'BO', 'ES', 'PT'],
@@ -45,6 +54,7 @@ type ResolvedPlace = {
   city: string | null;
   countryCode: string | null;
   countryName: string | null;
+  coordinate: Coordinate | null;
 };
 
 const locationCache = new Map<string, { place: GeoLocation; expiresAt: number }>();
@@ -111,6 +121,8 @@ type IpApiCoResponse = {
   city?: string | null;
   country_code?: string | null;
   country_name?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   error?: boolean | string;
 };
 
@@ -119,6 +131,8 @@ type IpApiComResponse = {
   city?: string | null;
   countryCode?: string | null;
   country?: string | null;
+  lat?: number | null;
+  lon?: number | null;
 };
 
 async function lookupPlace(ip: string): Promise<ResolvedPlace | null> {
@@ -128,17 +142,21 @@ async function lookupPlace(ip: string): Promise<ResolvedPlace | null> {
       city: primary.city?.trim() || null,
       countryCode: primary.country_code?.trim().toUpperCase() || null,
       countryName: primary.country_name?.trim() || null,
+      // ipapi.co returns these alongside the city, so distance ordering costs no
+      // extra request.
+      coordinate: parseCoordinate(primary.latitude, primary.longitude),
     };
   }
 
   const fallback = await fetchJson<IpApiComResponse>(
-    `http://ip-api.com/json/${encodeURIComponent(ip)}?fields=status,country,countryCode,city`,
+    `http://ip-api.com/json/${encodeURIComponent(ip)}?fields=status,country,countryCode,city,lat,lon`,
   );
   if (fallback?.status === 'success') {
     return {
       city: fallback.city?.trim() || null,
       countryCode: fallback.countryCode?.trim().toUpperCase() || null,
       countryName: fallback.country?.trim() || null,
+      coordinate: parseCoordinate(fallback.lat, fallback.lon),
     };
   }
 
@@ -168,7 +186,9 @@ function writeCache(ip: string, place: GeoLocation): void {
 /**
  * Vercel resolves the visitor's city in front of the function on every request,
  * so those headers are used first: they cost nothing and cannot be rate limited.
- * The keyless IP providers below stay as the fallback for other hosts.
+ * Vercel also sends the coordinates it matched, which is exactly what the nearby
+ * rail needs to rank dates by distance. The keyless IP providers below stay as
+ * the fallback for other hosts.
  */
 function readPlatformLocation(headers: Headers): GeoLocation | null {
   const countryCode = headers.get('x-vercel-ip-country')?.trim().toUpperCase() || null;
@@ -184,11 +204,18 @@ function readPlatformLocation(headers: Headers): GeoLocation | null {
     }
   }
 
+  const coordinate = parseCoordinate(
+    headers.get('x-vercel-ip-latitude'),
+    headers.get('x-vercel-ip-longitude'),
+  );
+
   return {
     city: city?.replace(/\s+/g, ' ').trim().slice(0, 64) || null,
     countryCode,
     countryName: null,
     regionKey: getRegionKeyForCountry(countryCode),
+    latitude: coordinate?.latitude ?? null,
+    longitude: coordinate?.longitude ?? null,
   };
 }
 
@@ -214,6 +241,8 @@ export async function getRequestLocation(headers: Headers): Promise<GeoLocation 
     countryCode: place.countryCode,
     countryName: place.countryName,
     regionKey: getRegionKeyForCountry(place.countryCode),
+    latitude: place.coordinate?.latitude ?? null,
+    longitude: place.coordinate?.longitude ?? null,
   };
   writeCache(ip, location);
 

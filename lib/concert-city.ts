@@ -465,7 +465,8 @@ const LEGACY_VENUE_CITIES: Record<string, string> = {
   'sala silvestre revueltas': 'Mexico City',
 };
 
-function cityKey(value: string): string {
+/** Accent- and case-insensitive key. Shared with the city coordinate lookup. */
+export function cityKey(value: string): string {
   return value
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '')

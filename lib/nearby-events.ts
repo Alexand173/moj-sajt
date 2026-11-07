@@ -1,4 +1,6 @@
+import { getCityCoordinates } from '@/lib/city-coordinates';
 import { resolveConcertCity } from '@/lib/concert-city';
+import { haversineKm, parseCoordinate, type Coordinate } from '@/lib/geo-distance';
 import type { GeoLocation } from '@/lib/geo-location';
 import { getPublicSupabaseClient } from '@/lib/supabase-public';
 import { generisiAffiliateLink } from '@/lib/ticket-affiliate';
@@ -8,10 +10,11 @@ import { generisiAffiliateLink } from '@/lib/ticket-affiliate';
  * tickets hub.
  *
  * The region is the coarse slice — it is the same key the `/tickets/<region>`
- * pages use, so the rail always agrees with the region page it links into. The
- * city from the IP lookup only reorders the result: a city-level guess is right
- * often enough to be worth surfacing first, but never trusted enough to hide
- * dates in the rest of the region.
+ * pages use, so the rail always agrees with the region page it links into — and
+ * the ranking is proximity: the visitor's own city first, then ascending
+ * great-circle distance, with the soonest date only breaking ties. An IP lookup
+ * is good enough to sort by, never good enough to hide dates behind, which is why
+ * the region still supplies the pool.
  */
 
 export type NearbyEvent = {
@@ -24,6 +27,8 @@ export type NearbyEvent = {
   date: string;
   ticketUrl: string | null;
   region: string | null;
+  /** Air distance from the visitor, rounded to whole kilometres; null when unknown. */
+  distanceKm: number | null;
 };
 
 type ConcertRow = {
@@ -37,8 +42,12 @@ type ConcertRow = {
   ticket_link: string | null;
 };
 
-/** The rail shows 12 cards; 120 upcoming rows is plenty to fill it after dedupe. */
-const ROW_LIMIT = 120;
+/**
+ * The rail shows 12 cards. The ranker can only order what it loaded, and the
+ * nearest date is not always among the soonest dozen, so the pool is wider than
+ * the result: 300 upcoming rows of this narrow select is still a cheap query.
+ */
+const ROW_LIMIT = 300;
 const RESULT_LIMIT = 12;
 
 /**
@@ -101,41 +110,95 @@ async function loadRows(region: string | null) {
   }
 }
 
+/** A row resolved far enough to be ranked; free of Supabase types so it can be tested. */
+export type NearbyCandidate<T> = {
+  item: T;
+  city: string | null;
+  artist: string;
+  date: string;
+  distanceKm: number | null;
+  /** True when the show is in the visitor's own city. */
+  isLocal: boolean;
+};
+
+const UNKNOWN_DISTANCE = Number.POSITIVE_INFINITY;
+
+/**
+ * Local first, then nearest, then soonest. A local show keeps its place even when
+ * the IP centroid and the city centroid differ by a few kilometres, because the
+ * city name matching is the stronger signal. Unknown distances sort last: a city
+ * we could not place is not a city next door.
+ */
+export function compareNearbyCandidates<T>(a: NearbyCandidate<T>, b: NearbyCandidate<T>): number {
+  if (a.isLocal !== b.isLocal) return a.isLocal ? -1 : 1;
+
+  const aDistance = a.distanceKm ?? UNKNOWN_DISTANCE;
+  const bDistance = b.distanceKm ?? UNKNOWN_DISTANCE;
+  if (aDistance !== bDistance) return aDistance < bDistance ? -1 : 1;
+
+  if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+  return a.artist.localeCompare(b.artist);
+}
+
+export function orderNearby<T>(candidates: NearbyCandidate<T>[]): NearbyCandidate<T>[] {
+  return [...candidates].sort(compareNearbyCandidates);
+}
+
+/** What the ranking needs to know about the visitor. */
+export type NearbyViewer = {
+  city: string | null;
+  coordinate: Coordinate | null;
+};
+
 /**
  * One card per artist — a rail of twelve nights from the same tour would say less
- * than twelve different shows — with the visitor's own city first, then the
- * soonest dates.
+ * than twelve different shows — ordered by how close the show is.
  */
-function toEvents(rows: ConcertRow[], nearCity: string | null): NearbyEvent[] {
-  const nearKey = comparableCity(nearCity);
+function toEvents(rows: ConcertRow[], viewer: NearbyViewer): NearbyEvent[] {
+  const nearKey = comparableCity(viewer.city);
 
-  const ranked = rows
-    .filter((row) => Boolean(row.artist_name?.trim()) && isUpcoming(row.date))
-    .map((row) => {
-      const city = resolveConcertCity(row.city, row.location);
-      const isNear = Boolean(nearKey) && comparableCity(city) === nearKey;
-      return { row, city, isNear, timestamp: new Date(row.date as string).getTime() };
-    })
-    .sort((a, b) => Number(b.isNear) - Number(a.isNear) || a.timestamp - b.timestamp);
+  const ranked = orderNearby(
+    rows
+      .filter((row) => Boolean(row.artist_name?.trim()) && isUpcoming(row.date))
+      .map((row) => {
+        const city = resolveConcertCity(row.city, row.location);
+        const isLocal = Boolean(nearKey) && comparableCity(city) === nearKey;
+        const cityCoordinate = getCityCoordinates(city);
+        const distanceKm = isLocal
+          ? 0
+          : viewer.coordinate && cityCoordinate
+            ? Math.round(haversineKm(viewer.coordinate, cityCoordinate))
+            : null;
+
+        return {
+          item: row,
+          city,
+          artist: (row.artist_name as string).trim(),
+          date: row.date as string,
+          distanceKm,
+          isLocal,
+        };
+      }),
+  );
 
   const seen = new Set<string>();
   const events: NearbyEvent[] = [];
 
   for (const entry of ranked) {
-    const artist = (entry.row.artist_name as string).trim();
-    const key = comparableCity(artist);
+    const key = comparableCity(entry.artist);
     if (seen.has(key)) continue;
 
     seen.add(key);
     events.push({
-      id: String(entry.row.id),
-      artist,
-      imageUrl: entry.row.image_url || null,
-      venue: entry.row.location?.trim() || null,
+      id: String(entry.item.id),
+      artist: entry.artist,
+      imageUrl: entry.item.image_url || null,
+      venue: entry.item.location?.trim() || null,
       city: entry.city,
-      date: entry.row.date as string,
-      ticketUrl: entry.row.ticket_link ? generisiAffiliateLink(entry.row.ticket_link) : null,
-      region: entry.row.region?.trim().toLowerCase() || null,
+      date: entry.date,
+      ticketUrl: entry.item.ticket_link ? generisiAffiliateLink(entry.item.ticket_link) : null,
+      region: entry.item.region?.trim().toLowerCase() || null,
+      distanceKm: entry.distanceKm,
     });
 
     if (events.length >= RESULT_LIMIT) break;
@@ -144,14 +207,28 @@ function toEvents(rows: ConcertRow[], nearCity: string | null): NearbyEvent[] {
   return events;
 }
 
-export async function getNearbyEvents(location: Pick<GeoLocation, 'city' | 'regionKey'> | null): Promise<NearbyEvent[]> {
+export type NearbyLocation = Pick<GeoLocation, 'city' | 'regionKey' | 'latitude' | 'longitude'>;
+
+function toViewer(location: NearbyLocation | null): NearbyViewer {
+  if (!location) return { city: null, coordinate: null };
+
+  return {
+    city: location.city ?? null,
+    coordinate: parseCoordinate(location.latitude, location.longitude),
+  };
+}
+
+export async function getNearbyEvents(location: NearbyLocation | null): Promise<NearbyEvent[]> {
   const region = location?.regionKey && location.regionKey !== 'world' ? location.regionKey : null;
-  const nearby = toEvents(await loadRows(location?.regionKey ?? null), location?.city ?? null);
+  const viewer = toViewer(location);
+
+  const nearby = toEvents(await loadRows(location?.regionKey ?? null), viewer);
   if (nearby.length > 0) return nearby;
 
   // A thin region feed should still fill the rail, so widen to every region
-  // rather than shipping an empty section.
-  if (region) return toEvents(await loadRows(null), null);
+  // rather than shipping an empty section. The visitor's city stops mattering
+  // here, but their coordinates still order the widened pool by distance.
+  if (region) return toEvents(await loadRows(null), { city: null, coordinate: viewer.coordinate });
 
   return [];
 }

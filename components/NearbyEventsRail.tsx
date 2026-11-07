@@ -46,6 +46,20 @@ function formatShowDate(value: string): { label: string; iso: string } {
   return { label: weekdayMonthDayFormatter.format(eventDay), iso: value };
 }
 
+const kilometreFormatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
+
+/**
+ * Distance is the reason the rail is ordered the way it is, so it is stated on the
+ * card. A show in the visitor's own city reads "in town" rather than a "0 km".
+ */
+function formatDistance(distanceKm: number | null): { label: string; ariaLabel: string } | null {
+  if (distanceKm === null) return null;
+  if (distanceKm <= 0) return { label: 'in town', ariaLabel: 'in your town' };
+
+  const value = kilometreFormatter.format(distanceKm);
+  return { label: `${value} km`, ariaLabel: `${value} kilometres away` };
+}
+
 /** First and last initial, at most two: `Koncert przy świecach` → KŚ, `Aitana` → AI. */
 function artistInitials(name: string): string {
   const words = name.replace(/[^\p{L}\p{N}]+/gu, ' ').trim().split(/\s+/).filter(Boolean);
@@ -310,11 +324,13 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
           events.map((event) => {
             const show = formatShowDate(event.date);
             const isSaved = saved.has(event.id);
+            const distance = formatDistance(event.distanceKm);
 
             return (
               <li
                 key={event.id}
                 data-nearby-card
+                data-distance-km={event.distanceKm ?? undefined}
                 className="min-w-[80vw] snap-start border border-line bg-white transition-colors hover:border-ink sm:min-w-[22rem] lg:min-w-[24rem]"
               >
                 <article className="group flex h-full flex-col">
@@ -341,9 +357,21 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
                       </button>
                     </div>
 
-                    <p className="truncate text-[11px] text-muted">
-                      {event.venue || event.city || 'Venue to be announced'}
-                    </p>
+                    {/* Venue and distance share the existing line, so a card keeps
+                        its height and the rail cannot shift the page below it. */}
+                    <div className="flex items-baseline justify-between gap-2">
+                      <p className="min-w-0 truncate text-[11px] text-muted">
+                        {event.venue || event.city || 'Venue to be announced'}
+                      </p>
+                      {distance && (
+                        <span
+                          aria-label={distance.ariaLabel}
+                          className="shrink-0 text-[10px] font-bold tracking-[0.04em] text-placeholder uppercase tabular-nums"
+                        >
+                          {distance.label}
+                        </span>
+                      )}
+                    </div>
 
                     <div className="mt-auto flex items-center justify-between gap-2 border-t border-line pt-3">
                       <span className="flex min-w-0 items-center gap-1.5 text-[9px] font-bold tracking-[0.08em] text-muted uppercase">
