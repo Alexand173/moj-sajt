@@ -14,7 +14,8 @@
     "tickets:enrich-videos": "npx tsx scripts/enrich-concert-videos.ts",
     "tickets:enrich-profile": "npx tsx scripts/enrich-tour-profile.ts",
     "charts:update": "npx tsx scripts/update-charts.ts",
-    "cities:coords": "npx tsx scripts/build-city-coordinates.ts"
+    "cities:coords": "npx tsx scripts/build-city-coordinates.ts",
+    "db:migrate": "npx tsx scripts/apply-migrations.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -42,6 +43,7 @@
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.3",
     "@types/node": "^20",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/spotify-web-api-node": "^5.0.11",

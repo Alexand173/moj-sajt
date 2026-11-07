@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { orderNearby, type NearbyCandidate } from '@/lib/nearby-events';
+import { orderNearby, selectNearby, type NearbyCandidate } from '@/lib/nearby-events';
 
 type Row = { id: string };
 
@@ -78,5 +78,45 @@ describe('orderNearby', () => {
     orderNearby(input);
 
     expect(ids(input)).toEqual(before);
+  });
+});
+
+describe('selectNearby', () => {
+  const limits = { total: 12, local: 6 };
+
+  it('caps the visitor’s own city so nearby cities surface', () => {
+    const candidates = [
+      ...Array.from({ length: 9 }, (_, index) => candidate(`home-${index}`, { isLocal: true, distanceKm: 0 })),
+      ...Array.from({ length: 6 }, (_, index) => candidate(`near-${index}`, { distanceKm: 100 + index * 10 })),
+    ];
+
+    const picked = selectNearby(candidates, limits);
+
+    expect(picked.filter((entry) => entry.isLocal)).toHaveLength(6);
+    expect(picked).toHaveLength(12);
+    expect(picked.slice(6).every((entry) => !entry.isLocal)).toBe(true);
+  });
+
+  it('fills the spare slots when the visitor’s city is thin', () => {
+    const candidates = [
+      candidate('home-a', { isLocal: true, distanceKm: 0 }),
+      candidate('home-b', { isLocal: true, distanceKm: 0 }),
+      ...Array.from({ length: 11 }, (_, index) => candidate(`near-${index}`, { distanceKm: 50 + index })),
+    ];
+
+    const picked = selectNearby(candidates, limits);
+
+    expect(picked).toHaveLength(12);
+    expect(picked.filter((entry) => entry.isLocal)).toHaveLength(2);
+  });
+
+  it('still keeps one card per artist', () => {
+    const candidates = [
+      candidate('a1', { artist: 'Aitana', isLocal: true, distanceKm: 0 }),
+      candidate('a2', { artist: 'Aitana', isLocal: true, distanceKm: 0 }),
+      candidate('b1', { artist: 'KoRn', distanceKm: 200 }),
+    ];
+
+    expect(ids(selectNearby(candidates, limits))).toEqual(['a1', 'b1']);
   });
 });

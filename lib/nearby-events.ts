@@ -51,6 +51,14 @@ const ROW_LIMIT = 300;
 const RESULT_LIMIT = 12;
 
 /**
+ * Half the rail is enough for the visitor's own city. A visitor in London has
+ * hundreds of London dates, and filling all twelve slots with them would hide the
+ * nearby cities the distance ordering exists to surface. The remaining slots go to
+ * the closest shows elsewhere.
+ */
+const LOCAL_RESULT_LIMIT = 6;
+
+/**
  * `date` is stored as `YYYY-MM-DD` with no time, so comparing it to `Date.now()`
  * would drop a show the moment its UTC midnight passed. A date counts as upcoming
  * until the visitor's day is over, which is how the rest of the ticket code reads it.
@@ -150,9 +158,41 @@ export type NearbyViewer = {
   coordinate: Coordinate | null;
 };
 
+export type NearbyLimits = {
+  /** Cards in the rail. */
+  total: number;
+  /** Cards the visitor's own city may occupy. */
+  local: number;
+};
+
 /**
- * One card per artist — a rail of twelve nights from the same tour would say less
- * than twelve different shows — ordered by how close the show is.
+ * Picks the rail from an already-ordered candidate list: one card per artist — a
+ * rail of twelve nights from the same tour would say less than twelve different
+ * shows — and no more than `limits.local` from the visitor's own city.
+ */
+export function selectNearby<T>(candidates: NearbyCandidate<T>[], limits: NearbyLimits): NearbyCandidate<T>[] {
+  const picked: NearbyCandidate<T>[] = [];
+  const seenArtists = new Set<string>();
+  let locals = 0;
+
+  for (const candidate of candidates) {
+    if (picked.length >= limits.total) break;
+
+    const artistKey = comparableCity(candidate.artist);
+    if (seenArtists.has(artistKey)) continue;
+    if (candidate.isLocal && locals >= limits.local) continue;
+
+    seenArtists.add(artistKey);
+    if (candidate.isLocal) locals += 1;
+    picked.push(candidate);
+  }
+
+  return picked;
+}
+
+/**
+ * One card per artist, ordered by how close the show is, with the local group
+ * capped so nearby cities still make it onto the rail.
  */
 function toEvents(rows: ConcertRow[], viewer: NearbyViewer): NearbyEvent[] {
   const nearKey = comparableCity(viewer.city);
@@ -181,30 +221,17 @@ function toEvents(rows: ConcertRow[], viewer: NearbyViewer): NearbyEvent[] {
       }),
   );
 
-  const seen = new Set<string>();
-  const events: NearbyEvent[] = [];
-
-  for (const entry of ranked) {
-    const key = comparableCity(entry.artist);
-    if (seen.has(key)) continue;
-
-    seen.add(key);
-    events.push({
-      id: String(entry.item.id),
-      artist: entry.artist,
-      imageUrl: entry.item.image_url || null,
-      venue: entry.item.location?.trim() || null,
-      city: entry.city,
-      date: entry.date,
-      ticketUrl: entry.item.ticket_link ? generisiAffiliateLink(entry.item.ticket_link) : null,
-      region: entry.item.region?.trim().toLowerCase() || null,
-      distanceKm: entry.distanceKm,
-    });
-
-    if (events.length >= RESULT_LIMIT) break;
-  }
-
-  return events;
+  return selectNearby(ranked, { total: RESULT_LIMIT, local: LOCAL_RESULT_LIMIT }).map((entry) => ({
+    id: String(entry.item.id),
+    artist: entry.artist,
+    imageUrl: entry.item.image_url || null,
+    venue: entry.item.location?.trim() || null,
+    city: entry.city,
+    date: entry.date,
+    ticketUrl: entry.item.ticket_link ? generisiAffiliateLink(entry.item.ticket_link) : null,
+    region: entry.item.region?.trim().toLowerCase() || null,
+    distanceKm: entry.distanceKm,
+  }));
 }
 
 export type NearbyLocation = Pick<GeoLocation, 'city' | 'regionKey' | 'latitude' | 'longitude'>;
