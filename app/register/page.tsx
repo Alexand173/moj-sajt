@@ -29,6 +29,11 @@ export default function RegisterPage() {
         provider: providerName,
         options: {
           redirectTo: getOAuthRedirect(),
+          // Instagram and TikTok are custom OAuth providers: Supabase has no
+          // scope for them, and the request is rejected before the provider can
+          // hand back the profile that fills the `profiles` row.
+          ...(providerName === 'custom:instagram' ? { scopes: 'user_profile' } : {}),
+          ...(providerName === 'custom:tiktok' ? { scopes: 'user.info.basic' } : {}),
           queryParams: providerName === 'google' ? {
             access_type: 'offline',
             prompt: 'select_account',
