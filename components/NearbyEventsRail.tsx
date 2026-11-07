@@ -67,6 +67,65 @@ function formatShowDate(value: string): { label: string; iso: string } {
   return { label: weekdayMonthDayFormatter.format(eventDay), iso: value };
 }
 
+/** At most two initials: `Koncert przy świecach` → KP, `Aitana` → AI. */
+function artistInitials(name: string): string {
+  const words = name.replace(/[^\p{L}\p{N}]+/gu, ' ').trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return 'MT';
+  if (words.length === 1) return Array.from(words[0]).slice(0, 2).join('').toUpperCase();
+
+  const first = Array.from(words[0])[0];
+  const last = Array.from(words[words.length - 1])[0];
+  return `${first}${last}`.toUpperCase();
+}
+
+/** Ticketmaster artwork can stall as well as 404; neither should leave a blank card. */
+const IMAGE_FALLBACK_MS = 6000;
+
+/**
+ * Poster or initials. Ticketmaster artwork 404s and stalls more often than the
+ * feed implies, and an empty dark rectangle reads as a broken card, so a failed
+ * or stalled load falls back to the artist's initials over the brand pattern.
+ */
+function ArtistThumb({ src, artist }: { src: string | null; artist: string }) {
+  const [status, setStatus] = useState<'loading' | 'loaded' | 'failed'>('loading');
+
+  useEffect(() => {
+    if (!src) return undefined;
+
+    const timer = window.setTimeout(() => {
+      // A photo that already painted is never replaced by the timeout.
+      setStatus((current) => (current === 'loaded' ? current : 'failed'));
+    }, IMAGE_FALLBACK_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [src]);
+
+  if (!src || status === 'failed') {
+    return (
+      <div className="relative h-full w-full overflow-hidden bg-ink" aria-hidden="true">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_18%,rgb(230_57_70_/_0.32),transparent_62%)]" />
+        <div className="absolute inset-0 bg-[repeating-linear-gradient(45deg,rgb(255_255_255_/_0.07)_0,rgb(255_255_255_/_0.07)_1px,transparent_1px,transparent_9px)]" />
+        <span className="absolute inset-0 flex items-center justify-center text-3xl font-black tracking-[-0.08em] text-white/70">
+          {artistInitials(artist)}
+        </span>
+        <span className="absolute bottom-2 right-3 text-[8px] font-bold tracking-[0.26em] text-white/25 uppercase">MusicTop</span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt=""
+      loading="lazy"
+      decoding="async"
+      onLoad={() => setStatus('loaded')}
+      onError={() => setStatus('failed')}
+      className="h-full w-full object-cover grayscale transition-all duration-700 group-hover:grayscale-0"
+    />
+  );
+}
+
 /**
  * Shows within reach of the visitor's IP-derived city, with the whole region as a
  * safety net. The rail is fetched on the client so the tickets hub keeps its
@@ -179,7 +238,8 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
   if (status === 'hidden') return null;
 
   const isNearYou = Boolean(location?.city);
-  const heading = isNearYou ? 'Trending near you' : 'Concerts nearby';
+  // One heading in both cases: the city is already named in the kicker and subline.
+  const heading = 'Concerts nearby';
   const subline = isNearYou
     ? `Shows within reach of ${location?.city} — plus the rest of the ${location?.regionLabel ?? 'world'} schedule.`
     : 'The soonest dates on sale right now, across every region we track.';
@@ -264,20 +324,7 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
               >
                 <article className="group flex h-full flex-col">
                   <div className="relative h-44 overflow-hidden bg-ink sm:h-48">
-                    {event.imageUrl ? (
-                      <img
-                        src={event.imageUrl}
-                        alt={`${event.artist} live`}
-                        loading="lazy"
-                        decoding="async"
-                        onError={(error) => { error.currentTarget.style.display = 'none'; }}
-                        className="h-full w-full object-cover grayscale transition-all duration-700 group-hover:grayscale-0"
-                      />
-                    ) : (
-                      <span className="flex h-full items-center justify-center text-[10px] font-black tracking-[0.2em] text-white/35 uppercase">
-                        MusicTop
-                      </span>
-                    )}
+                    <ArtistThumb src={event.imageUrl} artist={event.artist} />
                     {event.city && (
                       <span className="absolute left-0 top-0 bg-ink/85 px-2 py-1 text-[8px] font-black tracking-[0.14em] text-white uppercase">
                         {event.city}

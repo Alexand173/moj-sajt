@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@supabase/supabase-js';
+import { pickArtistName } from '@/lib/artist-name';
 import { normalizeCityName } from '@/lib/concert-city';
 
 export const dynamic = 'force-dynamic';
@@ -31,6 +32,58 @@ const REGION_CONFIG: Record<string, { country?: string; genre?: string }> = {
   'jazz': { genre: 'KnvZfZ7vAvE' },
   'classical': { genre: 'KnvZfZ7vAeJ' }
 };
+
+/**
+ * Rows are keyed by `artist_name,date`, so correcting an artist name would insert
+ * a second row for a show that is already stored under its event name. Ticketmaster
+ * event pages are unique per show, so any stored row sharing a ticket link with an
+ * incoming event but carrying a different artist name is the superseded copy.
+ */
+type IncomingEvent = {
+  artist_name: string;
+  ticket_link: string | null;
+};
+
+type StoredEventRow = {
+  id: string | number;
+  artist_name: string | null;
+  ticket_link: string | null;
+};
+
+async function dropSupersededRows(events: IncomingEvent[]): Promise<number> {
+  const nextNameByLink = new Map<string, string>();
+  for (const event of events) {
+    if (event.ticket_link) nextNameByLink.set(event.ticket_link, event.artist_name);
+  }
+
+  const links = Array.from(nextNameByLink.keys());
+  if (links.length === 0) return 0;
+
+  let removed = 0;
+
+  for (let index = 0; index < links.length; index += 100) {
+    const chunk = links.slice(index, index + 100);
+    const { data, error } = await supabase
+      .from('koncerti')
+      .select('id, artist_name, ticket_link')
+      .in('ticket_link', chunk);
+
+    if (error || !data) continue;
+
+    const staleIds = (data as StoredEventRow[])
+      .filter((row) => row.ticket_link
+        && nextNameByLink.get(row.ticket_link)
+        && nextNameByLink.get(row.ticket_link) !== row.artist_name)
+      .map((row) => row.id);
+
+    if (staleIds.length === 0) continue;
+
+    const { error: deleteError } = await supabase.from('koncerti').delete().in('id', staleIds);
+    if (!deleteError) removed += staleIds.length;
+  }
+
+  return removed;
+}
 
 export async function GET(request: Request) {
   // Ovde bezbedno proveravamo da li imamo prave ekološke promenljive
@@ -83,7 +136,7 @@ export async function GET(request: Request) {
           const formatted = events
             .map((e: any) => {
               return {
-                artist_name: e.name || "Unknown",
+                artist_name: pickArtistName(e.name, e._embedded?.attractions?.[0]?.name),
                 date: e.dates?.start?.localDate || new Date().toISOString().split('T')[0],
                 location: e._embedded?.venues?.[0]?.name || 'TBA',
                 city: normalizeCityName(e._embedded?.venues?.[0]?.city?.name),
@@ -151,7 +204,7 @@ export async function GET(request: Request) {
           }
 
           return {
-            artist_name: e.name || "Unknown",
+            artist_name: pickArtistName(e.name, e._embedded?.attractions?.[0]?.name),
             date: e.dates?.start?.localDate || new Date().toISOString().split('T')[0],
             location: e._embedded?.venues?.[0]?.name || 'TBA',
             city: normalizeCityName(e._embedded?.venues?.[0]?.city?.name),
@@ -213,11 +266,15 @@ export async function GET(request: Request) {
     // Invalidate every /tickets/<region> page after a successful sync.
     revalidatePath('/tickets/[regionName]', 'page');
 
+    // Runs after the write, so a failed upsert can never leave rows deleted.
+    const superseded = await dropSupersededRows(uniqueEvents);
+
     return NextResponse.json({
       status: "Success",
       region,
       fetched: allFormattedEvents.length,
-      saved_unique: uniqueEvents.length
+      saved_unique: uniqueEvents.length,
+      superseded,
     });
 
   } catch (err: any) {
