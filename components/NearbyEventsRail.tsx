@@ -14,6 +14,13 @@ type NearbyResponse = {
 
 const SAVED_EVENTS_KEY = 'musictop:saved-events';
 
+/**
+ * `pending` means the account lookup is still in flight. A click made in that
+ * window has to survive hydration, so it is recorded as an intent rather than
+ * written straight to the account list.
+ */
+type SavedSource = 'pending' | 'account' | 'device';
+
 type SavedResponse = {
   authenticated: boolean;
   ids: string[];
@@ -38,6 +45,26 @@ function persistLocalSavedEvents(ids: Set<string>): void {
   } catch {
     // Private mode or a full quota: the star still works for this session.
   }
+}
+
+/** Honoured by the arrows only; scrolling a list is motion too. */
+function prefersReducedMotion(): boolean {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+/**
+ * Replays toggles made before the account list was known on top of it, so the
+ * pre-hydration click is not overwritten by the server's answer.
+ */
+function applyPendingToggles(base: Set<string>, pending: Map<string, boolean>): Set<string> {
+  const merged = new Set(base);
+  for (const [id, shouldSave] of pending) {
+    if (shouldSave) merged.add(id);
+    else merged.delete(id);
+  }
+  pending.clear();
+  return merged;
 }
 
 const weekdayMonthDayFormatter = new Intl.DateTimeFormat('en-US', {
@@ -142,7 +169,7 @@ function ArtistThumb({ src, artist }: { src: string | null; artist: string }) {
       decoding="async"
       onLoad={() => setStatus('loaded')}
       onError={() => setStatus('failed')}
-      className="h-full w-full object-cover grayscale transition-all duration-700 group-hover:grayscale-0"
+      className="h-full w-full object-cover grayscale transition-all duration-700 group-hover:grayscale-0 motion-reduce:transition-none"
     />
   );
 }
@@ -157,7 +184,9 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
   const [events, setEvents] = useState<NearbyEvent[]>([]);
   const [location, setLocation] = useState<NearbyResponse['location']>(null);
   const [saved, setSaved] = useState<Set<string>>(() => new Set());
-  const [savedSource, setSavedSource] = useState<'account' | 'device'>('device');
+  const [savedSource, setSavedSource] = useState<SavedSource>('pending');
+  const [saveIssue, setSaveIssue] = useState<string | null>(null);
+  const pendingTogglesRef = useRef<Map<string, boolean>>(new Map());
   const [edges, setEdges] = useState({ start: true, end: false });
   const railRef = useRef<HTMLUListElement | null>(null);
 
@@ -177,6 +206,34 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
     return () => controller.abort();
   }, []);
 
+  /**
+   * Writes the whole list to the account. On failure the star is rolled back to
+   * `previous`, because a filled star that saved nothing is a lie. When the column
+   * is missing (migration not applied) the star keeps working on this device.
+   */
+  const persistToAccount = useCallback(async (next: Set<string>, previous: Set<string>, artist: string) => {
+    try {
+      const response = await fetch('/api/saved-events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: Array.from(next) }),
+      });
+
+      if (!response.ok) throw new Error(`Saved events request failed with ${response.status}.`);
+
+      const payload = (await response.json().catch(() => null)) as { persisted?: boolean } | null;
+
+      if (payload?.persisted === false) {
+        setSavedSource('device');
+        persistLocalSavedEvents(next);
+      }
+    } catch (error: unknown) {
+      console.warn('Could not persist saved events:', error);
+      setSaved(previous);
+      setSaveIssue(`Couldn't save ${artist}. Check your connection and try again.`);
+    }
+  }, []);
+
   useEffect(() => {
     const controller = new AbortController();
 
@@ -188,20 +245,40 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
         if (controller.signal.aborted) return;
 
         if (payload?.authenticated && payload.persisted) {
-          setSaved(new Set(payload.ids));
+          const accountIds = new Set(payload.ids);
+          const pending = new Map(pendingTogglesRef.current);
           setSavedSource('account');
+
+          if (pending.size === 0) {
+            setSaved(accountIds);
+            return;
+          }
+
+          const merged = applyPendingToggles(accountIds, pending);
+          setSaved(merged);
+          void persistToAccount(merged, accountIds, 'this event');
           return;
         }
 
+        // Guest: pending toggles were already written to this device.
         setSaved(readSavedEvents());
+        setSavedSource('device');
       })
       .catch(() => {
         if (controller.signal.aborted) return;
         setSaved(readSavedEvents());
+        setSavedSource('device');
       });
 
     return () => controller.abort();
-  }, []);
+  }, [persistToAccount]);
+
+  // The failure note is feedback, not a permanent label.
+  useEffect(() => {
+    if (!saveIssue) return undefined;
+    const timer = window.setTimeout(() => setSaveIssue(null), 8000);
+    return () => window.clearTimeout(timer);
+  }, [saveIssue]);
 
   const syncEdges = useCallback(() => {
     const rail = railRef.current;
@@ -227,33 +304,34 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
 
     const card = rail.querySelector('[data-nearby-card]') as HTMLElement | null;
     const step = card ? card.offsetWidth + 16 : rail.clientWidth * 0.8;
-    rail.scrollBy({ left: direction * step, behavior: 'smooth' });
+    rail.scrollBy({ left: direction * step, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
   };
 
   const toggleSaved = (event: NearbyEvent) => {
-    const next = new Set(saved);
-    if (next.has(event.id)) next.delete(event.id);
-    else next.add(event.id);
+    const previous = saved;
+    const shouldSave = !previous.has(event.id);
+    const next = new Set(previous);
+
+    if (shouldSave) next.add(event.id);
+    else next.delete(event.id);
 
     setSaved(next);
+    setSaveIssue(null);
+
+    if (savedSource === 'pending') {
+      // Record the intent and keep the device copy in step, so the click survives
+      // whichever answer the account lookup returns.
+      pendingTogglesRef.current.set(event.id, shouldSave);
+      persistLocalSavedEvents(next);
+      return;
+    }
 
     if (savedSource === 'device') {
       persistLocalSavedEvents(next);
       return;
     }
 
-    void fetch('/api/saved-events', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ids: Array.from(next) }),
-    })
-      .then((response) => {
-        if (!response.ok) throw new Error(`Saved events request failed with ${response.status}.`);
-      })
-      .catch((error: unknown) => {
-        // The star stays optimistic; the next toggle re-sends the whole list.
-        console.warn('Could not persist saved events:', error);
-      });
+    void persistToAccount(next, previous, event.artist);
   };
 
   if (status === 'hidden') return null;
@@ -264,19 +342,30 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
   const subline = isNearYou
     ? `Shows within reach of ${location?.city} — plus the rest of the ${location?.regionLabel ?? 'world'} schedule.`
     : 'The soonest dates on sale right now, across every region we track.';
+  // Announced once when the rail resolves, so the count is not silent to screen readers.
+  const countAnnouncement = status === 'ready'
+    ? (isNearYou
+      ? `${events.length} concerts near ${location?.city}.`
+      : `${events.length} concerts on sale across every region we track.`)
+    : '';
 
   return (
-    <section aria-labelledby="nearby-events" className={`mt-14 border-t border-line pt-10 ${className}`}>
+    <section aria-labelledby="nearby-events" className={className}>
+      <p role="status" aria-live="polite" className="sr-only">{countAnnouncement}</p>
+
       <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <p className="mt-kicker text-accent-red">
             <MapPin aria-hidden="true" className="size-3" />
-            {isNearYou ? `${location?.city} · near you` : 'On sale now'}
+            {isNearYou ? `Near ${location?.city}` : 'Next dates'}
           </p>
           <h2 id="nearby-events" className="mt-3 text-3xl font-black leading-[0.95] tracking-[-0.06em] text-ink sm:text-4xl">
             {heading}
           </h2>
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">{subline}</p>
+          {saveIssue && (
+            <p role="status" className="mt-2 max-w-xl text-[11px] font-bold tracking-[0.04em] text-accent-red">{saveIssue}</p>
+          )}
         </div>
 
         <div className="flex items-center gap-2 sm:shrink-0">
@@ -311,7 +400,6 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
       </div>
 
       <ul
-        role="list"
         ref={railRef}
         onScroll={syncEdges}
         className="mt-7 -mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-2 no-scrollbar"
@@ -321,13 +409,18 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
             <li
               key={`skeleton-${placeholder}`}
               aria-hidden="true"
-              className="min-w-[80vw] animate-pulse border border-line bg-white sm:min-w-[22rem] lg:min-w-[24rem]"
+              // Sized to a loaded card (312px on phones, 328px from sm) so the rail,
+              // now above the fold, cannot push the page title down when it resolves.
+              className="flex h-[19.5rem] min-w-[80vw] flex-col border border-line bg-white sm:h-[20.5rem] sm:min-w-[22rem] lg:min-w-[24rem]"
             >
-              <div className="h-44 bg-paper-muted sm:h-48" />
-              <div className="space-y-3 p-4">
-                <div className="h-3 w-3/4 bg-paper-muted" />
-                <div className="h-2.5 w-1/2 bg-paper-muted" />
-                <div className="h-2.5 w-2/3 bg-paper-muted" />
+              <div className="h-44 animate-pulse bg-paper-muted motion-reduce:animate-none sm:h-48" />
+              <div className="flex flex-1 animate-pulse flex-col gap-3 p-4 motion-reduce:animate-none">
+                <div className="h-4 w-3/4 bg-paper-muted" />
+                <div className="h-3 w-1/2 bg-paper-muted" />
+                <div className="mt-auto flex items-center justify-between border-t border-line pt-3">
+                  <div className="h-3 w-16 bg-paper-muted" />
+                  <div className="h-3 w-14 bg-paper-muted" />
+                </div>
               </div>
             </li>
           ))}

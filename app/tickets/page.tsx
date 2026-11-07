@@ -83,7 +83,9 @@ export default async function TicketRegionsPage() {
       <main className="mt-container py-12 sm:py-16 lg:py-20">
         <Breadcrumbs items={breadcrumbs} tone="light" />
 
-        <div className="mt-8 flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+        <NearbyEventsRail className="mt-8 border-b border-line pb-10" />
+
+        <div className="mt-10 flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl">
             <p className="mt-kicker">On sale now</p>
             <h1 className="mt-4 text-[clamp(2.2rem,5vw,4rem)] font-black leading-[0.94] tracking-[-0.05em] text-ink uppercase">
@@ -107,7 +109,7 @@ export default async function TicketRegionsPage() {
         </p>
 
         {regions.length > 0 ? (
-          <ul role="list" className="mt-10 grid grid-cols-1 gap-px bg-line sm:grid-cols-2 lg:grid-cols-4">
+          <ul className="mt-10 grid grid-cols-1 gap-px bg-line sm:grid-cols-2 lg:grid-cols-4">
             {regions.map((region) => (
               <li key={region.region}>
                 <Link
@@ -141,8 +143,6 @@ export default async function TicketRegionsPage() {
             </Link>
           </div>
         )}
-
-        <NearbyEventsRail />
 
         <section aria-labelledby="ticket-regions-note" className="mt-14 border-t-2 border-ink pt-5">
           <h2 id="ticket-regions-note" className="text-[10px] font-black tracking-[0.24em] text-ink uppercase">How listings are verified</h2>
