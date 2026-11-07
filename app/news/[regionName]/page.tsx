@@ -127,11 +127,28 @@ export default async function BillboardNewsPage({
 
   if (supabase) {
     try {
+      /**
+       * Only stories that carry a finished AI brief are published. `ai_generated`
+       * is false or null while a row is still queued for enrichment, and
+       * `ai_status` records whether the worker actually wrote a brief
+       * (`generated`) or fell back to the publisher's own text. Filtering here
+       * rather than after the fetch matters: the limits and the `.range()` below
+       * then page over publishable rows only, so the sections stay full.
+       */
+      const aiPublishedNews = (category: 'OFFICIAL' | 'LATEST') => supabase
+        .from('news')
+        .select(NEWS_FEED_COLUMNS)
+        .eq('region', region)
+        .eq('category', category)
+        .eq('ai_generated', true)
+        .eq('ai_status', 'generated')
+        .order('created_at', { ascending: false });
+
       const [officialRes, latestRes, additionalOfficialRes, additionalLatestRes, communityNewsRes, blogRes, discRes, concertRes] = await Promise.all([
-        supabase.from('news').select(NEWS_FEED_COLUMNS).eq('region', region).eq('category', 'OFFICIAL').order('created_at', { ascending: false }).limit(NEWS_FEED_LIMIT),
-        supabase.from('news').select(NEWS_FEED_COLUMNS).eq('region', region).eq('category', 'LATEST').order('created_at', { ascending: false }).limit(NEWS_FEED_LIMIT),
-        supabase.from('news').select(NEWS_FEED_COLUMNS).eq('region', region).eq('category', 'OFFICIAL').order('created_at', { ascending: false }).range(STORIES_BY_MASS_OFFSET, STORIES_BY_MASS_OFFSET + STORIES_BY_MASS_FETCH_LIMIT - 1),
-        supabase.from('news').select(NEWS_FEED_COLUMNS).eq('region', region).eq('category', 'LATEST').order('created_at', { ascending: false }).range(STORIES_BY_MASS_OFFSET, STORIES_BY_MASS_OFFSET + STORIES_BY_MASS_FETCH_LIMIT - 1),
+        aiPublishedNews('OFFICIAL').limit(NEWS_FEED_LIMIT),
+        aiPublishedNews('LATEST').limit(NEWS_FEED_LIMIT),
+        aiPublishedNews('OFFICIAL').range(STORIES_BY_MASS_OFFSET, STORIES_BY_MASS_OFFSET + STORIES_BY_MASS_FETCH_LIMIT - 1),
+        aiPublishedNews('LATEST').range(STORIES_BY_MASS_OFFSET, STORIES_BY_MASS_OFFSET + STORIES_BY_MASS_FETCH_LIMIT - 1),
         supabase.from('community_news').select(`
           id, title, content, created_at, region, post_image, author_id,
           profiles (first_name, avatar_url)
