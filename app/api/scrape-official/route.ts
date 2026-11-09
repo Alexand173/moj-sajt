@@ -3,6 +3,7 @@ import * as cheerio from 'cheerio';
 import axios from 'axios';
 import { createClient } from '@supabase/supabase-js';
 import { normalizeNewsRegion } from '../../../lib/news-regions';
+import { isMusicNews } from '../../../lib/news-relevance';
 
 const isDirectScript = typeof require !== 'undefined' && require.main === module;
 if (isDirectScript) {
@@ -76,6 +77,7 @@ async function scrapeSource(source: NewsSource, scrapedData: ScrapedArticle[]): 
     const $ = cheerio.load(res.data);
     const domainName = new URL(source.url).hostname.replace('www.', '');
     let countPerSite = 0;
+    let skippedOffTopic = 0;
 
     $('h2, h3').toArray().some((el) => {
       if (countPerSite >= 3) return true;
@@ -84,6 +86,14 @@ async function scrapeSource(source: NewsSource, scrapedData: ScrapedArticle[]): 
       const link = $(el).find('a').attr('href') || $(el).closest('a').attr('href');
 
       if (title.length > 25 && link) {
+        // Even a music source carries the occasional off-topic piece. Rewriting
+        // one costs an AI call and publishes it under MusicTop's byline, so it is
+        // cheaper to drop it here than to fix it later.
+        if (!isMusicNews({ title }, 'music-publication')) {
+          skippedOffTopic += 1;
+          return false;
+        }
+
         // Resolved against the source URL, not concatenated: protocol-relative
         // hrefs ("//host/path") used to become "https://host//host/path", which
         // produced hosts like "www.classical-music.comnews" — rows that can
@@ -111,7 +121,7 @@ async function scrapeSource(source: NewsSource, scrapedData: ScrapedArticle[]): 
       return false;
     });
 
-    console.log(`✅ ${domainName} - uspeh (${countPerSite} stavki).`);
+    console.log(`✅ ${domainName} - uspeh (${countPerSite} stavki, ${skippedOffTopic} preskočeno kao ne-muzika).`);
     return true;
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : String(e);

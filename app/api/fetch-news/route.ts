@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { enrichPendingNews } from '../../../lib/news-ai-enrichment';
 import { NEWS_REGION_QUERIES, type NewsRegion } from '../../../lib/news-regions';
+import { assessNewsRelevance } from '../../../lib/news-relevance';
 
 // Inicijalizacija Supabase klijenta
 const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -50,15 +51,8 @@ const IDENTITY_LOOKUP_CHUNK_SIZE = 20;
 type NewsIdentityColumn = 'title' | 'url';
 type ExistingNewsRow = { id: string | number; title: string; url: string | null };
 
-const MUSIC_KEYWORDS = [
-  'music', 'concert', 'album', 'band', 'song', 'artist', 
-  'tour', 'festival', 'singer', 'guitarist','drummer','rock band','metal band', 'dj', 'track', 'lyrics', 'kpop', 'jazz', 'reggaeton'
-];
-
-function isMusicRelated(title: string, description: string): boolean {
-  const text = `${title} ${description}`.toLowerCase();
-  return MUSIC_KEYWORDS.some(keyword => text.includes(keyword));
-}
+// Relevance lives in `lib/news-relevance.ts` so both ingest paths — the NewsAPI
+// fetcher here and the publisher scraper — apply the same rule.
 
 async function loadExistingNewsRows(
   client: SupabaseClient,
@@ -102,14 +96,31 @@ async function fetchNews(query: string, region: NewsRegion, apiKey: string): Pro
       return { region, articles: [], failed: false };
     }
 
+    // Latin America used to bypass filtering entirely, which is how film and
+    // politics stories entered that feed. Spanish music vocabulary is part of the
+    // gate now, so every region goes through the same check.
+    const rejected: string[] = [];
     const filteredArticles = data.articles
       .filter((art) => {
-        if (region === 'latino') return true;
-        return isMusicRelated(art.title || '', art.description || '');
+        const verdict = assessNewsRelevance({
+          title: art.title,
+          excerpt: art.description,
+          content: art.content,
+        });
+
+        if (verdict.relevant) return true;
+
+        const label = verdict.hardBlock
+          || `music ${verdict.musicScore} / off-topic ${verdict.offTopicScore}`;
+        rejected.push(`${art.title || 'untitled'} [${label}]`);
+        return false;
       })
       .slice(0, MAX_ARTICLES_PER_REGION);
 
     console.log(`📡 Fetched ${data.articles.length}, kept ${filteredArticles.length} music articles for region: ${region}`);
+    if (rejected.length > 0) {
+      console.log(`🚫 Dropped ${rejected.length} non-music article(s) for ${region}: ${rejected.slice(0, 5).join(' | ')}`);
+    }
 
     return {
       region,

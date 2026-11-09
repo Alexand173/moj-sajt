@@ -163,7 +163,10 @@ describe('generateAiNewsArticle safe fallback', () => {
 
     const result = await generateAiNewsArticle(boundaryInput);
 
-    expect(mocks.responsesCreate).toHaveBeenCalledOnce();
+    // The draft clears the 400-word publication floor, so it is accepted — but a
+    // single 410-word paragraph is below the editorial bar, so the validator
+    // spends one retry asking for structure before falling back to it.
+    expect(mocks.responsesCreate).toHaveBeenCalledTimes(2);
     expect(result).toMatchObject({ isAiGenerated: true, similarityCheckPassed: true, retryCount: 0 });
   });
 

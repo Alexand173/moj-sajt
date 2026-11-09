@@ -16,6 +16,18 @@ const MIN_SOURCE_WORDS_FOR_AI = 20;
  * `noindex`, so nothing accepted here is thin enough to hurt indexing.
  */
 const MIN_PROFESSIONAL_WORDS = 400;
+/**
+ * What a finished brief should look like. Falling short of these does not throw
+ * the draft away — it asks the model for a repair, and only a draft that still
+ * misses them after the retry is accepted with a warning. A 400-word draft is
+ * publishable and indexable; a 400-word draft that opens with "Overall," is not.
+ *
+ * Calibrated against the drafts this model actually writes: it lands at 550-700
+ * words however the brief is phrased, so a 700-word bar rejected every single
+ * article and doubled the API spend to produce the same text.
+ */
+const MIN_EDITORIAL_WORDS = 550;
+const MIN_EDITORIAL_PARAGRAPHS = 9;
 const MAX_GENERATED_ARTICLE_CHARACTERS = 24_000;
 const MAX_MODEL_RESPONSE_CHARACTERS = 30_000;
 /**
@@ -358,6 +370,101 @@ function createWordNgrams(tokens: string[], size: number): Set<string> {
 
 function normalizeSentence(sentence: string): string {
   return tokenizeForSimilarity(sentence).join(' ');
+}
+
+/** Ways a draft can be publishable but still not good enough to ship unedited. */
+export type EditorialProblem =
+  | 'summary-opener'
+  | 'summary-closer'
+  | 'stock-frame'
+  | 'short-draft'
+  | 'thin-structure';
+
+const SUMMARY_WORDS = /^(?:in conclusion|in summary|in sum|to sum up|all in all|ultimately|overall)\b[\s,:—-]*/i;
+const SUMMARY_CLOSER = /^(?:in conclusion|in summary|in sum|to sum up|all in all|ultimately|overall|together,? these|for now)\b/i;
+const STOCK_FRAMES: Array<{ pattern: RegExp; note: string }> = [
+  // The model varies the noun ("industry", "catalog management", "business"), so
+  // the frame is matched on its shape rather than one phrase.
+  { pattern: /from an? [a-z ]{1,24}perspective/i, note: '"From a … perspective" is a stock frame' },
+  { pattern: /looking ahead/i, note: '"Looking ahead" is a transition that says nothing' },
+  { pattern: /it is unclear whether/i, note: '"It is unclear whether" hedges instead of reporting' },
+  { pattern: /fans and observers/i, note: '"Fans and observers" is a stock frame' },
+  { pattern: /remains to be seen|only time will tell/i, note: 'Closer hedges with "remains to be seen" / "only time will tell"' },
+  { pattern: /significant milestone/i, note: '"Significant milestone" states no fact' },
+  { pattern: /in the ever[- ]evolving/i, note: '"In the ever-evolving" is filler' },
+  { pattern: /against the backdrop of/i, note: '"Against the backdrop of" is filler' },
+];
+
+export type DraftInspection = {
+  wordCount: number;
+  paragraphCount: number;
+  problems: EditorialProblem[];
+  /** One line per problem, phrased for the repair prompt. */
+  notes: string[];
+};
+
+function splitParagraphs(content: string): string[] {
+  return content.split(/\n{2,}/).map((paragraph) => paragraph.trim()).filter(Boolean);
+}
+
+/**
+ * Removes the two tells that can be fixed without rewriting prose: a summary
+ * sentence stapled to the top, and a closing summary paragraph. Deleting a
+ * bookend is deterministic and safe; asking the model to avoid one is not, which
+ * is why three of the first four articles still ended with "In conclusion" after
+ * the brief banned the phrase.
+ */
+export function stripSummaryBookends(content: string): string {
+  const paragraphs = splitParagraphs(content);
+
+  const trimmedLast = paragraphs[paragraphs.length - 1];
+  if (paragraphs.length > MIN_EDITORIAL_PARAGRAPHS && trimmedLast && SUMMARY_CLOSER.test(trimmedLast)) {
+    paragraphs.pop();
+  }
+
+  const first = paragraphs[0];
+  if (first && SUMMARY_WORDS.test(first)) {
+    const stripped = first.replace(SUMMARY_WORDS, '');
+    paragraphs[0] = stripped ? stripped.charAt(0).toUpperCase() + stripped.slice(1) : first;
+  }
+
+  return paragraphs.join('\n\n');
+}
+
+export function inspectDraft(content: string): DraftInspection {
+  const paragraphs = splitParagraphs(content);
+  const words = wordCount(content);
+  const problems: EditorialProblem[] = [];
+  const notes: string[] = [];
+
+  const first = paragraphs[0] || '';
+  const last = paragraphs[paragraphs.length - 1] || '';
+
+  if (SUMMARY_WORDS.test(first)) {
+    problems.push('summary-opener');
+    notes.push('The draft opened with a summary word ("Overall", "Ultimately"). Open on the news.');
+  }
+  if (SUMMARY_CLOSER.test(last)) {
+    problems.push('summary-closer');
+    notes.push('The draft ended with a summary paragraph ("In conclusion", "In summary"). End on a fact.');
+  }
+
+  const frames = STOCK_FRAMES.filter((frame) => frame.pattern.test(content));
+  if (frames.length > 0) {
+    problems.push('stock-frame');
+    notes.push(...frames.map((frame) => frame.note));
+  }
+
+  if (words < MIN_EDITORIAL_WORDS) {
+    problems.push('short-draft');
+    notes.push(`The draft ran ${words} words. Extend it to at least ${MIN_EDITORIAL_WORDS} using reporting already in the notes.`);
+  }
+  if (paragraphs.length < MIN_EDITORIAL_PARAGRAPHS) {
+    problems.push('thin-structure');
+    notes.push(`The draft had ${paragraphs.length} paragraphs. Write at least ${MIN_EDITORIAL_PARAGRAPHS}.`);
+  }
+
+  return { wordCount: words, paragraphCount: paragraphs.length, problems, notes };
 }
 
 function splitSentences(value: string): string[] {
@@ -710,6 +817,8 @@ function buildRewritePrompt(input: {
   excerpt: string | null | undefined;
   sourceMaterial: string;
   isRetry: boolean;
+  /** Violations found in the previous draft, quoted back to the model. */
+  feedback?: string[];
 }): string {
   return `You are a senior music-industry reporter writing under your own byline for MusicTop.
 
@@ -739,7 +848,8 @@ Add analysis the publisher did not write, in the middle of the piece rather than
 
 BANNED PHRASES — a reviewer rejects these on sight
 - Openers or closers such as "In conclusion", "In summary", "Overall", "All in all", "Ultimately", or a closing restatement of the article.
-- Stock analysis frames: "From an industry perspective", "Fans and observers may see this as", "This marks a significant milestone", "remains to be seen", "only time will tell".
+- Stock analysis frames: any "from a … perspective" ("from an industry perspective", "from a catalog management perspective"), "Looking ahead", "It is unclear whether", "Fans and observers may see this as", "This marks a significant milestone", "remains to be seen", "only time will tell".
+- End the article on a fact — a date, a figure, a title, a stated unknown — not on a paragraph about what the story means.
 - Chains of hedging ("could", "may", "might") standing in for a point. Choose the reading the facts support, or say the fact is unconfirmed and stop.
 - Speculation dressed as insight, such as assigning symbolic meaning to a number, unless the notes state it.
 - Any sentence that could be pasted into another artist's story unchanged. If a sentence would survive a name swap, delete it.
@@ -750,7 +860,7 @@ SHAPE
 - Leave out comments, reader reactions, promotional copy, newsletter or subscription prompts, navigation text and related-story lists.
 - If the notes are thin, say which details remain unconfirmed instead of padding.
 
-${input.isRetry ? 'RETRY — the previous draft was rejected for staying too close to the source. Start from a blank outline, choose different nouns and verbs throughout, and change the order in which the facts appear. Do not rewrite the rejected draft.\n' : ''}
+${input.isRetry ? 'RETRY — the previous draft was rejected for staying too close to the source. Start from a blank outline, choose different nouns and verbs throughout, and change the order in which the facts appear. Do not rewrite the rejected draft.\n' : ''}${input.feedback?.length ? `REPAIR NOTES — an editor rejected the previous draft. Fix every one of these in the new draft, and change nothing that was already working:\n${input.feedback.map((note) => `- ${note}`).join('\n')}\n` : ''}
 Return only valid JSON, with no markdown and no commentary:
 {
   "seoTitle": "new factual angle, at most 70 characters, not the source headline",
@@ -820,12 +930,13 @@ export async function generateAiNewsArticle(
 
   try {
     const configuredModel = process.env.OPENAI_MODEL?.trim() || DEFAULT_OPENAI_MODEL;
-    const buildPrompt = (isRetry: boolean) => buildRewritePrompt({
+    const buildPrompt = (isRetry: boolean, feedback: string[]) => buildRewritePrompt({
       sourceName: resolvedInput.sourceName,
       title: resolvedInput.title,
       excerpt: resolvedInput.excerpt,
       sourceMaterial,
       isRetry,
+      feedback,
     });
 
     const generationStartedAt = Date.now();
@@ -841,20 +952,29 @@ export async function generateAiNewsArticle(
 
     let lastSimilarityScore = 0;
     let lastAttemptError: unknown;
+    /** A draft that cleared the hard gates but still had editorial problems. */
+    let acceptableDraft: AiNewsArticle | null = null;
+    /** Problems from the previous attempt, quoted into the next prompt. */
+    let repairNotes: string[] = [];
 
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
-        const responseText = await generateWithConfiguredProvider(buildPrompt(attempt === 1));
+        const responseText = await generateWithConfiguredProvider(buildPrompt(attempt === 1, repairNotes));
         const parsed = parseJsonResponse(responseText);
-        const articleContent = formatArticleContent(getTextField(parsed.articleContent));
+        const rawContent = formatArticleContent(getTextField(parsed.articleContent));
 
-        if (!articleContent) throw new Error('AI response did not include article content.');
-        if (articleContent.length > MAX_GENERATED_ARTICLE_CHARACTERS) {
+        if (!rawContent) throw new Error('AI response did not include article content.');
+        if (rawContent.length > MAX_GENERATED_ARTICLE_CHARACTERS) {
           throw new Error(`AI article exceeded the ${MAX_GENERATED_ARTICLE_CHARACTERS}-character limit.`);
         }
 
+        // Deterministic fixes first, so the gate and the editor judge the text
+        // that would actually ship.
+        const articleContent = stripSummaryBookends(rawContent);
         const similarity = checkSourceSimilarity(sourceMaterial, articleContent);
+        const inspection = inspectDraft(articleContent);
         lastSimilarityScore = similarity.contentWordSimilarity;
+        repairNotes = inspection.notes;
 
         console.info(JSON.stringify({
           event: 'news_rewrite_similarity_check',
@@ -866,13 +986,16 @@ export async function generateAiNewsArticle(
           longestConsecutiveSentenceMatch: similarity.longestConsecutiveSentenceMatch,
           sharedPhraseRatio: Number(similarity.sharedPhraseRatio.toFixed(4)),
           passed: similarity.passed,
+          editorialProblems: inspection.problems,
+          words: inspection.wordCount,
+          paragraphs: inspection.paragraphCount,
         }));
 
         const sourceWords = wordCount(sourceMaterial);
-        const meetsLengthRequirement = sourceWords < MIN_PROFESSIONAL_WORDS || wordCount(articleContent) >= MIN_PROFESSIONAL_WORDS;
+        const meetsLengthRequirement = sourceWords < MIN_PROFESSIONAL_WORDS || inspection.wordCount >= MIN_PROFESSIONAL_WORDS;
 
         if (similarity.passed && meetsLengthRequirement) {
-          return {
+          const draft: AiNewsArticle = {
             seoTitle: getTextField(parsed.seoTitle) || resolvedInput.title,
             seoDescription: getTextField(parsed.seoDescription) || cleanSourceText(resolvedInput.excerpt).slice(0, 180),
             articleContent,
@@ -883,6 +1006,19 @@ export async function generateAiNewsArticle(
             similarityCheckPassed: true,
             retryCount: attempt,
           };
+
+          if (inspection.problems.length === 0) return draft;
+
+          // Publishable, but the editor would send it back. Keep it as a floor
+          // and spend the retry asking for a specific repair instead of hoping a
+          // fresh generation avoids the same traps.
+          acceptableDraft = acceptableDraft ?? draft;
+          console.warn(JSON.stringify({
+            event: 'news_rewrite_editorial_retry',
+            attempt: attempt + 1,
+            problems: inspection.problems,
+          }));
+          continue;
         }
 
         if (!meetsLengthRequirement) {
@@ -919,6 +1055,17 @@ export async function generateAiNewsArticle(
         }
         console.warn(`AI rewrite attempt ${attempt + 1} failed validation:`, error);
       }
+    }
+
+    // The retry produced nothing better, but an earlier draft did clear the hard
+    // gates: publish that rather than a fallback that carries no brief at all.
+    if (acceptableDraft) {
+      console.warn(JSON.stringify({
+        event: 'news_rewrite_editorial_warnings',
+        retryCount: acceptableDraft.retryCount,
+        note: 'editorial problems remained after the retry; draft accepted',
+      }));
+      return acceptableDraft;
     }
 
     if (lastAttemptError) {

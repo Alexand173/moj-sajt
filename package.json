@@ -15,6 +15,7 @@
     "tickets:enrich-profile": "npx tsx scripts/enrich-tour-profile.ts",
     "charts:update": "npx tsx scripts/update-charts.ts",
     "cities:coords": "npx tsx scripts/build-city-coordinates.ts",
+    "news:relevance": "npx tsx scripts/audit-news-relevance.ts",
     "db:migrate": "npx tsx scripts/apply-migrations.ts"
   },
   "dependencies": {
