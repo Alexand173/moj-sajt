@@ -31,6 +31,10 @@ function readOptions() {
 
   return {
     officialOnly,
+    // `--fallback-only` repairs rows whose earlier rewrite was rejected by the
+    // similarity gate. The scheduled worker cannot reach them while thousands of
+    // pending rows sit ahead of them in the oldest-first queue.
+    fallbackOnly: process.argv.includes('--fallback-only'),
     includeOfficial: !officialOnly && !process.argv.includes('--latest-only'),
     limit: readNumberFlag('--limit'),
     maxBatches: readNumberFlag('--batches'),
@@ -42,10 +46,11 @@ function readOptions() {
 async function main() {
   // The scheduled cron owns the news pipeline, so it also rewrites scraped
   // OFFICIAL publisher rows with the same validation gate as LATEST.
-  const { officialOnly, includeOfficial, limit, maxBatches, sinceDays, concurrency } = readOptions();
+  const { officialOnly, fallbackOnly, includeOfficial, limit, maxBatches, sinceDays, concurrency } = readOptions();
   const result = await runNewsAiWorker(limit, {
     includeOfficial,
     officialOnly,
+    fallbackOnly,
     maxBatches,
     sinceDays,
     concurrency,

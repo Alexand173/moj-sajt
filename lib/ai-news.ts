@@ -734,11 +734,18 @@ ORIGINALITY RULES — a similarity test checks these
 - No quotations. Put contested claims in reported speech: "according to ${input.sourceName}".
 - The notes must not appear in the output. If you cannot rewrite them without copying, return an empty articleContent.
 
-ORIGINAL COMMENTARY — at least one paragraph
-Add editorial analysis the publisher did not write: what this means for the artist's catalogue, the touring cycle, the genre's economics, or the relationship with fans. Argue only from facts in the notes. Introduce no new names, numbers or events, and label anything unconfirmed as unconfirmed.
+ORIGINAL COMMENTARY — at least two paragraphs, not a summary
+Add analysis the publisher did not write, in the middle of the piece rather than tagged on at the end: what this means for the artist's catalogue, the touring cycle, the genre's economics, or the relationship with fans. Every analytical claim must lean on a specific fact from the notes — a date, a number, a title, a venue, a chart position — and say which. Introduce no new names, numbers or events, and label anything unconfirmed as unconfirmed.
+
+BANNED PHRASES — a reviewer rejects these on sight
+- Openers or closers such as "In conclusion", "In summary", "Overall", "All in all", "Ultimately", or a closing restatement of the article.
+- Stock analysis frames: "From an industry perspective", "Fans and observers may see this as", "This marks a significant milestone", "remains to be seen", "only time will tell".
+- Chains of hedging ("could", "may", "might") standing in for a point. Choose the reading the facts support, or say the fact is unconfirmed and stop.
+- Speculation dressed as insight, such as assigning symbolic meaning to a number, unless the notes state it.
+- Any sentence that could be pasted into another artist's story unchanged. If a sentence would survive a name swap, delete it.
 
 SHAPE
-- 900 to 1,200 words, 9 to 13 paragraphs, 3 to 5 sentences each.
+- 12 to 14 paragraphs, 900 to 1,200 words, 3 to 5 sentences each. A draft under 900 words is incomplete: extend it with reporting that is already in the notes — chronology, figures, what each party said — never with restatement or significance filler.
 - Neutral music-journalism register. No hype, no first person, no addressing the reader.
 - Leave out comments, reader reactions, promotional copy, newsletter or subscription prompts, navigation text and related-story lists.
 - If the notes are thin, say which details remain unconfirmed instead of padding.

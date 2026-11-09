@@ -28,6 +28,8 @@ export interface NewsAiWorkerOptions {
   sinceDays?: number;
   /** Articles rewritten in parallel per batch. Defaults to 4. */
   concurrency?: number;
+  /** Repair only rows whose earlier rewrite fell back, ignoring the window. */
+  fallbackOnly?: boolean;
 }
 
 const EMPTY_RESULT: NewsAiBatchLoopResult = {
@@ -117,6 +119,7 @@ export async function runNewsAiWorker(
     timeBudgetMs: options.timeBudgetMs,
     sinceDays: options.sinceDays,
     concurrency: options.concurrency,
+    fallbackOnly: options.fallbackOnly,
   };
 
   if (options.officialOnly) {

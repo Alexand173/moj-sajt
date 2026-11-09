@@ -57,6 +57,8 @@ export interface EnrichmentLoopOptions {
   timeBudgetMs?: number;
   sinceDays?: number;
   concurrency?: number;
+  /** Repair only rows whose earlier rewrite fell back, outside the window. */
+  fallbackOnly?: boolean;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -131,6 +133,7 @@ export async function runEnrichmentBatches(
       sinceDays,
       order: 'oldest',
       concurrency,
+      fallbackOnly: options.fallbackOnly,
       deadlineAt: enrichmentDeadline,
       // Copied, not shared: the batch must see the failures known *before* it
       // started, not the ones its own siblings add while it is still running.

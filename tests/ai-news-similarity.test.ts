@@ -103,6 +103,12 @@ describe('rewrite similarity measurement', () => {
     expect(prompt).toContain('Build your own outline');
     expect(prompt).toContain('Never reuse four or more consecutive words');
     expect(prompt).toContain('ORIGINAL COMMENTARY');
+    // The first batch of real drafts all closed with "In conclusion" and hedged
+    // its analysis, so the brief now names the phrases a reviewer rejects.
+    expect(prompt).toContain('BANNED PHRASES');
+    expect(prompt).toContain('In conclusion');
+    expect(prompt).toContain('If a sentence would survive a name swap, delete it');
+    expect(prompt).toContain('900 to 1,200 words');
     expect(String(mocks.responsesCreate.mock.calls[0][0].temperature)).toBe('0.85');
   });
 });

@@ -83,6 +83,18 @@ export interface EnrichPendingNewsOptions {
   deadlineAt?: number;
   /** Articles rewritten in parallel. Defaults to 4. */
   concurrency?: number;
+  /**
+   * Rewrite only rows whose previous attempt fell back, and ignore the lookback
+   * window.
+   *
+   * The normal selector orders pending and eligible-fallback rows together,
+   * oldest first, which is right for the scheduled worker. It also means a
+   * backlog of thousands of pending rows is always older than the fallback rows,
+   * so the fallbacks sit behind that queue and never reach the head of a batch.
+   * This is the repair switch: it skips the window because a row that fell back
+   * months ago is exactly the row worth retrying.
+   */
+  fallbackOnly?: boolean;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -161,20 +173,32 @@ export async function enrichPendingNews(
   // retried so one bad generation cannot leave a story permanently without a
   // brief, but only after a cooldown so a hard row cannot crowd fresh rows out
   // of every batch.
-  const statusFilter = [
-    'ai_status.is.null',
-    'ai_status.eq.pending',
-    `and(ai_status.eq.fallback,ai_generated_at.lt.${fallbackRetryBefore})`,
-    'and(ai_status.eq.fallback,ai_generated_at.is.null)',
-  ].join(',');
+  const statusFilter = options.fallbackOnly
+    ? `ai_status.eq.fallback,ai_generated_at.lt.${fallbackRetryBefore}`
+    : [
+      'ai_status.is.null',
+      'ai_status.eq.pending',
+      `and(ai_status.eq.fallback,ai_generated_at.lt.${fallbackRetryBefore})`,
+      'and(ai_status.eq.fallback,ai_generated_at.is.null)',
+    ].join(',');
   const excludedIds = toFilterIdList(options.excludeIds ?? []);
 
-  const baseQuery = supabase
+  const scopedQuery = supabase
     .from('news')
     .select('id, title, excerpt, content, url, category')
-    .in('category', categories)
-    .gte('created_at', windowStart)
-    .or(statusFilter);
+    .in('category', categories);
+
+  // A repair run only considers rows that still have a source to rewrite. The
+  // NewsAPI rows that fell back with no URL hold a truncated snippet plus a
+  // fifteen-word excerpt, so there is nothing to rewrite and nothing to fetch:
+  // retrying them every six hours would keep crowding real work out of the queue.
+  const sourcedQuery = options.fallbackOnly
+    ? scopedQuery.not('url', 'is', null).neq('url', '')
+    : scopedQuery;
+  // A fallback repair run is not bounded by the window: the rows worth repairing
+  // are by definition the old ones.
+  const windowedQuery = options.fallbackOnly ? sourcedQuery : sourcedQuery.gte('created_at', windowStart);
+  const baseQuery = windowedQuery.or(statusFilter);
   // A row whose write failed stays pending, so without this it would be handed
   // back at the head of the next batch and burn the rest of the run.
   const filteredQuery = excludedIds ? baseQuery.not('id', 'in', `(${excludedIds})`) : baseQuery;

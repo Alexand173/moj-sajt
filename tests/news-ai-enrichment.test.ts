@@ -37,6 +37,7 @@ function createNewsSupabaseMock() {
     select: vi.fn().mockReturnThis(),
     in: vi.fn().mockReturnThis(),
     gte: vi.fn().mockReturnThis(),
+    neq: vi.fn().mockReturnThis(),
     or: vi.fn().mockReturnThis(),
     not: vi.fn().mockReturnThis(),
     order: vi.fn().mockReturnThis(),
@@ -123,6 +124,21 @@ describe('news AI persistence', () => {
     expect(filter).toContain('ai_status.eq.pending');
     expect(filter).toContain('and(ai_status.eq.fallback,ai_generated_at.lt.');
     expect(filter).toContain('and(ai_status.eq.fallback,ai_generated_at.is.null)');
+  });
+
+  it('can repair only rows that fell back, ignoring the lookback window', async () => {
+    delete process.env.OPENAI_API_KEY;
+    const { supabase, statusFilter, windowFilter, categoryFilter } = createNewsSupabaseMock();
+
+    await enrichPendingNews(supabase, 20, { fallbackOnly: true });
+
+    const filter = statusFilter.mock.calls[0][0] as string;
+    // Only cooled-down fallbacks, and specifically not the pending backlog that
+    // would otherwise sit ahead of them in the oldest-first queue.
+    expect(filter.startsWith('ai_status.eq.fallback,ai_generated_at.lt.')).toBe(true);
+    expect(filter).not.toContain('ai_status.eq.pending');
+    expect(windowFilter).not.toHaveBeenCalled();
+    expect(categoryFilter).toHaveBeenCalledWith('category', ['LATEST']);
   });
 
   it('defaults enrichment queries to LATEST NewsAPI rows', async () => {
