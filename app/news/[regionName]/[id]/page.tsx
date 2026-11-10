@@ -6,6 +6,7 @@ import { buildNewsArticlePath, getNewsArticleSegment, parseNewsArticleSegment } 
 import RelatedStories from '@/components/RelatedStories';
 import StructuredData from '@/components/StructuredData';
 import { getNewsSourceName } from '@/lib/ai-news';
+import { isRewriteDeniedSourceUrl } from '@/lib/source-fetch';
 import { getRelatedNews } from '@/lib/related-news';
 import { getMediaIdentity, getSafeMediaUrl, getStoredNewsMediaUrl, getYouTubeEmbedUrl, getYouTubeVideoId, isLikelyEditorialImageUrl } from '@/lib/news-media';
 import { countWords, hasValidatedAiContent } from '@/lib/news-indexability';
@@ -204,15 +205,28 @@ export default async function SingleNewsPage({
         similarityCheckPassed: true,
         retryCount: 0,
       }
-    : {
-        seoTitle: article.title,
-        seoDescription: isLatestNews ? `MusicTop is reporting on a music story published by ${sourceName}.` : `Official source link from ${sourceName}.`,
-        articleContent: `MusicTop could not complete an independent editorial rewrite of this report from ${sourceName}.\n\nThe original publisher's report is available through the source link below. This page does not reproduce that article while the editorial rewrite is unavailable.`,
-        isAiGenerated: false,
-        similarityScore: article.ai_similarity_score || 0,
-        similarityCheckPassed: false,
-        retryCount: 0,
-      };
+    : isRewriteDeniedSourceUrl(resolvedSource.sourceUrl)
+      // This publisher is not rewritten by policy — its articles never answer us
+      // and its feed carries only a teaser — so the page says that plainly rather
+      // than showing an outage message the reader is meant to wait out.
+      ? {
+          seoTitle: article.title,
+          seoDescription: `A music story published by ${sourceName}. MusicTop links to the original report.`,
+          articleContent: `This report was published by ${sourceName}.\n\nMusicTop links to the original rather than reproducing it. Follow the source link below for the full report.`,
+          isAiGenerated: false,
+          similarityScore: article.ai_similarity_score || 0,
+          similarityCheckPassed: false,
+          retryCount: 0,
+        }
+      : {
+          seoTitle: article.title,
+          seoDescription: isLatestNews ? `MusicTop is reporting on a music story published by ${sourceName}.` : `Official source link from ${sourceName}.`,
+          articleContent: `MusicTop could not complete an independent editorial rewrite of this report from ${sourceName}.\n\nThe original publisher's report is available through the source link below. This page does not reproduce that article while the editorial rewrite is unavailable.`,
+          isAiGenerated: false,
+          similarityScore: article.ai_similarity_score || 0,
+          similarityCheckPassed: false,
+          retryCount: 0,
+        };
 
   const articleParagraphs = aiArticle.articleContent.split(/\n\s*\n/).map((paragraph) => paragraph.trim()).filter(Boolean);
   const canRenderStoredMedia = article.category === 'LATEST' && hasValidatedRewrite && articleParagraphs.length >= 3;

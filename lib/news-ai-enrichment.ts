@@ -56,6 +56,12 @@ export interface AiNewsEnrichmentSummary {
   fallback: number;
   skipped: number;
   failed: number;
+  /**
+   * Rows whose publisher is on the source-fetch denylist. Counted separately from
+   * `fallback` in the log so a deliberate link-out is never read as a failed
+   * rewrite when the run is audited.
+   */
+  publisherDenied?: number;
 }
 
 /** What a single batch reports back, including how and why it ended. */
@@ -223,6 +229,7 @@ export async function enrichPendingNews(
     truncated: false,
     failedIds: [],
     quotaExhausted: false,
+    publisherDenied: 0,
   };
 
   if (!process.env.OPENAI_API_KEY?.trim()) {
@@ -281,6 +288,10 @@ export async function enrichPendingNews(
         summary.failedIds.push(article.id);
         console.warn(`Could not persist AI news fields for "${article.title}":`, updateError.message);
         return;
+      }
+
+      if (aiResult.failureReason === 'source-unavailable') {
+        summary.publisherDenied = (summary.publisherDenied || 0) + 1;
       }
 
       if (aiStatus === 'generated') summary.generated += 1;

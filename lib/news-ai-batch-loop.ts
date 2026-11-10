@@ -37,6 +37,8 @@ export interface NewsAiBatchLoopResult {
   failed: number;
   /** Rows that were selected but never started, because a budget ran out. */
   deferred: number;
+  /** Rows that published as a link-out because their publisher is denylisted. */
+  publisherDenied?: number;
   /** How many batches actually ran. */
   batches: number;
   /** Why the loop ended — the only way to tell "done" from "ran out of time". */
@@ -116,6 +118,7 @@ export async function runEnrichmentBatches(
     skipped: 0,
     failed: 0,
     deferred: 0,
+    publisherDenied: 0,
   };
 
   let batches = 0;
@@ -147,6 +150,7 @@ export async function runEnrichmentBatches(
     totals.skipped += outcome.skipped;
     totals.failed += outcome.failed;
     totals.deferred += outcome.deferred;
+    totals.publisherDenied += outcome.publisherDenied || 0;
     failedIds.push(...outcome.failedIds);
 
     if (outcome.quotaExhausted) {

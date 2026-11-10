@@ -77,6 +77,7 @@ function sumResults(first: NewsAiBatchLoopResult, second: NewsAiBatchLoopResult)
     skipped: first.skipped + second.skipped,
     failed: first.failed + second.failed,
     deferred: first.deferred + second.deferred,
+    publisherDenied: (first.publisherDenied || 0) + (second.publisherDenied || 0),
     batches: first.batches + second.batches,
     // If the LATEST pass was cut short, that is the reason worth reporting: the
     // queue is still longer than one invocation can serve.

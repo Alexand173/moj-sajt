@@ -4,12 +4,14 @@ const dnsLookup = vi.hoisted(() => vi.fn(async () => [{ address: '93.184.216.34'
 
 vi.mock('node:dns/promises', () => ({ lookup: dnsLookup }));
 
-import { fetchNewsSourceText } from '@/lib/ai-news';
+import { fetchNewsSourceText, generateAiNewsArticle } from '@/lib/ai-news';
 import {
   DEFAULT_SOURCE_MAX_BYTES,
   failureKindForStatus,
   getSourceMaxBytes,
   isRetryableSourceFailure,
+  isRewriteDeniedHost,
+  isRewriteDeniedSourceUrl,
   readResponseText,
   SourceHostCircuit,
   sourceHostCircuit,
@@ -129,6 +131,43 @@ describe('capped read', () => {
   });
 });
 
+describe('rewrite denylist', () => {
+  const originalDeny = process.env.SOURCE_REWRITE_DENY_HOSTS;
+
+  afterEach(() => {
+    if (originalDeny === undefined) delete process.env.SOURCE_REWRITE_DENY_HOSTS;
+    else process.env.SOURCE_REWRITE_DENY_HOSTS = originalDeny;
+  });
+
+  it('matches a host and its subdomains, never a substring', () => {
+    expect(isRewriteDeniedHost('npr.org')).toBe(true);
+    expect(isRewriteDeniedHost('www.npr.org')).toBe(true);
+    expect(isRewriteDeniedHost('npr.org.')).toBe(true);
+    // The failures this guards against: a lookalike domain and a hyphenated one.
+    expect(isRewriteDeniedHost('npr.org.evil.example')).toBe(false);
+    expect(isRewriteDeniedHost('my-npr.org')).toBe(false);
+    expect(isRewriteDeniedHost('decider.com')).toBe(false);
+  });
+
+  it('readable from a stored URL as well as a hostname', () => {
+    expect(isRewriteDeniedSourceUrl('https://www.npr.org/2026/11/10/g-s1-152641/story')).toBe(true);
+    expect(isRewriteDeniedSourceUrl('https://decider.com/2026/11/10/story')).toBe(false);
+    expect(isRewriteDeniedSourceUrl('not a url')).toBe(false);
+    expect(isRewriteDeniedSourceUrl(null)).toBe(false);
+  });
+
+  it('extends the list from configuration and can be emptied entirely', () => {
+    process.env.SOURCE_REWRITE_DENY_HOSTS = 'example.com, evil.example';
+    expect(isRewriteDeniedHost('www.example.com')).toBe(true);
+    expect(isRewriteDeniedHost('deep.evil.example')).toBe(true);
+    // Extending must not drop the measured default.
+    expect(isRewriteDeniedHost('npr.org')).toBe(true);
+
+    process.env.SOURCE_REWRITE_DENY_HOSTS = 'none';
+    expect(isRewriteDeniedHost('npr.org')).toBe(false);
+  });
+});
+
 describe('host circuit', () => {
   it('opens on the first blocked or refused host', () => {
     const circuit = new SourceHostCircuit();
@@ -190,7 +229,9 @@ describe('fetchNewsSourceText', () => {
   it('does not wait twice on a host that never answered', async () => {
     fetchMock.mockRejectedValue(Object.assign(new Error('timeout'), { name: 'TimeoutError' }));
 
-    const text = await fetchNewsSourceText('https://www.npr.org/story');
+    // Deliberately not npr.org: that host is denylisted, so it never reaches the
+    // circuit at all — which is the point of the test below it.
+    const text = await fetchNewsSourceText('https://example.com/story');
 
     expect(text).toBe('');
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -242,5 +283,59 @@ describe('fetchNewsSourceText', () => {
 
     expect(text.split(/\s+/).length).toBeGreaterThanOrEqual(40);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not open a socket to a denylisted publisher', async () => {
+    const text = await fetchNewsSourceText('https://www.npr.org/2026/11/10/g-s1-152641/story');
+
+    expect(text).toBe('');
+    // No request, no stall, no retry — the policy is checked before the circuit.
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('brief for a denylisted publisher', () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    sourceHostCircuit.reset();
+    fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    sourceHostCircuit.reset();
+  });
+
+  it('publishes a link-out summary instead of an apology', async () => {
+    const article = await generateAiNewsArticle({
+      title: 'NPR Music reports on a festival lineup',
+      excerpt: 'A teaser long enough to look like material, but only a teaser.',
+      sourceUrl: 'https://www.npr.org/2026/11/10/g-s1-152641/story',
+      sourceName: 'npr.org',
+    });
+
+    expect(article.failureReason).toBe('source-unavailable');
+    expect(article.isAiGenerated).toBe(false);
+    expect(article.articleContent).toContain('published by npr.org');
+    expect(article.articleContent).not.toContain('could not complete');
+    expect(article.seoDescription.length).toBeLessThanOrEqual(180);
+    // Nothing was fetched and no model was asked to write 700 words from a teaser.
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('still treats a failed fetch elsewhere as a failure, not a decision', async () => {
+    fetchMock.mockResolvedValue(htmlResponse('forbidden', 403));
+
+    const article = await generateAiNewsArticle({
+      title: 'A decider.com story',
+      excerpt: '',
+      sourceUrl: 'https://decider.com/2026/11/10/story',
+      sourceName: 'decider.com',
+    });
+
+    expect(article.failureReason).toBe('insufficient-source');
+    expect(article.articleContent).toContain('could not complete');
   });
 });

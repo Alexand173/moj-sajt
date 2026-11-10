@@ -247,10 +247,67 @@ export class SourceHostCircuit {
 
 export const sourceHostCircuit = new SourceHostCircuit();
 
+/**
+ * Publishers whose articles are never fetched for a rewrite.
+ *
+ * npr.org belongs here on measured evidence, not taste: its articles return zero
+ * bytes in fifteen seconds from an edge decision, and its own music feed carries
+ * 941-character teasers, so neither the page nor the feed can support a 400-word
+ * brief. Leaving it in the queue bought a stall per article and a fallback brief
+ * per row, while the page reader already shows the headline and a link to the
+ * source — which is what those rows publish now.
+ *
+ * Decider is deliberately absent: it failed only because our 2 MB cap discarded
+ * a 3.1 MB page, and Tier 1 recovered it (2,915 words in 1.3 s).
+ *
+ * `SOURCE_REWRITE_DENY_HOSTS` extends this list (comma-separated); set it to
+ * `none` to empty it. Both directions are reversible without a deploy.
+ */
+export const DEFAULT_REWRITE_DENY_HOSTS = ['npr.org'];
+
+export function getRewriteDenyHosts(): string[] {
+  const configured = process.env.SOURCE_REWRITE_DENY_HOSTS?.trim();
+
+  if (configured && /^(?:none|off)$/i.test(configured)) return [];
+  if (!configured) return DEFAULT_REWRITE_DENY_HOSTS;
+
+  const extra = configured
+    .split(',')
+    .map((host) => host.trim().toLowerCase())
+    .filter(Boolean);
+
+  return Array.from(new Set([...DEFAULT_REWRITE_DENY_HOSTS, ...extra]));
+}
+
+/**
+ * Matches a host and its subdomains, never a substring: `npr.org` covers
+ * `www.npr.org` and `text.npr.org`, but not `snpr.org.example` or `my-npr.org`.
+ */
+export function isRewriteDeniedHost(
+  hostname: string | null | undefined,
+  denyHosts = getRewriteDenyHosts(),
+): boolean {
+  const host = (hostname || '').trim().toLowerCase().replace(/\.$/, '');
+  if (!host) return false;
+
+  return denyHosts.some((entry) => host === entry || host.endsWith(`.${entry}`));
+}
+
+/** Same question asked of a stored URL, for pages that render the source link. */
+export function isRewriteDeniedSourceUrl(url: string | null | undefined): boolean {
+  if (!url?.trim()) return false;
+
+  try {
+    return isRewriteDeniedHost(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
+
 export interface SourceFetchEvent {
   event: 'source_fetch';
   host: string;
-  outcome: 'ok' | 'partial' | 'failed' | 'skipped' | 'unusable';
+  outcome: 'ok' | 'partial' | 'failed' | 'skipped' | 'unusable' | 'denied';
   kind?: SourceFailureKind | 'unusable';
   status?: number;
   bytes?: number;

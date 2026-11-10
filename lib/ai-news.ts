@@ -6,6 +6,8 @@ import {
   failureKindForStatus,
   getSourceMaxBytes,
   isRetryableSourceFailure,
+  isRewriteDeniedHost,
+  isRewriteDeniedSourceUrl,
   isTimeoutError,
   logSourceFetch,
   readResponseText,
@@ -85,7 +87,12 @@ export interface AiNewsArticle {
    * be treated like a rejected rewrite, so the caller can leave the row pending
    * instead of locking it out for the retry cooldown.
    */
-  failureReason?: 'quota' | 'validation' | 'provider' | 'insufficient-source';
+  /**
+   * Why there is no generated article. `source-unavailable` is deliberate: the
+   * publisher is on the source-fetch denylist, so nothing was fetched and nothing
+   * will be by retrying. `insufficient-source` is a fetch that tried and failed.
+   */
+  failureReason?: 'quota' | 'validation' | 'provider' | 'insufficient-source' | 'source-unavailable';
 }
 
 interface GenerateAiNewsArticleInput {
@@ -110,6 +117,8 @@ export interface ResolvedNewsSource {
   sourceName: string;
   sourceArticleText: string;
   excerpt: string;
+  /** True when the publisher is on the source-fetch denylist, so nothing was read. */
+  publisherDenied?: boolean;
 }
 
 function cleanSourceText(value: string | null | undefined): string {
@@ -701,6 +710,14 @@ export async function fetchNewsSourceText(sourceUrl: string | null | undefined):
   if (!parsedUrl || isPrivateOrLocalHostname(parsedUrl.hostname)) return '';
 
   const hostname = parsedUrl.hostname;
+
+  // Checked before the circuit and before any socket: a denied publisher is a
+  // decision, not a failure, so it costs nothing and is not retried later.
+  if (isRewriteDeniedHost(hostname)) {
+    logSourceFetch({ event: 'source_fetch', host: hostname, outcome: 'denied' });
+    return '';
+  }
+
   const verdict = sourceHostCircuit.shouldSkip(hostname);
 
   if (verdict.skip) {
@@ -829,6 +846,7 @@ export async function resolveNewsSource(input: {
     sourceName,
     sourceArticleText,
     excerpt: cleanSourceText(input.excerpt),
+    publisherDenied: sourceUrl ? isRewriteDeniedHost(getSafeHttpUrl(sourceUrl)?.hostname) : false,
   };
 }
 
@@ -857,6 +875,27 @@ function fallbackArticle(
   // Never expose scraped publisher prose as a fallback. Doing so would turn a
   // provider timeout or model failure into an accidental copy of the source.
   const sourceLabel = input.sourceName || 'the listed publisher';
+
+  /**
+   * A denylisted publisher is a decision, not an outage, so the row says what it
+   * is: a link to the report. Saying "could not complete a rewrite" there would
+   * read as an error the reader is expected to wait out.
+   */
+  if (failureReason === 'source-unavailable') {
+    return {
+      seoTitle: input.title,
+      seoDescription: `A music story published by ${sourceLabel}. MusicTop links to the original report.`.slice(0, 180),
+      articleContent: [
+        `This report was published by ${sourceLabel}.`,
+        `MusicTop links to the original rather than reproducing it. Follow the source link below for the full report.`,
+      ].join('\n\n'),
+      isAiGenerated: false,
+      similarityScore,
+      similarityCheckPassed: false,
+      retryCount,
+      failureReason,
+    };
+  }
 
   return {
     seoTitle: input.title,
@@ -1038,6 +1077,16 @@ export async function generateAiNewsArticle(
   };
   const sourceMaterial = combineSourceMaterial(resolvedInput);
   const apiKey = process.env.OPENAI_API_KEY?.trim();
+
+  // Checked before the model, not after a failed fetch. These sources carry only
+  // an excerpt, and generating from one would produce a 700-word brief whose
+  // facts came from 140 words of teaser — the row publishes as a link instead.
+  const publisherDenied = resolvedSource.publisherDenied
+    ?? isRewriteDeniedSourceUrl(resolvedSource.sourceUrl);
+
+  if (publisherDenied) {
+    return fallbackArticle(resolvedInput, 0, 0, 'source-unavailable');
+  }
 
   if (wordCount(sourceMaterial) < MIN_SOURCE_WORDS_FOR_AI) {
     return fallbackArticle(resolvedInput, 0, 0, 'insufficient-source');

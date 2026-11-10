@@ -168,3 +168,30 @@ Proposed decision, ready to implement as a host policy setting:
   also the only route that settles the licence question.
 - **Any future host** is judged by the same measurement: if `news:source-fetch`
   reports `host-blocked` twice on the same host, it belongs on the deny-list.
+
+## Decision implemented 2026-11-10
+
+`DEFAULT_REWRITE_DENY_HOSTS = ['npr.org']` in `lib/source-fetch.ts`, matched by host
+and subdomain (`www.npr.org` yes, `npr.org.evil.example` and `my-npr.org` no).
+`SOURCE_REWRITE_DENY_HOSTS` extends it with a comma-separated list, or empties it
+with `none`, so the decision is reversible without a deploy. Decider is absent and
+stays in the rewrite path.
+
+What a denylisted publisher costs now: the fetcher returns before the circuit and
+before any socket, logs `{"outcome":"denied"}`, and the brief is built as a link-out
+instead of an apology — `failureReason: 'source-unavailable'` rather than
+`insufficient-source`, so a deliberate skip is never counted as a failed rewrite.
+The article page renders the same neutral copy for those rows rather than the
+"could not complete an editorial rewrite" message, which read like an outage readers
+were meant to wait out. Runs report the count as `publisherDenied`.
+
+Verified against a stored row: `generateAiNewsArticle` returned in **1 ms** with
+`source-unavailable` and no model call, where the row previously spent 15 s on a
+stall and then wrote a fallback brief. Existing NPR rows keep their `fallback`
+status, so the six-hour cooldown re-stamps them with the new copy with no network
+cost; a `publisher_denied` flag on the row would make that permanent, and is the
+follow-up if the repeated cooldown write bothers the queue metrics.
+
+One thing the sample turned up, outside this task's scope: the row we sampled is an
+NPR politics newsletter ("up-first-newsletter-canada-tariffs-visa-revocations…"),
+which means it cleared the relevance gate at some point.
