@@ -6,6 +6,7 @@ import {
   getNewsDailyPerRegion,
   loadRecentCountByRegion,
   remainingQuotaByRegion,
+  takeWithinQuota,
 } from '../../../lib/news-balance';
 import { normalizeNewsRegion } from '../../../lib/news-regions';
 import { isMusicNews } from '../../../lib/news-relevance';
@@ -401,23 +402,26 @@ export async function GET() {
         remaining = Object.fromEntries(regions.map((region) => [region, dailyTarget]));
       }
 
-      const regionCounts = new Map<string, number>();
-      const balancedData = mixedData.filter((article) => {
-        const region = normalizeNewsRegion(article.region);
-        const count = regionCounts.get(region) || 0;
-        const allowance = Math.min(MAX_OFFICIAL_ARTICLES_PER_REGION, remaining[region] ?? 0);
+      // One trimming rule for both ingest paths, so a change to the quota policy
+      // cannot apply to LATEST and silently miss the scraper.
+      const perRegionAllowance: Record<string, number> = {};
+      for (const region of regions) {
+        perRegionAllowance[region] = Math.min(MAX_OFFICIAL_ARTICLES_PER_REGION, remaining[region] ?? 0);
+      }
 
-        if (count >= allowance) {
-          quotaDropped += 1;
-          return false;
-        }
+      const { kept: balancedData, dropped } = takeWithinQuota(
+        mixedData,
+        (article) => article.region,
+        perRegionAllowance,
+      );
 
-        regionCounts.set(region, count + 1);
-        return true;
-      });
-
+      quotaDropped = Object.values(dropped).reduce((total, count) => total + count, 0);
       balancedCount = balancedData.length;
-      balancedRegionCounts = Object.fromEntries(regionCounts);
+      balancedRegionCounts = balancedData.reduce<Record<string, number>>((counts, article) => {
+        const region = normalizeNewsRegion(article.region);
+        counts[region] = (counts[region] || 0) + 1;
+        return counts;
+      }, {});
       const upsertResult = await upsertInChunks(balancedData);
       insertedCount = upsertResult.inserted;
       failedUpsertChunks = upsertResult.failedChunks;

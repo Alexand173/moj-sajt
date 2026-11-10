@@ -106,7 +106,13 @@ const OFF_TOPIC_TERMS = buildTermPattern([
 
 /** Categories that are never music news, however many music words appear. */
 const HARD_BLOCKS: Array<{ pattern: RegExp; reason: string }> = [
-  { pattern: /\b(capcom|playstation|xbox|nintendo|gameplay|esports|dlc)\b/i, reason: 'video-game' },
+  {
+    // "GAME REVIEW #8: Wolves vs. Bucks game thread" and "Call of Duty: Modern
+    // Warfare 4 review" both reached the reviews page: a console franchise or a
+    // fixture report is never music, so it is blocked instead of scored.
+    pattern: /\b(capcom|playstation|xbox|nintendo|gameplay|esports|dlc|call of duty|fortnite|minecraft|battle royale|game review|game thread)\b/i,
+    reason: 'video-game',
+  },
   {
     pattern: /\b(downloader|changelog|release notes|command[- ]line|open[- ]source|github)\b/i,
     reason: 'software',

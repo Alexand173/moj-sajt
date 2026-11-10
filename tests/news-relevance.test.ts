@@ -47,7 +47,20 @@ describe('news relevance gate', () => {
     expect(verdict.relevant).toBe(false);
   });
 
-  it('blocks a video game even when it mentions music', () => {
+  it('refuses the sports and games items that reached the reviews page', () => {
+    // Both were published as music reviews before the gate reached that path.
+    const verdicts = [
+      assessNewsRelevance({ title: 'GAME REVIEW #8: Wolves vs. Bucks game thread' }),
+      assessNewsRelevance({ title: 'Call of Duty: Modern Warfare 4 review - a price worth paying' }),
+    ];
+
+    for (const verdict of verdicts) {
+      expect(verdict.hardBlock).toBe('video-game');
+      expect(verdict.relevant).toBe(false);
+    }
+  });
+
+  it('blocks a video game when it is mentioned', () => {
     const verdict = assessNewsRelevance({
       title: 'Capcom reveals the soundtrack for its next game',
       excerpt: 'The album of music from the game arrives with the PlayStation release.',

@@ -1,12 +1,26 @@
+import { loadEnvConfig } from '@next/env';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { enrichPendingNews } from '../../../lib/news-ai-enrichment';
 import {
   getNewsDailyPerRegion,
   loadRecentCountByRegion,
+  perRunAllowance,
   remainingQuotaByRegion,
 } from '../../../lib/news-balance';
 import { NEWS_REGION_QUERIES, type NewsRegion } from '../../../lib/news-regions';
 import { assessNewsRelevance } from '../../../lib/news-relevance';
+
+/**
+ * A direct `tsx` run needs the project's .env files loaded before the Supabase
+ * client below is created at module scope. CI injects the secrets, so this only
+ * affects local runs — and without it the route answers "Missing Supabase server
+ * configuration" instead of fetching anything, which is how the first local
+ * verification of the quota failed.
+ */
+const isDirectScript = typeof require !== 'undefined' && require.main === module;
+if (isDirectScript) {
+  loadEnvConfig(process.cwd());
+}
 
 // Inicijalizacija Supabase klijenta
 const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -202,11 +216,25 @@ export async function GET() {
       quotaRemaining = Object.fromEntries(regions.map((region) => [region, dailyTarget]));
     }
 
+    // A run may spend only its share of the day. `created_at` on these rows is the
+    // publisher's time, so the rolling count cannot see what this run already
+    // inserted — without the split, four runs a day each spent the full allowance.
+    const runShare = perRunAllowance(dailyTarget);
     const regionalResults = await Promise.all(
-      NEWS_REGION_QUERIES.map(({ query, region }) =>
-        fetchNews(query, region, apiKey, quotaRemaining[region] ?? dailyTarget)),
+      NEWS_REGION_QUERIES.map(({ query, region }) => fetchNews(
+        query,
+        region,
+        apiKey,
+        Math.min(quotaRemaining[region] ?? dailyTarget, runShare),
+      )),
     );
     const failedRegions = regionalResults.filter((result) => result.failed).map((result) => result.region);
+    // Reported separately from `failedRegions`: a region that already spent its
+    // day returns zero articles on purpose, and reading that as a failure sent us
+    // looking at the provider instead of the quota.
+    const quotaSkippedRegions = regionalResults
+      .filter((result) => result.quotaSkipped)
+      .map((result) => result.region);
     const allNews = regionalResults
       .flatMap((result) => result.articles)
       .filter((news) => news.title !== 'No Title');
@@ -226,6 +254,8 @@ export async function GET() {
         success,
         message: success ? 'No new LATEST articles found.' : 'One or more regional News API requests failed.',
         failedRegions,
+        quotaSkippedRegions,
+        dailyTarget,
         regions: regionCounts,
         ai: aiSummary,
       }), { status: success ? 200 : 502 });
@@ -295,6 +325,8 @@ export async function GET() {
       duplicatesSkipped: duplicateCount,
       conflictsSkipped,
       failedRegions,
+      quotaSkippedRegions,
+      dailyTarget,
       regions: regionCounts,
       ai: aiSummary,
       message: success
@@ -312,7 +344,7 @@ export async function GET() {
 /** * KLJUČNI DEO ZA GITHUB ACTIONS:
  * Ovaj blok omogućava da 'npx tsx' direktno pokrene GET funkciju.
  */
-if (typeof require !== 'undefined' && require.main === module) {
+if (isDirectScript) {
   console.log("🔔 Detektovano direktno pokretanje skripte (GitHub Actions)...");
   GET()
     .then(async (res) => {

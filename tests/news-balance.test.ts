@@ -3,6 +3,7 @@ import {
   balanceFeedMix,
   DEFAULT_NEWS_DAILY_PER_REGION,
   getNewsDailyPerRegion,
+  perRunAllowance,
   remainingQuotaByRegion,
   takeWithinQuota,
 } from '@/lib/news-balance';
@@ -47,6 +48,16 @@ describe('daily per-region allowance', () => {
 
     expect(kept).toHaveLength(0);
     expect(dropped).toEqual({ world: 1 });
+  });
+
+  it('splits the daily target across the runs that spend it', () => {
+    // LATEST rows carry the publisher's timestamp, so a run cannot see what the
+    // previous run inserted. The split is the only thing stopping four runs from
+    // each spending the whole day.
+    expect(perRunAllowance(10, 4)).toBe(3);
+    expect(perRunAllowance(12, 4)).toBe(3);
+    expect(perRunAllowance(4, 4)).toBe(1);
+    expect(perRunAllowance(10, 0)).toBe(10);
   });
 
   it('reads the target from the environment and clamps nonsense', () => {

@@ -292,7 +292,7 @@ function LatestNewsFeatureCard({ region, item }: { region: string; item: NewsEdi
             alt={title}
             loading="lazy"
             decoding="async"
-            className="news-feed-image h-full w-full object-cover transition-all duration-700 group-hover:scale-[1.02]"
+            className="h-full w-full object-cover transition-all duration-700 group-hover:scale-[1.02]"
           />
         ) : (
           <span className="flex h-full w-full items-center justify-center px-3 text-center text-[10px] font-black tracking-[0.14em] text-muted uppercase sm:text-[9px]">No image</span>
@@ -336,7 +336,7 @@ function LatestNewsCard({ region, item, source = 'editorial' }: { region: string
             alt={title}
             loading="lazy"
             decoding="async"
-            className="news-feed-image h-full w-full object-cover transition-all duration-500 group-hover:scale-105"
+            className="h-full w-full object-cover transition-all duration-500 group-hover:scale-105"
           />
         ) : (
           <span className="flex h-full w-full items-center justify-center px-2 text-center text-[10px] font-black tracking-[0.14em] text-muted uppercase sm:text-[9px]">No image</span>

@@ -31,12 +31,35 @@ const QUOTA_WINDOW_HOURS = 24;
 const COUNT_PAGE_SIZE = 1_000;
 /** How far the two sides of a region page may drift apart before one is trimmed. */
 const FEED_MIX_RATIO = 2;
+/**
+ * The scheduled workflow runs the ingest every six hours.
+ *
+ * LATEST cannot use the rolling count to bound a day, because its `created_at` is
+ * the publisher's publication time and the provider serves articles a day or more
+ * old: 58 rows inserted in one run on 2026-11-10 counted as zero for that day, so
+ * the next run saw a full allowance again and could have inserted another 58.
+ * Splitting the target across the expected runs bounds a single run instead, while
+ * the rolling count still bounds the day where the timestamp is honest (OFFICIAL).
+ */
+export const NEWS_RUNS_PER_DAY = 4;
 
 export function getNewsDailyPerRegion(): number {
   const parsed = Number.parseInt(process.env.NEWS_DAILY_PER_REGION || '', 10);
   if (!Number.isFinite(parsed) || parsed <= 0) return DEFAULT_NEWS_DAILY_PER_REGION;
 
   return Math.min(Math.max(parsed, 1), MAX_NEWS_DAILY_PER_REGION);
+}
+
+/**
+ * The slice of the daily target a single run may spend. Ceiling rather than floor
+ * so a target smaller than the run count still allows one story per region.
+ */
+export function perRunAllowance(
+  dailyTarget = getNewsDailyPerRegion(),
+  runsPerDay = NEWS_RUNS_PER_DAY,
+): number {
+  const runs = Math.max(1, Math.floor(runsPerDay));
+  return Math.max(1, Math.ceil(dailyTarget / runs));
 }
 
 export function getQuotaWindowStart(now = Date.now()): string {

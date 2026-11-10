@@ -1,8 +1,20 @@
 import { createClient } from '@supabase/supabase-js';
 import * as cheerio from 'cheerio';
 import RSSParser from 'rss-parser';
+import { isMusicNews } from '../../../lib/news-relevance';
 
 const parser = new RSSParser();
+
+/**
+ * The reviews page published "GAME REVIEW #8: Wolves vs. Bucks game thread" and a
+ * Call of Duty review. This path never asked the relevance question at all — it
+ * takes every anchor with more than five characters of text — so the same gate the
+ * news feeds use now runs here too, under the trusted-publication policy because
+ * these feeds belong to music outlets.
+ */
+function isMusicReview(title: string): boolean {
+  return isMusicNews({ title }, 'music-publication');
+}
 
 interface MusicArticle {
   title: string;
@@ -45,7 +57,7 @@ export async function GET() {
         const link = $(el).attr('href');
         const fullLink = link?.startsWith('http') ? link : `https://${new URL(source.url).hostname}${link}`;
 
-        if (title.length > 5 && link) {
+        if (title.length > 5 && link && isMusicReview(title)) {
           allArticles.push({
             title,
             url: fullLink,
@@ -78,6 +90,8 @@ export async function GET() {
         if (!finalTitle.toLowerCase().includes('review') && !finalTitle.toLowerCase().includes('interview')) {
           finalTitle = `${feedInfo.cat === 'REVIEW' ? 'Review' : 'Interview'}: ${item.title}`;
         }
+
+        if (!isMusicReview(finalTitle)) continue;
         
         // BITNO: Koristimo allArticles (isti niz kao gore)
         allArticles.push({
