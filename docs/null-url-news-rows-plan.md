@@ -42,18 +42,39 @@ stamp skipped       9,313      one script      hides any that could be recovered
 recover the URL     ?          NewsAPI quota   needs a measured hit rate first
 ```
 
-### Phase 1 — measure recovery (cheap, do first)
+### Phase 1 — measured: recovery through NewsAPI is impossible (done 2026-11-10)
 
-`resolveNewsSource` already searches NewsAPI by exact headline when no URL is
-stored, and returns a match only on an exact title comparison. Run that over a
-sample of 20 pending rows, with the existing key, and count hits:
+`npm run news:recover-urls -- --sample=20`, run against the 985 published rows,
+spread across the whole cohort rather than its head:
 
-- **Hit rate ≥ 40%** → Phase 2a.
-- **Hit rate lower** → Phase 2b.
+```
+candidates 985 · sample 20 · requests 20 · hits 0 · misses 20 · errors 0
+hitRate 0.000   projectedRecoverable 0
+```
 
-Deliverable: `npm run news:recover-urls --sample=20` printing hit rate, plus the
-matched publishers, without writing anything. NewsAPI's free tier is 100
-requests/day, so the sample size is chosen to leave room for ingestion.
+Zero hits is not "the headline matching is too strict". Two probes against the
+same key with the same parameters:
+
+| Query | HTTP | `totalResults` |
+|---|---|---|
+| `"music"` (recent) | 200 | **1,489** |
+| `"Germany Top 100 Single Charts"` (cohort) | 200 | **0** |
+| `"Shakira FIFA World Cup 2026 anthem"` (cohort) | 200 | **0** |
+
+The key works and the endpoint answers. **NewsAPI's Developer plan only searches
+the last month of articles**, and this cohort is four to eight months old — the
+API does not hold these stories at all. Recalling the headlines is not possible
+at any hit rate, so no further quota should be spent on this route.
+
+Consequence: Phase 2a (NewsAPI backfill) is dead. `news:recover-urls` still earns
+its place as a guard — it will recover a URL for any *recent* URL-less row, which
+is the only kind a regression can create now — and its `--scope=pending` run
+would also return zero for this cohort.
+
+The remaining options for the 985 published rows are the ones that do not depend
+on NewsAPI's archive: web search (Brave/Bing/Serper have no one-month limit, at a
+cost per query), or an editorial decision that a source-less row is not
+publishable.
 
 ### Phase 2a — backfill the URLs
 

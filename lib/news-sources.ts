@@ -190,26 +190,27 @@ export const OFFICIAL_NEWS_SOURCES: OfficialNewsSource[] = [
  * the only signal that works. This is the OFFICIAL registry's own hosts, plus
  * music-trade and music-press outlets the firehose returns.
  */
+/**
+ * Music press the firehose returns that the scraper does not itself fetch.
+ *
+ * Only genuinely additional outlets belong here: the registry's own hosts are
+ * derived below, so a name that appears in both lists says nothing and hides
+ * which outlets are actually being added.
+ */
 const ADDITIONAL_MUSIC_PUBLICATION_HOSTS = [
   'musically.com',
   'musicbusinessworldwide.com',
   'completemusicupdate.com',
   'exystence.net',
   'spinmagazine.com',
-  'stereogum.com',
   'brooklynvegan.com',
   'pastemagazine.com',
   'exclaim.ca',
-  'diymag.com',
-  'gigwise.com',
-  'thelineofbestfit.com',
-  'loudersound.com',
   'metalinjection.net',
   'lambgoat.com',
   'punknews.org',
   'tinymixtapes.com',
   'undertheradarmag.com',
-  'thefader.com',
   'xxlmag.com',
   'revolt.tv',
   'okayplayer.com',
@@ -219,23 +220,38 @@ const ADDITIONAL_MUSIC_PUBLICATION_HOSTS = [
   'runthetrap.com',
   'thisisdig.com',
   'themusic.com.au',
-  'nme.com',
-  'clashmusic.com',
-  'thequietus.com',
-  'musicweek.com',
   'recordoftheday.com',
   'mojo4music.com',
-  'uncut.co.uk',
-  'kerrang.com',
   'louderthanwar.com',
   'drownedinsound.com',
-  'theartsdesk.com',
   'opera-news.com',
   'slippedisc.com',
-  'classical-music.com',
   'songlines.co.uk',
-  'afropop.org',
   'popmatters.com',
+];
+
+/**
+ * Outlets the registry lists because of a music *section*, not because they are
+ * music publications.
+ *
+ * The scraper fetches `theguardian.com/music/...`, which is a music desk on a
+ * general newspaper. Deriving publisher trust from the host then trusts the whole
+ * newspaper: a Guardian politics story arrives with no music vocabulary, scores
+ * zero off-topic, and passes the gate as if it were Pitchfork. Trust is a
+ * property of the publisher, and these publishers are general newsrooms — the
+ * keyword path still keeps their music coverage, because Guardian music stories
+ * say what they are about.
+ */
+const GENERAL_NEWSROOM_HOSTS: string[] = [
+  'theguardian.com',
+  'standard.co.uk',
+  'variety.com',
+  'sbs.com.au',
+  'koreajoongangdaily.joins.com',
+  'telerama.fr',
+  'efe.com',
+  'list.co.uk',
+  'theartsdesk.com',
 ];
 
 function normalizeHost(hostname: string): string {
@@ -269,6 +285,12 @@ const MUSIC_PUBLICATION_HOSTS = new Set<string>([
 export function isMusicPublicationHost(hostname: string | null | undefined): boolean {
   const host = normalizeHost(hostname || '');
   if (!host) return false;
+
+  // A music section on a general newspaper does not make the newspaper a music
+  // publication, so the exclusion is checked first.
+  for (const candidate of GENERAL_NEWSROOM_HOSTS) {
+    if (host === candidate || host.endsWith(`.${candidate}`)) return false;
+  }
 
   for (const candidate of MUSIC_PUBLICATION_HOSTS) {
     if (host === candidate || host.endsWith(`.${candidate}`)) return true;
@@ -313,16 +335,12 @@ const PUBLISHER_REGIONS: Record<string, string> = {
   'vulture.com': 'us',
   'slate.com': 'us',
   'politico.com': 'us',
-  'hill.com': 'us',
   'thehill.com': 'us',
   'variety.com': 'us',
   'deadline.com': 'us',
   'hollywoodreporter.com': 'us',
   'thewrap.com': 'us',
   'avclub.com': 'us',
-  'rollingstone.com': 'us',
-  'billboard.com': 'us',
-  'pitchfork.com': 'us',
   'buzzfeed.com': 'us',
   'teenvogue.com': 'us',
   'elle.com': 'us',
@@ -485,21 +503,13 @@ export function getPublisherRegion(
 
   /**
    * A country code is a decent signal for a new arrival and a weak one for a
-   * backfill: `.co.uk` covers the whole British press, including its music desks
+   * backfill: `.co.uk` covers the whole British music press, including its desks
    * that write about everywhere. Stored rows are only moved on a named publisher.
    */
   if (options.includeTld === false) return null;
 
+  // `.co.uk` and `.com.au` put the country code last either way, so one lookup
+  // covers both; anything else (`.com`, `.net`) places nothing.
   const labels = host.split('.');
-  const tld = labels[labels.length - 1];
-  if (labels.length >= 2 && TLD_REGIONS[tld]) return TLD_REGIONS[tld];
-  // `.co.uk`, `.com.au`: the country code is the second label.
-  if (labels.length >= 3) {
-    const secondLevel = labels[labels.length - 2];
-    if (secondLevel === 'co' || secondLevel === 'com' || secondLevel === 'org') {
-      return TLD_REGIONS[tld] ?? null;
-    }
-  }
-
-  return null;
+  return TLD_REGIONS[labels[labels.length - 1]] ?? null;
 }

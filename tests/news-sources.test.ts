@@ -23,6 +23,23 @@ describe('music publication trust', () => {
     expect(isMusicPublicationUrl('https://timesofindia.indiatimes.com/city/x')).toBe(false);
     expect(isMusicPublicationUrl(null)).toBe(false);
   });
+
+  it('does not trust a newspaper because the registry lists its music section', () => {
+    // The scraper fetches `theguardian.com/music/...`, which put the Guardian in
+    // the derived host set and made every Guardian story a trusted music
+    // publication: a politics headline with no music words scored zero off-topic
+    // and passed the gate. Trust belongs to the publisher, not to a section path.
+    expect(isMusicPublicationUrl('https://www.theguardian.com/music/2026/nov/07/story')).toBe(false);
+    expect(isMusicPublicationUrl('https://www.standard.co.uk/culture/music/story')).toBe(false);
+    expect(isMusicPublicationUrl('https://variety.com/2026/music/news/story')).toBe(false);
+    expect(isMusicPublicationUrl('https://www.sbs.com.au/popasia/blog/story')).toBe(false);
+  });
+
+  it('still trusts the music desks that are music publications', () => {
+    expect(isMusicPublicationUrl('https://www.nme.com/news/music/story')).toBe(true);
+    expect(isMusicPublicationUrl('https://diymag.com/news/story')).toBe(true);
+    expect(isMusicPublicationUrl('https://www.gramophone.co.uk/news/story')).toBe(true);
+  });
 });
 
 describe('publisher region', () => {
@@ -41,6 +58,14 @@ describe('publisher region', () => {
     expect(getPublisherRegion('https://www.billboard.com/espanol/musica/story/')).toBeNull();
     expect(getPublisherRegion('https://www.nme.com/news/music/k-pop-story')).toBeNull();
     expect(getPublisherRegion('https://pitchfork.com/news/story/')).toBeNull();
+  });
+
+  it('places a general newspaper whose music section is in the registry', () => {
+    // These entries used to be unreachable: the host was treated as a music
+    // publication first, so the resolver returned null before reading this table.
+    expect(getPublisherRegion('https://www.theguardian.com/music/2026/nov/07/story')).toBe('uk');
+    expect(getPublisherRegion('https://www.standard.co.uk/culture/music/story')).toBe('uk');
+    expect(getPublisherRegion('https://variety.com/2026/music/news/story')).toBe('us');
   });
 
   it('uses the country-code TLD when the publisher is unknown', () => {

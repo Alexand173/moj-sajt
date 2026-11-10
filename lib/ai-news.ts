@@ -2,6 +2,7 @@ import { lookup as lookupHostname } from 'node:dns/promises';
 import { isIP } from 'node:net';
 import OpenAI from 'openai';
 import * as cheerio from 'cheerio';
+import { lookupArticleByTitle } from './news-url-recovery';
 import {
   failureKindForStatus,
   getSourceMaxBytes,
@@ -70,7 +71,6 @@ const SOURCE_TOTAL_TIMEOUT_MS = 20_000;
 const DNS_LOOKUP_TIMEOUT_MS = 5_000;
 /** One retry, and only for failures that can plausibly succeed when repeated. */
 const SOURCE_FETCH_ATTEMPTS = 2;
-const NEWS_API_TIMEOUT_MS = 8_000;
 const MAX_SOURCE_REDIRECTS = 3;
 const DEFAULT_OPENAI_MODEL = 'gpt-4.1-mini';
 
@@ -102,14 +102,6 @@ interface GenerateAiNewsArticleInput {
   sourceUrl?: string | null;
   sourceArticleText?: string | null;
   sourceName: string;
-}
-
-interface NewsApiArticle {
-  title?: string | null;
-  description?: string | null;
-  content?: string | null;
-  url?: string | null;
-  source?: { name?: string | null } | null;
 }
 
 export interface ResolvedNewsSource {
@@ -810,34 +802,23 @@ export async function resolveNewsSource(input: {
   const newsApiKey = process.env.NEWS_API_KEY?.trim();
 
   if (!sourceUrl && newsApiKey) {
-    try {
-      const query = encodeURIComponent(`"${input.title}"`);
-      const response = await fetch(
-        `https://newsapi.org/v2/everything?q=${query}&language=en&pageSize=5&sortBy=relevancy`,
-        {
-          cache: 'no-store',
-          signal: AbortSignal.timeout(NEWS_API_TIMEOUT_MS),
-          headers: { 'X-Api-Key': newsApiKey },
-        },
-      );
-      if (!response.ok) throw new Error(`NewsAPI source lookup failed with HTTP ${response.status}.`);
+    // The lookup and its exact-title rule live in `lib/news-url-recovery.ts`,
+    // because the null-URL cleanup applies the identical rule to stored rows.
+    const lookup = await lookupArticleByTitle({ title: input.title, apiKey: newsApiKey });
 
-      const data = (await response.json()) as { articles?: NewsApiArticle[]; status?: string; message?: string };
-      if (data.status === 'error') throw new Error(data.message || 'NewsAPI returned an error.');
+    if (lookup.error && lookup.error !== 'missing-key') {
+      console.warn(`Could not resolve the original article through NewsAPI (${lookup.error}):`, lookup.message);
+    }
 
-      const match = data.articles?.find((article) => article.title?.trim().toLowerCase() === input.title.trim().toLowerCase());
+    const match = lookup.match;
+    if (match) {
+      sourceUrl = getPublicSourceUrl(match.url);
+      sourceName = getNewsSourceName(sourceUrl, match.source?.name || input.sourceName);
+      sourceArticleText = await fetchNewsSourceText(sourceUrl);
 
-      if (match) {
-        sourceUrl = getPublicSourceUrl(match.url);
-        sourceName = getNewsSourceName(sourceUrl, match.source?.name || input.sourceName);
-        sourceArticleText = await fetchNewsSourceText(sourceUrl);
-
-        if (!sourceArticleText && match.content) {
-          sourceArticleText = cleanSourceText(match.content);
-        }
+      if (!sourceArticleText && match.content) {
+        sourceArticleText = cleanSourceText(match.content);
       }
-    } catch (error) {
-      console.warn('Could not resolve the original article through NewsAPI:', error);
     }
   }
 

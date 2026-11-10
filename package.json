@@ -23,6 +23,7 @@
     "news:source-fetch": "npx tsx scripts/diagnose-source-fetch.ts",
     "news:purge-offtopic": "npx tsx scripts/purge-offtopic-news.ts",
     "news:reassign-regions": "npx tsx scripts/reassign-news-regions.ts",
+    "news:recover-urls": "npx tsx scripts/recover-news-urls.ts",
     "reviews:purge": "npx tsx scripts/purge-non-music-reviews.ts",
     "db:migrate": "npx tsx scripts/apply-migrations.ts"
   },
