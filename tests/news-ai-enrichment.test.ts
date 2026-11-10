@@ -141,6 +141,19 @@ describe('news AI persistence', () => {
     expect(categoryFilter).toHaveBeenCalledWith('category', ['LATEST']);
   });
 
+  it('never selects rows that were stamped skipped', async () => {
+    delete process.env.OPENAI_API_KEY;
+    const { supabase, statusFilter } = createNewsSupabaseMock();
+
+    await enrichPendingNews(supabase);
+
+    // `skipped` marks a row that has no source URL and therefore nothing to
+    // rewrite. It is deliberately absent from every branch of the selector, so
+    // it can never re-enter the queue no matter how the filter is reordered.
+    const filter = statusFilter.mock.calls[0][0] as string;
+    expect(filter).not.toContain('skipped');
+  });
+
   it('defaults enrichment queries to LATEST NewsAPI rows', async () => {
     delete process.env.OPENAI_API_KEY;
     const { supabase, categoryFilter } = createNewsSupabaseMock();

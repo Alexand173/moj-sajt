@@ -1,5 +1,10 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { enrichPendingNews } from '../../../lib/news-ai-enrichment';
+import {
+  getNewsDailyPerRegion,
+  loadRecentCountByRegion,
+  remainingQuotaByRegion,
+} from '../../../lib/news-balance';
 import { NEWS_REGION_QUERIES, type NewsRegion } from '../../../lib/news-regions';
 import { assessNewsRelevance } from '../../../lib/news-relevance';
 
@@ -42,11 +47,22 @@ interface NewsFetchResult {
   region: NewsRegion;
   articles: NewsRecord[];
   failed: boolean;
+  /** True when the region had already received its daily allowance. */
+  quotaSkipped?: boolean;
 }
 
 const NEWS_API_PAGE_SIZE = 100;
 const MAX_ARTICLES_PER_REGION = 20;
 const IDENTITY_LOOKUP_CHUNK_SIZE = 20;
+/**
+ * How far back to ask for stories.
+ *
+ * Without a `from`, each run bought the same 100 newest matches for the query —
+ * and because a region's newest match could be a month old, most of that batch
+ * was already stored and the upsert silently inserted nothing. Asking only for
+ * the last few days keeps the request about news that can actually be new.
+ */
+const NEWS_API_LOOKBACK_DAYS = 3;
 
 type NewsIdentityColumn = 'title' | 'url';
 type ExistingNewsRow = { id: string | number; title: string; url: string | null };
@@ -75,8 +91,22 @@ async function loadExistingNewsRows(
   return rows;
 }
 
-async function fetchNews(query: string, region: NewsRegion, apiKey: string): Promise<NewsFetchResult> {
-  const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&language=en&pageSize=${NEWS_API_PAGE_SIZE}&sortBy=publishedAt&apiKey=${apiKey}`;
+async function fetchNews(
+  query: string,
+  region: NewsRegion,
+  apiKey: string,
+  limit: number,
+): Promise<NewsFetchResult> {
+  if (limit <= 0) {
+    console.log(`⏭️ ${region} already received its daily LATEST allowance; skipping the request.`);
+    return { region, articles: [], failed: false, quotaSkipped: true };
+  }
+
+  const from = new Date(Date.now() - NEWS_API_LOOKBACK_DAYS * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(query)}&language=en`
+    + `&from=${from}&pageSize=${NEWS_API_PAGE_SIZE}&sortBy=publishedAt&apiKey=${apiKey}`;
 
   try {
     const res = await fetch(url);
@@ -115,9 +145,9 @@ async function fetchNews(query: string, region: NewsRegion, apiKey: string): Pro
         rejected.push(`${art.title || 'untitled'} [${label}]`);
         return false;
       })
-      .slice(0, MAX_ARTICLES_PER_REGION);
+      .slice(0, Math.min(MAX_ARTICLES_PER_REGION, limit));
 
-    console.log(`📡 Fetched ${data.articles.length}, kept ${filteredArticles.length} music articles for region: ${region}`);
+    console.log(`📡 Fetched ${data.articles.length}, kept ${filteredArticles.length}/${limit} music articles for region: ${region}`);
     if (rejected.length > 0) {
       console.log(`🚫 Dropped ${rejected.length} non-music article(s) for ${region}: ${rejected.slice(0, 5).join(' | ')}`);
     }
@@ -156,8 +186,25 @@ export async function GET() {
       throw new Error("Nedostaje NEWS_API_KEY u environment varijablama!");
     }
 
+    // The OFFICIAL scraper spends the same per-region allowance, so the two
+    // categories converge on the same daily volume in every region.
+    const regions = NEWS_REGION_QUERIES.map(({ region }) => region);
+    const dailyTarget = getNewsDailyPerRegion();
+    let quotaRemaining: Record<string, number>;
+
+    try {
+      const recentCounts = await loadRecentCountByRegion(supabase, 'LATEST');
+      quotaRemaining = remainingQuotaByRegion(recentCounts, regions, dailyTarget);
+    } catch (error) {
+      // A count failure must not stop ingest: the per-run cap still applies, and
+      // losing a day of news is worse than publishing a little over budget.
+      console.warn("Could not read today's LATEST counts; using the per-run cap:", error);
+      quotaRemaining = Object.fromEntries(regions.map((region) => [region, dailyTarget]));
+    }
+
     const regionalResults = await Promise.all(
-      NEWS_REGION_QUERIES.map(({ query, region }) => fetchNews(query, region, apiKey)),
+      NEWS_REGION_QUERIES.map(({ query, region }) =>
+        fetchNews(query, region, apiKey, quotaRemaining[region] ?? dailyTarget)),
     );
     const failedRegions = regionalResults.filter((result) => result.failed).map((result) => result.region);
     const allNews = regionalResults

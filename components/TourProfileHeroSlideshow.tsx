@@ -48,7 +48,7 @@ export default function TourProfileHeroSlideshow({ artistName, images }: TourPro
           loading={index === 0 ? 'eager' : 'lazy'}
           decoding="async"
           onError={(event) => { event.currentTarget.style.display = 'none'; }}
-          className={`absolute inset-0 h-full w-full object-cover grayscale transition-opacity duration-1000 ${index === safeActiveIndex ? 'opacity-100' : 'opacity-0'}`}
+          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ${index === safeActiveIndex ? 'opacity-100' : 'opacity-0'}`}
         />
       ))}
       <div className="absolute inset-0 bg-[linear-gradient(to_top,rgb(8_9_10),rgb(8_9_10_/_0.62)_48%,rgb(8_9_10_/_0.18))]" />

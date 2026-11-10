@@ -135,7 +135,7 @@ function ArtistThumb({ src, artist }: { src: string | null; artist: string }) {
       decoding="async"
       onLoad={() => setStatus('loaded')}
       onError={() => setStatus('failed')}
-      className="h-full w-full object-cover grayscale transition-all duration-700 group-hover:grayscale-0 motion-reduce:transition-none"
+      className="h-full w-full object-cover transition-all duration-700 motion-reduce:transition-none"
     />
   );
 }

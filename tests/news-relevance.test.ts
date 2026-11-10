@@ -79,6 +79,70 @@ describe('news relevance gate', () => {
   });
 });
 
+/**
+ * Three real headlines the gate rejected while they were being published as
+ * music news. Each scored a single point from one soft word, so the fix had to
+ * supply the missing evidence instead of lowering the bar: a performer's craft
+ * (singer, DJ, turntables) and the AI music platforms are music vocabulary.
+ */
+describe('headlines the ingest audit caught as false negatives', () => {
+  it('keeps an obituary that names the performer, not the genre', () => {
+    const verdict = assessNewsRelevance({
+      title: "Montrealers honour Leonard Cohen, ten years after the music legend's death",
+      excerpt: "A steady stream of Montrealers visited Cohen's grave to honour the late singer, ten years after his death.",
+    });
+
+    expect(verdict.relevant).toBe(true);
+  });
+
+  it('keeps a lawsuit against an AI music platform', () => {
+    const verdict = assessNewsRelevance({
+      title: 'Elvis Presley AI Lawsuit: Suno Sued Over Illegal Voice Cloning',
+      excerpt: 'An Elvis Presley lawsuit against Suno claims the AI music company stole his singing voice.',
+    });
+
+    expect(verdict.relevant).toBe(true);
+  });
+
+  it('keeps a DJ profile whose body is mostly about animation', () => {
+    const verdict = assessNewsRelevance({
+      title: 'Scratch DJ Kid Koala Learned To Speak In Frames For His Animated Feature Debut',
+      excerpt: 'Using turntables to give his robot character a human touch.',
+    });
+
+    expect(verdict.relevant).toBe(true);
+  });
+
+  it('does not take a strong headline term as a blank cheque', () => {
+    // K-pop is unmistakable music vocabulary, but the story is a merchandise and
+    // streaming tie-in, and the off-topic weight has to win.
+    const verdict = assessNewsRelevance({
+      title: 'K-pop group tie-in: video game, Netflix series finale and movie trailer',
+    });
+
+    expect(verdict.titleMusicScore).toBeGreaterThan(0);
+    expect(verdict.relevant).toBe(false);
+  });
+});
+
+describe('term matching', () => {
+  it('does not read a music word out of a longer word', () => {
+    // "operation" contains "opera", "steps" contains "eps", "backstage" contains
+    // "stage". Substring hits used to inflate the score enough to publish junk.
+    const verdict = assessNewsRelevance({ title: 'Hospital operation delays: what steps come next' });
+
+    expect(verdict.matchedMusic).not.toContain('opera');
+    expect(verdict.matchedMusic).not.toContain('eps');
+    expect(verdict.relevant).toBe(false);
+  });
+
+  it('matches an accented first letter, which ASCII word boundaries would miss', () => {
+    const verdict = assessNewsRelevance({ title: 'Álbum sorpresa de Bad Bunny rompe récords' });
+
+    expect(verdict.relevant).toBe(true);
+  });
+});
+
 describe('trusted music publications', () => {
   it('keeps non-English music coverage that a keyword list in English would drop', () => {
     const titles = [

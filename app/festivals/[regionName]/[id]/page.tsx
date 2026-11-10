@@ -114,7 +114,7 @@ export default async function FestivalDetailPage({
                   referrerPolicy="strict-origin-when-cross-origin"
                   loading="lazy"
                   allowFullScreen
-                  className="h-full w-full grayscale transition-all duration-700 hover:grayscale-0"
+                  className="h-full w-full transition-all duration-700"
                 />
               </div>
             )}
@@ -137,7 +137,7 @@ export default async function FestivalDetailPage({
               <section>
                 <h2 className="mb-8 text-xs font-black tracking-[0.3em] text-ink uppercase">Festival gallery</h2>
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                  {fest.image_url.map((image, index) => <div key={`${image}-${index}`} className="group aspect-[16/10] overflow-hidden bg-ink"><img src={image} alt={`${fest.name} festival image ${index + 1}`} loading="lazy" decoding="async" className="h-full w-full object-cover grayscale transition-all duration-700 group-hover:scale-105 group-hover:grayscale-0" /></div>)}
+                  {fest.image_url.map((image, index) => <div key={`${image}-${index}`} className="group aspect-[16/10] overflow-hidden bg-ink"><img src={image} alt={`${fest.name} festival image ${index + 1}`} loading="lazy" decoding="async" className="h-full w-full object-cover transition-all duration-700 group-hover:scale-105" /></div>)}
                 </div>
               </section>
             )}

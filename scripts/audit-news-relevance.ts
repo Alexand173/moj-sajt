@@ -70,12 +70,23 @@ async function main(): Promise<void> {
     byReason.set(reason, (byReason.get(reason) || 0) + 1);
   }
 
+  // The two ingest paths have different policies, so they have to be reported
+  // separately: a rejection rate that looks healthy overall can still be
+  // starving the NewsAPI feed, which is what happened when LATEST fell to
+  // zero rows a day while OFFICIAL kept publishing.
+  const byCategory = ['LATEST', 'OFFICIAL'].map((category) => {
+    const total = rows.filter((row) => (row.category || '') === category).length;
+    const blocked = rejected.filter((entry) => (entry.row.category || '') === category).length;
+    return `${category}: kept ${total - blocked}/${total}`;
+  });
+
   console.log(JSON.stringify({
     event: 'news_relevance_audit',
     windowDays: days,
     sampled: rows.length,
+    byCategory,
     kept: rows.length - rejected.length,
-    wouldReject: rejected.length,
+    rejected: rejected.length,
     reasons: Object.fromEntries(byReason),
   }, null, 2));
 

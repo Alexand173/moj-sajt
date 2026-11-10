@@ -833,8 +833,6 @@
   }
 }
 
-@media (max-width: 767px) {
-  .news-feed-image {
-    filter: none !important;
-  }
-}
+/* Feed imagery is displayed in full colour at every breakpoint. The old rule
+   forced `filter: none` below 767px because the desktop treatment desaturated
+   every photo; with the grey treatment removed the override has no job. */

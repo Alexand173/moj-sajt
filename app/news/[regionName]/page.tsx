@@ -1,6 +1,7 @@
 import { unstable_noStore as noStore } from 'next/cache';
 import type { Metadata } from 'next';
 import { getPublicSupabaseClient } from '@/lib/supabase-public';
+import { balanceFeedMix } from '@/lib/news-balance';
 import NewsEditorialView, { type NewsEditorialItem } from '@/components/NewsEditorialView';
 
 const MOST_READ_LIMIT = 5;
@@ -185,14 +186,26 @@ export default async function BillboardNewsPage({
   // deep-linkable and every open registers as a page view in analytics.
   const initialOfficialId = official && officialNews.some((item) => String(item.id) === official) ? official : null;
 
+  /**
+   * A region where one stream is far larger than the other reads as broken: four
+   * LATEST stories in the middle column beside fifty official ones. Trim the
+   * longer stream so the two are comparable, but never trim away the brief the
+   * URL asks for.
+   */
+  const feedMix = balanceFeedMix(latestNews, officialNews, NEWS_FEED_LIMIT);
+  const pinnedOfficial = initialOfficialId
+    ? officialNews.filter((item) => String(item.id) === initialOfficialId)
+    : [];
+  const feedOfficial = feedMix.official.filter((item) => String(item.id) !== initialOfficialId);
+
   return (
     <NewsEditorialView
       region={region}
-      featuredNews={latestNews[0]}
+      featuredNews={feedMix.latest[0]}
       initialOfficialId={initialOfficialId}
-      latestNews={latestNews}
+      latestNews={feedMix.latest}
       communityNews={communityNews}
-      officialNews={officialNews}
+      officialNews={pinnedOfficial.length > 0 ? [...pinnedOfficial, ...feedOfficial] : feedMix.official}
       mostReadNews={mostReadNews}
       storiesByMass={storiesByMass}
       communityPosts={communityPosts}

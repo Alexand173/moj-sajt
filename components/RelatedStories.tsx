@@ -39,7 +39,7 @@ export default function RelatedStories({ stories, region, headingId = 'related-s
                       alt=""
                       loading="lazy"
                       decoding="async"
-                      className="h-full w-full object-cover grayscale transition-all duration-500 group-hover:scale-105 group-hover:grayscale-0"
+                      className="h-full w-full object-cover transition-all duration-500 group-hover:scale-105"
                     />
                   ) : (
                     <span className="flex h-full w-full items-center justify-center text-[9px] font-black tracking-[0.12em] text-muted uppercase sm:text-[8px]">No image</span>

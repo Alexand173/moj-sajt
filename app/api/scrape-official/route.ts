@@ -2,6 +2,11 @@ import { loadEnvConfig } from '@next/env';
 import * as cheerio from 'cheerio';
 import axios from 'axios';
 import { createClient } from '@supabase/supabase-js';
+import {
+  getNewsDailyPerRegion,
+  loadRecentCountByRegion,
+  remainingQuotaByRegion,
+} from '../../../lib/news-balance';
 import { normalizeNewsRegion } from '../../../lib/news-regions';
 import { isMusicNews } from '../../../lib/news-relevance';
 
@@ -344,13 +349,13 @@ export async function GET() {
   { url: 'https://www.gramilano.com/', region: 'CLASSICAL' },
 
   // --- WORLD (Globalni miks) ---
-  { url: 'https://www.songlines.co.uk/news', region: 'WORLD' },
-  { url: 'https://worldmusiccentral.org/category/news/', region: 'WORLD' },
-  { url: 'https://www.rootsworld.com/news.html', region: 'WORLD' },
-  { url: 'https://www.rhythm-passport.com/news/', region: 'WORLD' },
-  { url: 'https://www.globalmusicnetwork.com/', region: 'WORLD' },
-  { url: 'https://www.music-news.com/News', region: 'WORLD' },
-  { url: 'https://www.musicradar.com/news', region: 'WORLD' }
+  // The previous seven sources all returned nothing: four render their headlines
+  // in JavaScript so `h2`/`h3` parsing found no links, and three answered 403 or
+  // 404. That is why WORLD had zero OFFICIAL rows for two weeks while every other
+  // region had hundreds. These three were verified to yield headlines.
+  { url: 'https://www.afropop.org/', region: 'WORLD' },
+  { url: 'https://folkradio.co.uk/category/news/', region: 'WORLD' },
+  { url: 'https://www.theguardian.com/music/worldmusic', region: 'WORLD' }
 
       // ... Možeš dopuniti listu po potrebi
     ];
@@ -370,17 +375,44 @@ export async function GET() {
     let failedUpsertRows = 0;
     let skippedConflicts = 0;
     let balancedCount = 0;
+    let quotaDropped = 0;
     let balancedRegionCounts: Record<string, number> = {};
 
     if (scrapedData.length > 0) {
       // Keep the same title from different publishers/regions when the source URLs differ.
       const uniqueData = Array.from(new Map(scrapedData.map(item => [item.url, item])).values());
       const mixedData = uniqueData.sort(() => Math.random() - 0.5);
+
+      // Each region spends the same daily allowance the NewsAPI path uses, so the
+      // two sources stay balanced instead of the scraper flooding the table with
+      // one region's output.
+      const regions = [...new Set(mixedData.map((article) => normalizeNewsRegion(article.region)))];
+      const dailyTarget = getNewsDailyPerRegion();
+      let remaining: Record<string, number>;
+
+      try {
+        if (!supabase) throw new Error('Supabase is not configured.');
+        const recentCounts = await loadRecentCountByRegion(supabase, 'OFFICIAL');
+        remaining = remainingQuotaByRegion(recentCounts, regions, dailyTarget);
+      } catch (error) {
+        // Losing the count must not lose the scrape: fall back to the per-region
+        // cap so the day is still bounded, just less precisely.
+        console.warn("Could not read today's OFFICIAL counts; using the per-run cap:", error);
+        remaining = Object.fromEntries(regions.map((region) => [region, dailyTarget]));
+      }
+
       const regionCounts = new Map<string, number>();
       const balancedData = mixedData.filter((article) => {
-        const count = regionCounts.get(article.region) || 0;
-        if (count >= MAX_OFFICIAL_ARTICLES_PER_REGION) return false;
-        regionCounts.set(article.region, count + 1);
+        const region = normalizeNewsRegion(article.region);
+        const count = regionCounts.get(region) || 0;
+        const allowance = Math.min(MAX_OFFICIAL_ARTICLES_PER_REGION, remaining[region] ?? 0);
+
+        if (count >= allowance) {
+          quotaDropped += 1;
+          return false;
+        }
+
+        regionCounts.set(region, count + 1);
         return true;
       });
 
@@ -405,6 +437,7 @@ export async function GET() {
       count: insertedCount,
       scrapedCount: scrapedData.length,
       balancedCount,
+      quotaDropped,
       regionCounts: balancedRegionCounts,
       failedUpsertChunks,
       failedUpsertRows,

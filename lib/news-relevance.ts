@@ -38,50 +38,71 @@ export type RelevanceAssessment = {
   relevant: boolean;
   musicScore: number;
   offTopicScore: number;
+  /** Music weight found in the headline alone; a strong signal at ingest. */
+  titleMusicScore: number;
   /** Set when the story matches a category that is never music news. */
   hardBlock: string | null;
   matchedMusic: string[];
   matchedOffTopic: string[];
 };
 
-/** Unambiguous music vocabulary: worth two points each. */
-const STRONG_MUSIC_TERMS = new RegExp(
-  [
-    'albums?', 'singles?', 'eps?', 'mixtapes?', 'tours?', 'concerts?', 'gigs?', 'festivals?',
-    'discography', 'setlists?', 'tracklists?', 'remix(?:es)?', 'vinyl', 'songwriters?', 'rappers?',
-    'vocalists?', 'drummers?', 'guitarists?', 'bassists?', 'bands?', 'orchestras?', 'symphon(?:y|ies)',
-    'opera', 'jazz', 'hip[ -]hop', 'k[ -]pop', 'reggaeton', 'afrobeats?', 'grime', 'house music',
-    'billboard', 'grammys?', 'mtv', 'vmas?', 'mercury prize', 'spotify', 'soundcloud',
-    'ballet', 'violin(?:ist)?s?', 'cellists?', 'pianists?', 'conductors?', 'philharmonic',
-    'música', 'álbum', 'gira', 'conciertos?', 'cantantes?', 'banda', 'canción(?:es)?',
-    'konzert(?:e|abonnement)?s?', 'konzerthaus', 'canzoni', 'morceaux', 'chansons?', 'musique',
-    'opéra', 'orchestre', 'violon', 'filarmonica', 'concerto',
-  ].join('|'),
-  'gi',
-);
+/**
+ * Wraps a term list in Unicode-aware word boundaries.
+ *
+ * The lists used to be joined into a bare alternation, so "opera" matched inside
+ * "operation", "stage" inside "backstage" and "eps" inside "steps" — scores were
+ * inflated by substring accidents, which is how off-topic stories cleared the
+ * bar. `\b` cannot be used instead because it is ASCII-only: "álbum" and "opéra"
+ * start with a letter that `\b` does not consider a word character, so an
+ * accented first term would silently never match.
+ */
+function buildTermPattern(alternatives: string[]): RegExp {
+  return new RegExp(
+    `(?<![\\p{L}\\p{N}])(?:${alternatives.join('|')})(?![\\p{L}\\p{N}])`,
+    'giu',
+  );
+}
+
+/** Unambiguous music vocabulary: worth three points each. */
+const STRONG_MUSIC_TERMS = buildTermPattern([
+  'albums?', 'singles?', 'eps?', 'mixtapes?', 'tours?', 'concerts?', 'gigs?', 'festivals?',
+  'discography', 'setlists?', 'tracklists?', 'remix(?:es)?', 'vinyl', 'songwriters?', 'rappers?',
+  'vocalists?', 'drummers?', 'guitarists?', 'bassists?', 'bands?', 'orchestras?', 'symphon(?:y|ies)',
+  'opera', 'jazz', 'hip[ -]hop', 'k[ -]pop', 'reggaeton', 'afrobeats?', 'grime', 'house music',
+  'billboard', 'grammys?', 'mtv', 'vmas?', 'mercury prize', 'spotify', 'soundcloud',
+  'ballet', 'violin(?:ist)?s?', 'cellists?', 'pianists?', 'conductors?', 'philharmonic',
+  'música', 'álbum', 'gira', 'conciertos?', 'cantantes?', 'banda', 'canción(?:es)?',
+  'konzert(?:e|abonnement)?s?', 'konzerthaus', 'canzoni', 'morceaux', 'chansons?', 'musique',
+  'opéra', 'orchestre', 'violon', 'filarmonica', 'concerto',
+  // Who makes the music. Without these, an obituary or a profile of a performer
+  // scored as "not music" unless the headline happened to say "music".
+  'singers?', 'musicians?', 'composers?', 'frontm[ae]n', 'songst(?:er|ress)', 'crooners?',
+  'turntablists?', 'turntables?', 'djs?', 'beatmakers?', 'classical', 'soundtracks?',
+  'conservator(?:y|ies)', 'recitals?', 'choirs?', 'sopranos?', 'mezzos?', 'tenors?', 'arias?',
+  // AI music services: a lawsuit or a model launch is music-industry news, and
+  // the company name was the only thing the headline gave away.
+  'suno', 'udio', 'elevenlabs',
+  // The contest is a music institution; its stories rarely say "music".
+  'eurovision',
+]);
 
 /** Supporting vocabulary: worth one point each, never enough on its own. */
-const SOFT_MUSIC_TERMS = new RegExp(
-  [
-    'music', 'musical', 'songs?', 'artists?', 'producers?', 'labels?', 'charts?', 'records?',
-    'recordings?', 'release[sd]?', 'perform(?:ance|s|ed)?', 'stage', 'studio', 'mix(?:es)?',
-    'beats?', 'lyrics', 'awards?', 'live', 'ensemble', 'quartet', 'trio',
-  ].join('|'),
-  'gi',
-);
+const SOFT_MUSIC_TERMS = buildTermPattern([
+  'music', 'musical', 'songs?', 'artists?', 'producers?', 'labels?', 'charts?', 'records?',
+  'recordings?', 'release[sd]?', 'perform(?:ance|s|ed)?', 'stage', 'studio', 'mix(?:es)?',
+  'beats?', 'lyrics', 'awards?', 'live', 'ensemble', 'quartet', 'trio',
+  'tribute', 'reissues?', 'playlists?', 'streaming', 'catalogues?', 'catalogs?', 'vocals?',
+]);
 
 /** Things that make a story not-a-music-story. Two points each against it. */
-const OFF_TOPIC_TERMS = new RegExp(
-  [
-    'video games?', 'gameplay', 'gaming', 'esports', 'box office', 'netflix', 'tv series',
-    'season finale', 'episode \\d+', 'film', 'movies?', 'documentary', 'trailer', 'sitcom',
-    'election', 'senator', 'congress', 'senate', 'prime minister', 'stock market', 'shares', 'earnings report',
-    'ipo', 'crypto', 'bitcoin', 'smartphone', 'iphone', 'android', 'chatgpt', 'software', 'downloader',
-    'changelog', 'github', 'plugin', 'browser extension',
-    'fiscalía', 'gobierno', 'elecciones', 'votar', 'presidente', 'parlamento', 'justicia',
-  ].join('|'),
-  'gi',
-);
+const OFF_TOPIC_TERMS = buildTermPattern([
+  'video games?', 'gameplay', 'gaming', 'esports', 'box office', 'netflix', 'tv series',
+  'season finale', 'episode \\d+', 'film', 'movies?', 'documentary', 'trailer', 'sitcom',
+  'election', 'senator', 'congress', 'senate', 'prime minister', 'stock market', 'shares', 'earnings report',
+  'ipo', 'crypto', 'bitcoin', 'smartphone', 'iphone', 'android', 'chatgpt', 'software', 'downloader',
+  'changelog', 'github', 'plugin', 'browser extension',
+  'fiscalía', 'gobierno', 'elecciones', 'votar', 'presidente', 'parlamento', 'justicia',
+]);
 
 /** Categories that are never music news, however many music words appear. */
 const HARD_BLOCKS: Array<{ pattern: RegExp; reason: string }> = [
@@ -125,12 +146,14 @@ export function assessNewsRelevance(
       relevant: false,
       musicScore: 0,
       offTopicScore: 0,
+      titleMusicScore: 0,
       hardBlock: 'empty',
       matchedMusic: [],
       matchedOffTopic: [],
     };
   }
 
+  const title = String(input.title || '');
   const matchedMusic = [
     ...collectMatches(text, STRONG_MUSIC_TERMS),
     ...collectMatches(text, SOFT_MUSIC_TERMS),
@@ -141,6 +164,15 @@ export function assessNewsRelevance(
   const softHits = collectMatches(text, SOFT_MUSIC_TERMS).length;
   const musicScore = strongHits * STRONG_MUSIC_WEIGHT + softHits * SOFT_MUSIC_WEIGHT;
   const offTopicScore = matchedOffTopic.length * OFF_TOPIC_WEIGHT;
+
+  // Feeds truncate the body, so the headline is often all the evidence there is.
+  // A soft "music" in a headline is not enough on its own — that rule is what let
+  // junk through originally — but an unmistakable term is: "Scratch DJ Kid Koala
+  // ... Animated Feature Debut" is a music story even though "animated feature"
+  // scores against it.
+  const titleStrongHits = collectMatches(title, STRONG_MUSIC_TERMS).length;
+  const titleMusicScore = titleStrongHits * STRONG_MUSIC_WEIGHT
+    + collectMatches(title, SOFT_MUSIC_TERMS).length * SOFT_MUSIC_WEIGHT;
 
   const hardBlock = HARD_BLOCKS.find((block) => block.pattern.test(text))?.reason
     // "qobuz-dl-ultra 2.4.3.1" reads as a changelog entry, not a headline: a
@@ -154,14 +186,18 @@ export function assessNewsRelevance(
       // is only overruled when it is plainly reporting something else.
       ? !(musicScore === 0 && offTopicScore >= TRUSTED_SOURCE_REJECT_SCORE)
       // A tie is allowed: "album ... film" is a music story that mentions a film,
-      // while "film ... music" is a film story that mentions music, and the
-      // off-topic terms are weighted to break it that way.
-      : musicScore >= RELEVANT_MUSIC_SCORE && musicScore >= offTopicScore;
+      // while "film ... music" is a film story that mentions music. An
+      // unmistakable music term in the headline is enough on its own, because
+      // feeds truncate the body and an obituary or a DJ profile rarely says
+      // "music" twice.
+      : (musicScore >= RELEVANT_MUSIC_SCORE && musicScore >= offTopicScore) ||
+        (titleStrongHits > 0 && musicScore > offTopicScore);
 
   return {
     relevant,
     musicScore,
     offTopicScore,
+    titleMusicScore,
     hardBlock,
     matchedMusic: Array.from(new Set(matchedMusic)).slice(0, 8),
     matchedOffTopic: matchedOffTopic.slice(0, 8),

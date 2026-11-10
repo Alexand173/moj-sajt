@@ -75,7 +75,7 @@ export default function OfficialTicketDates({
                     fill
                     sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 84vw"
                     onError={(event) => { event.currentTarget.style.display = 'none'; }}
-                    className="object-cover grayscale transition-all duration-700 group-hover/card:scale-105 group-hover/card:grayscale-0"
+                    className="object-cover transition-all duration-700 group-hover/card:scale-105"
                   />
                 )}
                 <div className="mt-image-overlay absolute inset-0" />

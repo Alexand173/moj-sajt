@@ -156,7 +156,7 @@ export default async function CommunityNewsArticlePage({
 
             {imageUrl && (
               <figure className="mt-8 overflow-hidden bg-ink">
-                <img src={imageUrl} alt={article.title} loading="eager" fetchPriority="high" decoding="async" className="max-h-[38rem] w-full object-cover grayscale transition-all duration-700 hover:grayscale-0" />
+                <img src={imageUrl} alt={article.title} loading="eager" fetchPriority="high" decoding="async" className="max-h-[38rem] w-full object-cover transition-all duration-700" />
               </figure>
             )}
 
