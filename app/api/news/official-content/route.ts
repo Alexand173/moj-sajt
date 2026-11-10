@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createOfficialNewsBrief } from '@/lib/official-news-brief';
+import { hasRecordedSource } from '@/lib/news-publication';
 import { getPublicSupabaseClient } from '@/lib/supabase-public';
 
 export const runtime = 'nodejs';
@@ -32,6 +33,16 @@ export async function GET(request: Request) {
     }
 
     if (!data) return jsonError('Story not found.', 404);
+
+    /**
+     * The inline reader must refuse exactly what the feed refuses. Without this,
+     * a source-less row is invisible in every list yet still readable by anyone
+     * holding its id — which is how 985 unattributed stories stayed reachable
+     * after their pages started returning 404.
+     */
+    if (!hasRecordedSource(data) || data.ai_status === 'skipped') {
+      return jsonError('Story not found.', 404);
+    }
 
     return NextResponse.json(createOfficialNewsBrief(data), {
       headers: {

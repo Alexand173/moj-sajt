@@ -8,7 +8,13 @@ interface QueryCall {
 }
 
 function createSupabaseMock(rowsFor: (mode: 'artist' | 'region') => Array<Record<string, unknown>>) {
-  const calls: { artist: QueryCall[]; region: QueryCall[]; neq: QueryCall[] } = { artist: [], region: [], neq: [] };
+  const calls: {
+    artist: QueryCall[];
+    region: QueryCall[];
+    publication: QueryCall[];
+    not: QueryCall[];
+    neq: QueryCall[];
+  } = { artist: [], region: [], publication: [], not: [], neq: [] };
   let mode: 'artist' | 'region' = 'region';
 
   const query: Record<string, unknown> = {};
@@ -23,8 +29,16 @@ function createSupabaseMock(rowsFor: (mode: 'artist' | 'region') => Array<Record
     return query;
   });
   query.eq = vi.fn((column: string, value: unknown) => {
-    calls.region.push({ column, value });
+    // Region and publication state are separate questions, so they are recorded
+    // separately: `region` is which channel, `publication` is whether the row may
+    // be shown at all.
+    if (column === 'region') calls.region.push({ column, value });
+    else calls.publication.push({ column, value });
     mode = 'region';
+    return query;
+  });
+  query.not = vi.fn((column: string, operator: string, value: unknown) => {
+    calls.not.push({ column, value: { operator, value } });
     return query;
   });
   query.order = vi.fn(() => query);
@@ -73,6 +87,18 @@ describe('related news lookup', () => {
     expect(calls.region).toHaveLength(0);
   });
 
+  it('only ever offers rows that are published and attributed', async () => {
+    const { supabase, calls } = createSupabaseMock((mode) => (mode === 'artist' ? artistRows : []));
+
+    await getRelatedNews(supabase, { id: 'current', title: 'Sam Rivers Postpones the Autumn Tour Dates', region: 'us' });
+
+    // Neither candidate query filtered this before, so a sidebar could link to a
+    // `skipped` story or to one whose article page now returns 404.
+    expect(calls.publication).toContainEqual({ column: 'ai_status', value: 'generated' });
+    expect(calls.publication).toContainEqual({ column: 'ai_generated', value: true });
+    expect(calls.not).toContainEqual({ column: 'url', value: { operator: 'is', value: null } });
+  });
+
   it('retries with the shorter name and then falls back to the region feed', async () => {
     const { supabase, calls } = createSupabaseMock((mode) => (mode === 'region' ? artistRows.slice(0, 1) : []));
 
@@ -81,6 +107,8 @@ describe('related news lookup', () => {
     expect(calls.artist.map((call) => call.value)).toEqual(['%Sam Rivers%', '%Sam%']);
     expect(calls.region).toContainEqual({ column: 'region', value: 'us' });
     expect(stories).toHaveLength(1);
+    // The region fallback carries the same publication guards as the artist query.
+    expect(calls.not).toContainEqual({ column: 'url', value: { operator: 'is', value: null } });
   });
 
   it('returns nothing when supabase is unavailable or the headline has no artist', async () => {

@@ -10,6 +10,7 @@ import { isRewriteDeniedSourceUrl } from '@/lib/source-fetch';
 import { getRelatedNews } from '@/lib/related-news';
 import { getMediaIdentity, getSafeMediaUrl, getStoredNewsMediaUrl, getYouTubeEmbedUrl, getYouTubeVideoId, isLikelyEditorialImageUrl } from '@/lib/news-media';
 import { countWords, hasValidatedAiContent } from '@/lib/news-indexability';
+import { hasRecordedSource } from '@/lib/news-publication';
 import { createBreadcrumbListSchema, createVideoObjectSchema } from '@/lib/seo-schema';
 import { getPublicSupabaseClient } from '@/lib/supabase-public';
 
@@ -184,7 +185,14 @@ export default async function SingleNewsPage({
 
   if (!article) notFound();
 
-  // Legacy `/news/<region>/<id>` links and stale titles land on the current
+  /**
+   * A row with no source is not published, and cannot be repaired: the publisher
+   * was never recorded, and the cohort is older than any feed archive, so the URL
+   * cannot be recovered. 404 rather than a redirect, because the page did not move
+   * — it was never properly attributed. Checked before the canonical redirect so a
+   * stale slug 404s here too instead of redirecting to another 404.
+   */
+  if (!hasRecordedSource(article)) notFound();
   // headline slug instead of rendering a second address for the same story.
   const canonicalSegment = getNewsArticleSegment(article.id, article.title);
   if (idSegment !== canonicalSegment) {

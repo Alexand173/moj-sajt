@@ -29,6 +29,10 @@ export default async function ReviewsPage() {
         .from('news')
         .select('*')
         .or('title.ilike.%review%,title.ilike.%interview%')
+        // A row with no source is not published (see `lib/news-publication.ts`),
+        // and its article page 404s, so it cannot be a card here.
+        .not('url', 'is', null)
+        .neq('url', '')
         .order('created_at', { ascending: false })
         .limit(REVIEW_FETCH_LIMIT);
       if (error) console.warn('Could not load reviews:', error.message);

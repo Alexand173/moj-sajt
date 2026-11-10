@@ -102,6 +102,13 @@ export async function getRelatedNews(
       .from('news')
       .select(RELATED_NEWS_SELECT)
       .neq('id', options.id)
+      // Both candidate queries were unfiltered, so a sidebar could surface a row
+      // the feed had removed — a `skipped` story, or one with no source at all. A
+      // related link is a link to a 404 once the article rule applies.
+      .eq('ai_status', 'generated')
+      .eq('ai_generated', true)
+      .not('url', 'is', null)
+      .neq('url', '')
       .ilike('title', `%${phrase}%`)
       .order('created_at', { ascending: false })
       .limit(RELATED_NEWS_LIMIT);
@@ -120,6 +127,10 @@ export async function getRelatedNews(
     .select(RELATED_NEWS_SELECT)
     .neq('id', options.id)
     .eq('region', options.region)
+    .eq('ai_status', 'generated')
+    .eq('ai_generated', true)
+    .not('url', 'is', null)
+    .neq('url', '')
     .order('created_at', { ascending: false })
     .limit(RELATED_NEWS_LIMIT);
 

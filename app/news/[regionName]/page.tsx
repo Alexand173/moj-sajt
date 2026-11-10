@@ -143,6 +143,11 @@ export default async function BillboardNewsPage({
         .eq('category', category)
         .eq('ai_generated', true)
         .eq('ai_status', 'generated')
+        // No source, no publication: a row with no publisher to credit has an
+        // article page that 404s, so the feed must not offer it. `neq ''` is the
+        // same rule seen from the other side — an empty string is not a link.
+        .not('url', 'is', null)
+        .neq('url', '')
         .order('created_at', { ascending: false });
 
       const [officialRes, latestRes, additionalOfficialRes, additionalLatestRes, communityNewsRes, blogRes, discRes, concertRes] = await Promise.all([

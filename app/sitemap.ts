@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { EUROPA_SUBREGIONS } from '@/lib/region-navigation';
-import { hasValidatedAiContent } from '@/lib/news-indexability';
+import { isIndexedNewsArticle } from '@/lib/news-publication';
 import { buildNewsArticlePath } from '@/lib/news-slug';
 import { getPublicSupabaseClient } from '@/lib/supabase-public';
 import { loadConcertRegionRows } from '@/lib/ticket-regions';
@@ -47,6 +47,8 @@ type NewsSitemapRow = {
   created_at: string | null;
   /** The article page derives its canonical slug from this field alone. */
   title: string | null;
+  /** Publication requires a source; without one the article page returns 404. */
+  url: string | null;
   ai_content: string | null;
   ai_generated: boolean | null;
   ai_status: string | null;
@@ -109,7 +111,13 @@ async function getTicketRoutes(): Promise<TicketRouteBundle> {
   };
 }
 
-const NEWS_COLUMNS = 'id, region, created_at, title, ai_content, ai_generated, ai_status';
+/**
+ * `url` is selected because publication depends on it: `isIndexedNewsArticle`
+ * cannot tell an attributed article from an orphan without the column, and an
+ * omitted column reads as "no source" for every row — which silently emptied the
+ * article half of this file.
+ */
+const NEWS_COLUMNS = 'id, region, created_at, title, url, ai_content, ai_generated, ai_status';
 /** PostgREST caps one response at 1000 rows by default, so a page is never larger. */
 const NEWS_PAGE_SIZE = 1000;
 /** Ceiling for the walk itself, in case the rewritten subset ever explodes. */
@@ -129,9 +137,10 @@ const SITEMAP_URL_CAP = 49000;
  * The retainer is the `routes` map, not the row buffer: ~6.6k articles cost on the
  * order of a megabyte, whereas retaining the rows themselves would cost ~50 MB.
  *
- * The 200-word rule stays in `hasValidatedAiContent` because it is the same rule
- * the article page uses to decide `noindex` — the sitemap must never advertise a
- * URL the page asks Google to skip.
+ * The rules stay in `lib/news-publication.ts` because they are the same ones the
+ * article page uses: a 200-word validated rewrite decides `noindex`, and a missing
+ * source decides 404. The sitemap must advertise neither — a submitted URL the
+ * page itself refuses is worse than an absent one.
  */
 async function getNewsRoutes(): Promise<SitemapRoute[]> {
   const supabase = getPublicSupabaseClient();
@@ -150,6 +159,11 @@ async function getNewsRoutes(): Promise<SitemapRoute[]> {
         .eq('ai_generated', true)
         .eq('ai_status', 'generated')
         .not('ai_content', 'is', null)
+        // A page with no source is not published, so advertising its URL here
+        // would submit a 404. See `lib/news-publication.ts`; both spellings of
+        // "no source" are excluded, because an empty string is not a link either.
+        .not('url', 'is', null)
+        .neq('url', '')
         // A stable, unique sort is what makes offset paging repeatable.
         .order('id', { ascending: true })
         .range(from, from + NEWS_PAGE_SIZE - 1);
@@ -168,7 +182,7 @@ async function getNewsRoutes(): Promise<SitemapRoute[]> {
     scanned += batch.length;
 
     for (const article of batch) {
-      if (!article.region || !hasValidatedAiContent(article)) continue;
+      if (!article.region || !isIndexedNewsArticle(article)) continue;
 
       const url = buildNewsArticlePath(article.region, article.id, article.title);
       if (routes.has(url)) continue;

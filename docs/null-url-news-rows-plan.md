@@ -123,6 +123,43 @@ Two guards, one of which is already true:
 - No row in the cohort is `pending` and older than the window at the end.
 - Ingest refuses a URL-less row.
 
+## Outcome (2026-11-10) — the cohort was deleted, and the rule shipped as a guard
+
+While Phase 3 was being verified, the rows disappeared from the table:
+
+```
+rows before   34,779
+rows after    24,232      (difference 10,547 — the whole cohort)
+url is null        0
+url = ''           0
+url not http%      0
+```
+
+Nothing in this repository deletes from `news`: the only `.delete()` calls are
+against `songs` in `update-views.mjs`. The deletion was external to this session,
+so the plan's premise — 985 pages to fix — no longer describes the database. The
+work was kept anyway, because the condition it guards is one a regression can
+recreate in a single ingest run.
+
+What shipped, and why it still matters:
+
+- `lib/news-publication.ts`: `hasRecordedSource` (a row must name its publisher)
+  and `isIndexedNewsArticle` (that, plus a validated rewrite). Derived from the row
+  — no flag, no migration, nothing to drift.
+- The article page returns **404** for a source-less row, checked before the
+  canonical redirect.
+- Region feeds, `sitemap.xml`, related stories, the reviews page and the
+  `official-content` API all refuse such a row, matching the page exactly.
+- Related stories had **no publication filter at all** before this: a sidebar could
+  link to a `skipped` row, or to one whose page now 404s. Both candidate queries are
+  gated now.
+
+One regression was caught by the smoke test rather than by the tests: adding the
+source requirement to the sitemap made it list **zero** articles, because
+`sitemap.ts` never selected the `url` column and a missing column reads as "no
+source" for every row. The column is selected now; the sitemap went 0 → 9,553
+article URLs, and sampled entries return 200.
+
 ## Risks
 
 - **NewsAPI quota.** 100 requests/day on the free tier; a 10,547-row recovery is
