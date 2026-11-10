@@ -113,9 +113,15 @@ const OFF_TOPIC_TERMS = buildTermPattern([
 const HARD_BLOCKS: Array<{ pattern: RegExp; reason: string }> = [
   {
     // "GAME REVIEW #8: Wolves vs. Bucks game thread" and "Call of Duty: Modern
-    // Warfare 4 review" both reached the reviews page: a console franchise or a
-    // fixture report is never music, so it is blocked instead of scored.
-    pattern: /\b(capcom|playstation|xbox|nintendo|gameplay|esports|dlc|call of duty|fortnite|minecraft|battle royale|game review|game thread)\b/i,
+    // Warfare 4 review" both reached the reviews page: a franchise report or a
+    // fixture thread is never music, so it is blocked instead of scored.
+    //
+    // Console and franchise names were in this list until they blocked
+    // "Stormzy's Glastonbury stab-proof vest goes on display in landmark
+    // exhibition of Black British music" — the excerpt mentions the Nintendo in
+    // JME's early tunes, because the console is part of the exhibit. A brand is a
+    // mention; "gameplay", "esports" and "game review" are the subject.
+    pattern: /\b(capcom|gameplay|esports|dlc|call of duty|game review|game thread|battle royale|patch notes)\b/i,
     reason: 'video-game',
   },
   {
@@ -137,6 +143,23 @@ const HARD_BLOCKS: Array<{ pattern: RegExp; reason: string }> = [
     // through.
     pattern: /\b(reviewed fiction|book reviews?|best books?)\b/i,
     reason: 'books',
+  },
+  {
+    // A digest is several unrelated stories under one headline, so it is not one
+    // story and cannot be rewritten as one. The row that prompted this: "Canada
+    // to hit U.S. with retaliatory tariffs. And, remembering music legend Dolly
+    // Parton" — a politics newsletter with one obituary in it, published as music
+    // news with a full brief.
+    //
+    // Judged on the format, not on the vocabulary: the current gate already drops
+    // that exact headline, but a digest that mentions an album or a tour clears
+    // the score, because one of its five stories is music. The signals below are
+    // wrappers a single-subject headline never needs.
+    //
+    // Deliberately not a bare /newsletter/ block: "Band's newsletter confirms
+    // reunion tour" is a real music headline.
+    pattern: /(?:\.\s+and,\s)|\b(?:up first|morning brief(?:ing)?|evening brief(?:ing)?|daily brief(?:ing)?|top stories|news round-?up)\b/i,
+    reason: 'digest',
   },
 ];
 

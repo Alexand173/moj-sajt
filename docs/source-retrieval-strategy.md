@@ -194,4 +194,67 @@ follow-up if the repeated cooldown write bothers the queue metrics.
 
 One thing the sample turned up, outside this task's scope: the row we sampled is an
 NPR politics newsletter ("up-first-newsletter-canada-tariffs-visa-revocations…"),
-which means it cleared the relevance gate at some point.
+which means it cleared the relevance gate at some point. That turned into the
+section below.
+
+## What the official batch actually reported
+
+`npm run ai:enrich:official -- --batches=1 --limit=4` returned `inspected: 0`,
+`stopReason: 'queue-empty'`, `publisherDenied: 0` in 239 ms. The LATEST run was
+equally empty. That is not a broken counter — it is the queue:
+
+| Queue | Depth | Why it never reached a denylisted row |
+|---|---|---|
+| OFFICIAL | 0 rows | every source in the curated list is finished |
+| LATEST pending | 1,000+ | oldest is from April; the window is 21 days |
+| LATEST fallback (repair path) | 175 | the first denylisted row sits behind 43 others |
+
+Every npr.org row is `LATEST` and dates from August, so it is outside the
+processing window and never enters a normal run. **The 6-hour cooldown therefore
+does not touch these rows at all**, which settles the migration question harder
+than the arithmetic did: a per-row flag would save writes that are not happening.
+
+**Decision: no migration.** Revisit only if denylisted publishers become a daily
+source, where a fresh row would re-stamp itself up to 84 times across the window.
+
+## Closing the digest hole
+
+`lib/news-relevance.ts` gains a `digest` hard block on format markers — `. And, `
+clause joins, "Up First", `morning/evening/daily briefing`, `top stories`, `news
+round-up` — not on the word "newsletter", so "Band's newsletter confirms reunion
+tour" survives. The August newsletter scores 1 vs 0 today and would already be
+dropped; the hole was the version with one strong music term in it.
+
+The dry run then exposed a second, live gate bug: **console brand names in the
+video-game block**. "Stormzy's Glastonbury stab-proof vest goes on display in
+landmark exhibition of Black British music" was blocked as a video-game story
+because its copy mentions the Nintendo in JME's early tunes — the console is part
+of the exhibit. Brands were removed from the block; the subject words (gameplay,
+esports, patch notes, game review) stayed. Both are pinned by tests.
+
+## The purge, and the line it must not cross
+
+`npm run news:purge-offtopic` judges all 34,779 rows with the policy their
+category uses at ingest. Full-table dry run:
+
+```
+clear           379   rows it can stamp unattended
+needs-judgement 4,205 held (4,584 refused in total, after the gate fix)
+```
+
+The held rows are not slack: the same bucket contains "Xiu Xiu – Xiu Mutha
+Fuckin' Xiu", "Blackpink – Go", an Asha Bhosle interview and a Rock Hall piece,
+all with `url: null`, so there is no publisher to check them against either.
+Vocabulary cannot separate those from a car review, so `--apply` stamps only the
+clear set and `--include-ambiguous` is required to go further. Audio-gear
+headlines are held too, because this codebase already treats headphones and
+turntables as music news.
+
+Applied: 379 rows stamped `skipped`; 4,205 held for a human. `--restore` reverses
+it, and `--restore --include-ambiguous` is the repair path if a run over-reaches.
+
+One correction worth recording: the first version of `--apply` stamped `refused`
+instead of the filtered set and unpublished 4,588 rows, including the held music
+reviews. The restore path put 4,423 of them back within minutes, and the code now
+passes `selected` with a comment saying why. That is the argument for the tiered
+design: the safe set is small enough that a mistake in it is recoverable.

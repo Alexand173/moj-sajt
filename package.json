@@ -21,6 +21,7 @@
     "news:gate": "npx tsx scripts/diagnose-news-gate.ts",
     "news:skip-sourceless": "npx tsx scripts/skip-sourceless-fallbacks.ts",
     "news:source-fetch": "npx tsx scripts/diagnose-source-fetch.ts",
+    "news:purge-offtopic": "npx tsx scripts/purge-offtopic-news.ts",
     "reviews:purge": "npx tsx scripts/purge-non-music-reviews.ts",
     "db:migrate": "npx tsx scripts/apply-migrations.ts"
   },

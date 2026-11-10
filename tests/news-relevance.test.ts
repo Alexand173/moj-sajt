@@ -215,6 +215,64 @@ describe('term matching', () => {
   });
 });
 
+describe('digests', () => {
+  /**
+   * A digest is several unrelated stories under one headline, so no single
+   * rewrite of it can be about the right subject. The first case is the row that
+   * reached the feed and was published with a full brief; the rest are the format
+   * markers that let that class through once one of the stories is music.
+   */
+  it('refuses a multi-story wrapper even when one story is music', () => {
+    const verdict = assessNewsRelevance({
+      title: 'Canada to hit U.S. with retaliatory tariffs. And, remembering music legend Dolly Parton',
+      excerpt: 'Remembering the legacy of country star and icon Dolly Parton, who died at 80.',
+    });
+
+    expect(verdict.hardBlock).toBe('digest');
+    expect(verdict.relevant).toBe(false);
+  });
+
+  it('refuses the named digest formats', () => {
+    const titles = [
+      'Up First: tariff vote, visa revocations, Nevada voters',
+      'Morning briefing: five new albums worth your commute',
+      'Top stories: Beyoncé adds eight dates to the Cowboy Carter tour',
+      'The week in music: news round-up',
+    ];
+
+    for (const title of titles) {
+      expect(assessNewsRelevance({ title }).hardBlock, title).toBe('digest');
+    }
+  });
+
+  it('keeps a music story that merely uses the word newsletter', () => {
+    // The reason the block is format-based rather than a bare /newsletter/: this
+    // is one story, from the band, about one tour.
+    expect(isMusicNews({ title: "Band's newsletter confirms reunion tour" })).toBe(true);
+    expect(isOffTopicJunk({ title: 'Sleaford Mods newsletter teases new album' })).toBe(false);
+  });
+});
+
+describe('console brands', () => {
+  it('does not treat a console mentioned in the copy as a game story', () => {
+    // A console can be an exhibit, a sample source, or a collector's item. This
+    // headline is about a music exhibition at the V&A and was blocked as a
+    // video-game story because the copy lists the Nintendo used in JME's early
+    // tunes.
+    expect(isMusicNews({
+      title: "Stormzy's Glastonbury stab-proof vest goes on display in landmark exhibition of Black British music",
+      excerpt: "Other items include the Nintendo used in JME's early tunes, imagery of Skepta and Jammer at fabric, and original sketches of the 2-Tone label logo",
+    })).toBe(true);
+  });
+
+  it('still blocks a story whose subject is a game', () => {
+    expect(isMusicNews({
+      title: 'Battlefield 6 patch notes: the Operation Augur update',
+      excerpt: 'Gameplay changes, esports balance and a new map.',
+    })).toBe(false);
+  });
+});
+
 describe('trusted music publications', () => {
   it('keeps non-English music coverage that a keyword list in English would drop', () => {
     const titles = [

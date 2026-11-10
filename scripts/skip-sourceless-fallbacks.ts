@@ -16,6 +16,11 @@ loadEnvConfig(process.cwd());
  *
  *   npm run news:skip-sourceless            # report only
  *   npm run news:skip-sourceless -- --apply # stamp them
+ *
+ * The selection stays narrow on purpose: only rows that have already *failed* a
+ * rewrite. Widening it to pending rows looked safe and was not — 9,313 pending
+ * rows have no URL and no brief yet, and the sample was Charli XCX, Eminem and
+ * Teddy Swims, whose bodies came from the feed and can still be rewritten.
  */
 
 const PAGE_SIZE = 1_000;
@@ -26,6 +31,7 @@ interface SourcelessRow {
   category: string | null;
   ai_status: string | null;
   url: string | null;
+  ai_content: string | null;
 }
 
 function hasFlag(flag: string): boolean {
@@ -44,7 +50,7 @@ async function main(): Promise<void> {
   for (let offset = 0; ; offset += PAGE_SIZE) {
     const { data, error } = await supabase
       .from('news')
-      .select('id, title, category, ai_status, url')
+      .select('id, title, category, ai_status, url, ai_content')
       .eq('ai_status', 'fallback')
       .or('url.is.null,url.eq.')
       .order('id', { ascending: true })
