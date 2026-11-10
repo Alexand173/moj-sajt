@@ -1,6 +1,15 @@
 import type { Metadata } from 'next';
 import { getPublicSupabaseClient } from '@/lib/supabase-public';
+import { isOffTopicJunk } from '@/lib/news-relevance';
 import ReviewCard, { type ReviewCardData } from '@/components/ReviewCard';
+
+const REVIEW_PAGE_SIZE = 40;
+/**
+ * Over-fetch, because the relevance filter below drops rows. The page selects by
+ * title — any story with "review" or "interview" in it — so without the filter a
+ * game review or a fixture thread is published here as music criticism.
+ */
+const REVIEW_FETCH_LIMIT = 80;
 
 export const revalidate = 3600;
 
@@ -21,9 +30,19 @@ export default async function ReviewsPage() {
         .select('*')
         .or('title.ilike.%review%,title.ilike.%interview%')
         .order('created_at', { ascending: false })
-        .limit(40);
+        .limit(REVIEW_FETCH_LIMIT);
       if (error) console.warn('Could not load reviews:', error.message);
-      items = (data || []) as ReviewCardData[];
+
+      // Two guards, both needed: `skipped` marks a row the cleanup judged not to
+      // be music, and the junk rule catches anything stored before that existed —
+      // including rows the cleanup has not reached yet. The rule is deliberately
+      // narrow, so a review of a dance piece or a songwriter profile stays.
+      items = ((data || []) as ReviewCardData[])
+        .filter((item) => item.ai_status !== 'skipped')
+        // Headline only: a film review's summary mentions the soundtrack, so
+        // reading the excerpt rescues the very items this page must not show.
+        .filter((item) => !isOffTopicJunk({ title: item.title }))
+        .slice(0, REVIEW_PAGE_SIZE);
     } catch (error) {
       console.warn('Could not load reviews:', error);
     }

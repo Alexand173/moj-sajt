@@ -98,10 +98,15 @@ const SOFT_MUSIC_TERMS = buildTermPattern([
 const OFF_TOPIC_TERMS = buildTermPattern([
   'video games?', 'gameplay', 'gaming', 'esports', 'box office', 'netflix', 'tv series',
   'season finale', 'episode \\d+', 'film', 'movies?', 'documentary', 'trailer', 'sitcom',
-  'election', 'senator', 'congress', 'senate', 'prime minister', 'stock market', 'shares', 'earnings report',
+  // "shares" alone was an off-topic term for the stock market, and it matched the
+  // verb in "Rostam shares new single" — the single most common music headline
+  // pattern there is. Financial context is named instead.
+  'election', 'senator', 'congress', 'senate', 'prime minister', 'stock market', 'share prices?', 'stocks?', 'earnings report',
   'ipo', 'crypto', 'bitcoin', 'smartphone', 'iphone', 'android', 'chatgpt', 'software', 'downloader',
   'changelog', 'github', 'plugin', 'browser extension',
   'fiscalía', 'gobierno', 'elecciones', 'votar', 'presidente', 'parlamento', 'justicia',
+  // A books column reached the reviews page as "October's Best Reviewed Fiction".
+  'fiction', 'novels?', 'book reviews?',
 ]);
 
 /** Categories that are never music news, however many music words appear. */
@@ -116,6 +121,22 @@ const HARD_BLOCKS: Array<{ pattern: RegExp; reason: string }> = [
   {
     pattern: /\b(downloader|changelog|release notes|command[- ]line|open[- ]source|github)\b/i,
     reason: 'software',
+  },
+  {
+    // "Shark PowerDetect Transformer review: a strong, versatile vacuum" reached
+    // the reviews page: a home-appliance verdict has no music words to score
+    // against, so it needs a category block rather than a score. Audio gear is
+    // deliberately absent — headphones and turntables are music news.
+    pattern: /\b(vacuums?|air fryers?|mattress(?:es)?|blenders?|dishwashers?|toasters?|microwave ovens?)\b/i,
+    reason: 'consumer-product',
+  },
+  {
+    // Phrase-level, not the bare word "fiction": a band may be called Fiction,
+    // but "October's Best Reviewed Fiction" is a books column, and its excerpt
+    // quotes a book called "Music Against the Night", so scoring alone lets it
+    // through.
+    pattern: /\b(reviewed fiction|book reviews?|best books?)\b/i,
+    reason: 'books',
   },
 ];
 
@@ -208,6 +229,27 @@ export function assessNewsRelevance(
     matchedMusic: Array.from(new Set(matchedMusic)).slice(0, 8),
     matchedOffTopic: matchedOffTopic.slice(0, 8),
   };
+}
+
+/**
+ * Is this plainly about something else, rather than merely short of music words?
+ *
+ * A stricter check than `relevant` on purpose: it is used to remove stored rows
+ * and to filter the reviews page, where a legitimate review of a dance piece or a
+ * songwriter profile may contain no genre vocabulary at all. It only fires on a
+ * hard block (a game, a software release) or on off-topic evidence with no music
+ * evidence whatsoever — which is what a fixture thread or a Netflix roundup looks
+ * like.
+ */
+export function isOffTopicJunk(input: RelevanceInput): boolean {
+  const assessment = assessNewsRelevance(input);
+
+  // A blocked subject (a game, a software release) is never music, however the
+  // headline is worded. Otherwise: no music evidence at all, plus at least one
+  // off-topic signal. Requiring both is what keeps a dance review alive.
+  if (assessment.hardBlock && assessment.hardBlock !== 'empty') return true;
+
+  return assessment.musicScore === 0 && assessment.offTopicScore >= OFF_TOPIC_WEIGHT;
 }
 
 /** Convenience for ingest paths that only need the verdict. */

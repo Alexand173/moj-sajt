@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assessNewsRelevance, isMusicNews } from '@/lib/news-relevance';
+import { assessNewsRelevance, isMusicNews, isOffTopicJunk } from '@/lib/news-relevance';
 
 /**
  * These headlines are the ones that actually reached the feed and were published
@@ -135,6 +135,65 @@ describe('headlines the ingest audit caught as false negatives', () => {
 
     expect(verdict.titleMusicScore).toBeGreaterThan(0);
     expect(verdict.relevant).toBe(false);
+  });
+});
+
+/**
+ * The rule behind the reviews cleanup and the reviews page filter. It has to be
+ * narrow: it removes a game review, not a dance review that happens to carry no
+ * genre vocabulary.
+ */
+describe('off-topic junk rule', () => {
+  it('flags a blocked subject regardless of wording', () => {
+    expect(isOffTopicJunk({ title: 'GAME REVIEW #8: Wolves vs. Bucks game thread' })).toBe(true);
+    expect(isOffTopicJunk({ title: 'Call of Duty: Modern Warfare 4 review' })).toBe(true);
+    expect(isOffTopicJunk({ title: 'qobuz-dl-ultra 2.4.3.1' })).toBe(true);
+    expect(isOffTopicJunk({ title: 'Shark PowerDetect Transformer review: a strong, versatile vacuum' })).toBe(true);
+  });
+
+  it('leaves audio gear alone, because it is music news', () => {
+    expect(isOffTopicJunk({ title: 'Review: the best studio headphones for tracking guitar' })).toBe(false);
+    expect(isOffTopicJunk({ title: 'The best turntables for vinyl, reviewed' })).toBe(false);
+  });
+
+  it('flags a story with no music evidence and off-topic evidence', () => {
+    expect(isOffTopicJunk({ title: 'The 3 Best Movies to Watch on Netflix This Week' })).toBe(true);
+    expect(isOffTopicJunk({ title: 'Senate passes the budget after a late-night vote' })).toBe(true);
+  });
+
+  it('keeps a review that simply lacks genre vocabulary', () => {
+    expect(isOffTopicJunk({ title: 'Review: Tango after dark at Sadler’s Wells' })).toBe(false);
+    expect(isOffTopicJunk({ title: 'Interview: U2 on fifty years together' })).toBe(false);
+  });
+
+  it('keeps a story that mentions music alongside another subject', () => {
+    expect(isOffTopicJunk({
+      title: 'Beyoncé announces a live album and a concert film',
+      excerpt: 'A documentary accompanies the album.',
+    })).toBe(false);
+  });
+
+  it('flags a books column even when its excerpt mentions music', () => {
+    // "October's Best Reviewed Fiction" quotes a book called "Music Against the
+    // Night", so scoring alone lets it through; the phrase is blocked instead.
+    expect(isOffTopicJunk({
+      title: "October's Best Reviewed Fiction",
+      excerpt: "Including Yiyun Li's Music Against the Night.",
+    })).toBe(true);
+  });
+
+  it('keeps a music story whose headline names only the artist', () => {
+    // Both were swept up by an earlier, title-only version of the rule, and had
+    // to be restored. The excerpt is what carries the evidence.
+    expect(isOffTopicJunk({
+      title: 'Rostam shares latest LP preview',
+      excerpt: 'The song arrives ahead of the album.',
+    })).toBe(false);
+
+    expect(isOffTopicJunk({
+      title: 'Machel Montano talks new documentary: interview',
+      excerpt: 'The soca star discusses the film and his new album.',
+    })).toBe(false);
   });
 });
 

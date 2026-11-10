@@ -9,6 +9,8 @@ export interface ReviewCardData {
   category: string | null;
   created_at: string;
   region: string | null;
+  /** Used to keep rows the cleanup stamped `skipped` off the page. */
+  ai_status?: string | null;
 }
 
 interface ReviewCardProps {
