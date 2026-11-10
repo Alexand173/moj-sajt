@@ -9,6 +9,7 @@ import {
 } from '../../../lib/news-balance';
 import { NEWS_REGION_QUERIES, type NewsRegion } from '../../../lib/news-regions';
 import { assessNewsRelevance } from '../../../lib/news-relevance';
+import { getPublisherRegion, isMusicPublicationUrl } from '../../../lib/news-sources';
 
 /**
  * A direct `tsx` run needs the project's .env files loaded before the Supabase
@@ -146,11 +147,19 @@ async function fetchNews(
     const rejected: string[] = [];
     const filteredArticles = data.articles
       .filter((art) => {
+        /**
+         * How much to trust the story depends on who published it, not only on
+         * what the words say. A music publication's headline is often just an
+         * artist and a title ("Blackpink – Go", "Xiu Xiu – Xiu Mutha Fuckin'
+         * Xiu"), which no keyword list will ever recognise — the same reason the
+         * OFFICIAL scraper trusts its curated list instead of scoring it.
+         */
+        const policy = isMusicPublicationUrl(art.url) ? 'music-publication' : 'news-api';
         const verdict = assessNewsRelevance({
           title: art.title,
           excerpt: art.description,
           content: art.content,
-        });
+        }, policy);
 
         if (verdict.relevant) return true;
 
@@ -176,7 +185,15 @@ async function fetchNews(
         image: art.urlToImage || 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745',
         url: art.url || null,
         category: 'LATEST',
-        region,
+        /**
+         * The publisher decides, not the query. The `europa` query is a set of
+         * European music phrases, and a US outlet can match it by mentioning a
+         * European tour — which is how an NPR politics newsletter ("Canada to hit
+         * U.S. with retaliatory tariffs. And, remembering music legend Dolly
+         * Parton") was filed under `europa`. A publisher we can place wins; an
+         * unknown one keeps the query's region.
+         */
+        region: (getPublisherRegion(art.url) ?? region) as NewsRegion,
         created_at: new Date(art.publishedAt || Date.now()).toISOString(),
         ai_status: 'pending',
       })),
@@ -238,9 +255,13 @@ export async function GET() {
     const allNews = regionalResults
       .flatMap((result) => result.articles)
       .filter((news) => news.title !== 'No Title');
-    const regionCounts = Object.fromEntries(
-      regionalResults.map((result) => [result.region, result.articles.length]),
-    );
+    // Counted after refiling: an article the query returned for `europa` but whose
+    // publisher is in the US lands in `us`, and the report should say so rather
+    // than showing the query's own tally.
+    const regionCounts = allNews.reduce<Record<string, number>>((counts, news) => {
+      counts[news.region] = (counts[news.region] || 0) + 1;
+      return counts;
+    }, {});
 
     console.log(`📊 Collected ${allNews.length} LATEST articles across ${NEWS_REGION_QUERIES.length} regions.`);
     if (failedRegions.length > 0) {

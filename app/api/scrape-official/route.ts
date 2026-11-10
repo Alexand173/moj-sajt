@@ -10,6 +10,7 @@ import {
 } from '../../../lib/news-balance';
 import { normalizeNewsRegion } from '../../../lib/news-regions';
 import { isMusicNews } from '../../../lib/news-relevance';
+import { OFFICIAL_NEWS_SOURCES } from '../../../lib/news-sources';
 
 const isDirectScript = typeof require !== 'undefined' && require.main === module;
 if (isDirectScript) {
@@ -200,166 +201,9 @@ export async function GET() {
     const scrapedData: ScrapedArticle[] = [];
 
     // DEFINICIJA IZVORA
-    const SOURCES: NewsSource[] = [
-     { url: 'https://pitchfork.com/news/', region: 'US' },
-  { url: 'https://www.rollingstone.com/music/music-news/', region: 'US' },
-  { url: 'https://www.billboard.com/c/music/music-news/', region: 'US' },
-  { url: 'https://www.spin.com/category/news/', region: 'US' },
-  { url: 'https://hiphopdx.com/news', region: 'US' },
-  { url: 'https://www.complex.com/music/', region: 'US' },
-  { url: 'https://www.stereogum.com/category/news/', region: 'US' },
-  { url: 'https://consequence.net/category/music/news/', region: 'US' },
-  { url: 'https://www.hotnewhiphop.com/news/', region: 'US' },
-  { url: 'https://www.revolvermag.com/news', region: 'US' }, // Metal/Rock
-  { url: 'https://www.vibe.com/c/news/', region: 'US' }, // R&B/Hip-Hop
-  { url: 'https://www.altpress.com/news/', region: 'US' }, // Alternative
-  { url: 'https://www.dancingastronaut.com/news/', region: 'US' }, // EDM
-  { url: 'https://www.relix.com/news/', region: 'US' }, // Jam/Rock
-  { url: 'https://variety.com/c/music/news/', region: 'US' },
-  { url: 'https://www.thefader.com/category/music', region: 'US' },
-  { url: 'https://ultimateclassicrock.com/category/latest-news/', region: 'US' },
-  { url: 'https://www.rap-up.com/category/news/', region: 'US' },
-  { url: 'https://news.pollstar.com/category/top-stories/', region: 'US' }, // Tour news
-  { url: 'https://www.magneticmag.com/category/news/', region: 'US' }, // Electronic
-
-  // --- UK SOURCES (20 SAJTOVA) ---
-  { url: 'https://www.nme.com/news/music', region: 'uk' },
-  { url: 'https://www.clashmusic.com/news/', region: 'uk' },
-  { url: 'https://www.thelineofbestfit.com/news', region: 'uk' },
-  { url: 'https://diymag.com/news', region: 'uk' },
-  { url: 'https://www.gigwise.com/news/', region: 'uk' },
-  { url: 'https://mne.com/news/', region: 'UK' },
-  { url: 'https://www.loudersound.com/news', region: 'uk' }, // Classic Rock/Metal UK
-  { url: 'https://www.kerrang.com/feed', region: 'uk' }, // Rock/Punk
-  { url: 'https://www.residentadvisor.net/news', region: 'uk' }, // Electronic (UK based)
-  { url: 'https://www.mixmag.net/news', region: 'uk' }, // Dance/Club
-  { url: 'https://www.thequietus.com/news/', region: 'uk' }, // Indie/Experimental
-  { url: 'https://www.musicweek.com/news', region: 'uk' }, // Industry news
-  { url: 'https://www.uncut.co.uk/news/', region: 'uk' }, // Classic Indie
-  { url: 'https://www.clashmusic.com/category/news/uk-news/', region: 'uk' },
-  { url: 'https://www.rocksins.com/category/news/', region: 'uk' },
-  { url: 'https://www.standard.co.uk/culture/music', region: 'uk' }, // London based
-  { url: 'https://www.theguardian.com/music/music+tone/news', region: 'uk' },
-  { url: 'https://www.dorkmag.com/news/', region: 'uk' }, // Pop/Indie
-  { url: 'https://www.beatportal.com/news/', region: 'uk' }, // Beatport UK news
-  { url: 'https://www.list.co.uk/music/', region: 'uk' }, // Scottish/UK events
-   // --- LATINO (20 SAJTOVA) ---
-   { url: 'https://www.billboard.com/espanol', region: 'LATINO' },
-{ url: 'https://www.los40.com', region: 'LATINO' },
-{ url: 'https://www.ociolatino.com', region: 'LATINO' },
-{ url: 'https://www.popelera.net', region: 'LATINO' },
-{ url: 'https://www.latin-roll.com', region: 'LATINO' },
-{ url: 'https://www.latinolife.co.uk', region: 'LATINO' },
-{ url: 'https://www.global-pop-magazine.com', region: 'LATINO' },
-{ url: 'https://www.radio-gladyspalmera.com', region: 'LATINO' },
-{ url: 'https://worldmusicviews.com', region: 'LATINO' },
-  { url: 'https://www.billboard.com/c/music/latin/', region: 'LATINO' },
-  { url: 'https://remezcla.com/music/', region: 'LATINO' },
-  { url: 'https://www.rollingstone.com/music/music-latin/', region: 'LATINO' },
-  { url: 'https://www.latido.music/category/news/', region: 'LATINO' },
-  { url: 'https://urbano.nyc/category/noticias/', region: 'LATINO' },
-  { url: 'https://www.efe.com/efe/espana/cultura/latin-music/50000495', region: 'LATINO' },
-  { url: 'https://www.billboard.com/espanol/musica/', region: 'LATINO' },
-  { url: 'https://www.mondosonoro.com/noticias-musica-latina/', region: 'LATINO' },
-  { url: 'https://www.shock.co/musica', region: 'LATINO' },
-  { url: 'https://www.lacoope.net/musica/noticias', region: 'LATINO' },
-  // ... dodaj slične za LATINO do 20
-
-  // --- ASIA (K-POP, J-POP & MORE - 20 SAJTOVA) ---
-  { url: 'https://www.soompi.com/category/music', region: 'ASIA' },
-{ url: 'https://www.billboard-japan.com', region: 'ASIA' },
-{ url: 'https://natalie.mu/music', region: 'ASIA' },
-{ url: 'https://rockinon.com', region: 'ASIA' },
-{ url: 'https://www.cdjournal.com', region: 'ASIA' },
-{ url: 'http://www.izm.co.kr', region: 'ASIA' },
-{ url: 'https://www.visla.kr', region: 'ASIA' },
-{ url: 'https://music.bugs.co.kr', region: 'ASIA' },  // K-pop vijesti + chartovi
-{ url: 'https://music.sohu.com', region: 'ASIA' },
-{ url: 'https://music.douban.com', region: 'ASIA' },
-{ url: 'https://y.qq.com', region: 'ASIA' },  // QQ Music – vijesti i top liste
-{ url: 'https://www.musicbusinesschina.com', region: 'ASIA' },
-  { url: 'https://www.soompi.com/category/music', region: 'ASIA' },
-  { url: 'https://www.allkpop.com/category/news', region: 'ASIA' },
-  { url: 'https://www.koreaboo.com/category/news/', region: 'ASIA' },
-  { url: 'https://www.nme.com/en_asia/news/music', region: 'ASIA' },
-  { url: 'https://www.bandwagon.asia/news', region: 'ASIA' },
-  { url: 'https://aramajapan.com/', region: 'ASIA' },
-  { url: 'https://www.tokyohive.com/', region: 'ASIA' },
-  { url: 'https://www.sbs.com.au/popasia/blog', region: 'ASIA' },
-  { url: 'https://koreajoongangdaily.joins.com/section/entertainment', region: 'ASIA' },
-  { url: 'https://www.hellokpop.com/category/news/', region: 'ASIA' },
-
-  // --- EUROPA (20 SAJTOVA - Fokus na EU scenu) ---
-  { url: 'https://www.eurovision.tv/news', region: 'EUROPA' },
-  { url: 'https://www.europavox.com/news/', region: 'EUROPA' },
-  { url: 'https://www.residentadvisor.net/news/europe', region: 'EUROPA' },
-  { url: 'https://www.clashmusic.com/category/news/european-news/', region: 'EUROPA' },
-  { url: 'https://www.rollingstone.de/news/', region: 'EUROPA' }, // Nemačka
-  { url: 'https://www.lesinrocks.com/musique/', region: 'EUROPA' }, // Francuska
-  { url: 'https://www.rockit.it/news', region: 'EUROPA' }, // Italija
-  { url: 'https://www.jenesaispop.com/', region: 'EUROPA' }, // Španija
-  { url: 'https://www.soundsblog.it/', region: 'EUROPA' },
-  { url: 'https://www.muzikalia.com/noticias/', region: 'EUROPA' },
-  { url: 'https://www.telerama.fr/musique', region: 'EUROPA' },
-  { url: 'https://www.greenroom.fr/', region: 'EUROPA' },
-  { url: 'https://www.musikexpress.de/news/', region: 'EUROPA' },
-  { url: 'https://www.visions.de/news/', region: 'EUROPA' },
-
-  // --- JAZZ (20 SPECIJALIZOVANIH) ---
-  { url: 'https://jazztimes.com/news/', region: 'JAZZ' },
-  { url: 'https://downbeat.com/news', region: 'JAZZ' },
-  { url: 'https://www.allaboutjazz.com/news/', region: 'JAZZ' },
-  { url: 'https://www.jazziz.com/category/news/', region: 'JAZZ' },
-  { url: 'https://www.jazzwise.com/news', region: 'JAZZ' },
-  { url: 'https://londonjazznews.com/', region: 'JAZZ' },
-  { url: 'https://www.jazz24.org/category/news/', region: 'JAZZ' },
-  { url: 'https://www.musiqology.com/category/jazz/', region: 'JAZZ' },
-  { url: 'https://www.ejazznews.com/', region: 'JAZZ' },
-  { url: 'https://www.nextbop.com/', region: 'JAZZ' },
-  { url: 'https://www.jerryjazzmusician.com/', region: 'JAZZ' },
-  { url: 'https://www.jazzonline.com/news/', region: 'JAZZ' },
-  { url: 'https://www.jazzinamerica.org/', region: 'JAZZ' },
-  { url: 'https://www.jazzstandard.com/', region: 'JAZZ' },
-  { url: 'https://www.thejazzmann.com/news', region: 'JAZZ' },
-  { url: 'https://www.bebopspokenhere.blogspot.com/', region: 'JAZZ' },
-  { url: 'https://www.marlbank.net/', region: 'JAZZ' },
-  { url: 'https://www.jazzfuel.com/blog/', region: 'JAZZ' },
-  { url: 'https://www.bluenote.com/news/', region: 'JAZZ' },
-  { url: 'https://www.jazznews.fr/actu/', region: 'JAZZ' },
-
-  // --- CLASSICAL (20 SPECIJALIZOVANIH) ---
-  { url: 'https://www.gramophone.co.uk/news', region: 'CLASSICAL' },
-  { url: 'https://www.thestrad.com/news', region: 'CLASSICAL' },
-  { url: 'https://www.classical-music.com/news', region: 'CLASSICAL' },
-  { url: 'https://www.limelightmagazine.com.au/news/', region: 'CLASSICAL' },
-  { url: 'https://www.operanews.com/Opera_News_Magazine/Archive/News.html', region: 'CLASSICAL' },
-  { url: 'https://www.classicfm.com/news/', region: 'CLASSICAL' },
-  { url: 'https://www.ludwig-van.com/toronto/category/news/', region: 'CLASSICAL' },
-  { url: 'https://www.violinist.com/blog/', region: 'CLASSICAL' },
-  { url: 'https://www.classicalmpr.org/category/classical-news', region: 'CLASSICAL' },
-  { url: 'https://www.classical-scene.com/', region: 'CLASSICAL' },
-  { url: 'https://www.pizzicato.lu/', region: 'CLASSICAL' },
-  { url: 'https://www.classicalsource.com/news/', region: 'CLASSICAL' },
-  { url: 'https://www.operawire.com/', region: 'CLASSICAL' },
-  { url: 'https://www.bachtrack.com/news', region: 'CLASSICAL' },
-  { url: 'https://www.wqxr.org/sections/classical-music-news/', region: 'CLASSICAL' },
-  { url: 'https://www.classicalvoiceamerica.org/', region: 'CLASSICAL' },
-  { url: 'https://www.musicalamerica.com/news/', region: 'CLASSICAL' },
-  { url: 'https://www.theviolinchannel.com/category/news/', region: 'CLASSICAL' },
-  { url: 'https://www.slippeidisc.com/', region: 'CLASSICAL' },
-  { url: 'https://www.gramilano.com/', region: 'CLASSICAL' },
-
-  // --- WORLD (Globalni miks) ---
-  // The previous seven sources all returned nothing: four render their headlines
-  // in JavaScript so `h2`/`h3` parsing found no links, and three answered 403 or
-  // 404. That is why WORLD had zero OFFICIAL rows for two weeks while every other
-  // region had hundreds. These three were verified to yield headlines.
-  { url: 'https://www.afropop.org/', region: 'WORLD' },
-  { url: 'https://folkradio.co.uk/category/news/', region: 'WORLD' },
-  { url: 'https://www.theguardian.com/music/worldmusic', region: 'WORLD' }
-
-      // ... Možeš dopuniti listu po potrebi
-    ];
+    // One registry, shared with the relevance gate and the region resolver:
+    // the scraper decides what to fetch, the gate decides how far to trust it.
+    const SOURCES: NewsSource[] = OFFICIAL_NEWS_SOURCES;
 
     // SKREPING PETLJA — jedan loš sajt se hvata unutar scrapeSource() i nikad ne prekida petlju.
     let succeededSources = 0;

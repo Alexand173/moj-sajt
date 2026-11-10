@@ -1,6 +1,7 @@
 import { loadEnvConfig } from '@next/env';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { assessNewsRelevance, type RelevancePolicy } from '../lib/news-relevance';
+import { isMusicPublicationUrl } from '../lib/news-sources';
 
 loadEnvConfig(process.cwd());
 
@@ -66,6 +67,17 @@ function looksLikeAudioGear(title: string | null): boolean {
   return AUDIO_GEAR_PATTERN.test(title || '');
 }
 
+/** The publisher, for grouping. Rows with no URL report as a single bucket. */
+function hostOf(url: string | null): string {
+  if (!url?.trim()) return '(no url)';
+
+  try {
+    return new URL(url).hostname.replace(/^www\./, '').toLowerCase();
+  } catch {
+    return '(bad url)';
+  }
+}
+
 interface NewsRow {
   id: string | number;
   title: string | null;
@@ -82,6 +94,10 @@ interface JudgedRow {
   refused: boolean;
   reason: string;
   confidence: Confidence;
+  /** Published by a music outlet, so the gate's silence is not evidence. */
+  trustedPublisher: boolean;
+  /** Would have been refused on vocabulary alone, and the publisher rescues it. */
+  rescuedByPublisher: boolean;
 }
 
 function policyFor(row: NewsRow): RelevancePolicy {
@@ -111,11 +127,21 @@ function judge(row: NewsRow): JudgedRow {
     ? 'clear'
     : 'needs-judgement';
 
+  /**
+   * A music publication is trusted the way the scraper trusts its curated list:
+   * "Blackpink – Go" and "Xiu Xiu – Xiu Mutha Fuckin' Xiu" carry no music
+   * vocabulary, and the host is the only signal that resolves them. Such a row is
+   * never candidate junk, whatever the words score.
+   */
+  const trustedPublisher = isMusicPublicationUrl(row.url);
+
   return {
     row,
-    refused: !verdict.relevant,
+    refused: !verdict.relevant && !trustedPublisher,
     reason: verdict.hardBlock || `score ${verdict.musicScore} vs ${verdict.offTopicScore}`,
     confidence,
+    trustedPublisher,
+    rescuedByPublisher: trustedPublisher && !verdict.relevant,
   };
 }
 
@@ -206,6 +232,38 @@ async function main(): Promise<void> {
     return;
   }
 
+  /**
+   * `--by-host` answers a different question: which publishers do the held rows
+   * come from? A host that is a music publication by any reasonable definition can
+   * be trusted the way the OFFICIAL scraper trusts its curated list, which is how
+   * a held row gets resolved without a human reading 4,000 headlines.
+   */
+  if (process.argv.includes('--by-host')) {
+    const held = judged.filter((entry) => entry.refused && entry.confidence === 'needs-judgement');
+    const byHost = new Map<string, { held: number; titles: string[] }>();
+
+    for (const entry of held) {
+      const host = hostOf(entry.row.url);
+      const bucket = byHost.get(host) || { held: 0, titles: [] };
+      bucket.held += 1;
+      if (bucket.titles.length < 2) bucket.titles.push(String(entry.row.title || '').slice(0, 70));
+      byHost.set(host, bucket);
+    }
+
+    const ranked = Array.from(byHost.entries())
+      .sort((a, b) => b[1].held - a[1].held)
+      .map(([host, bucket]) => ({ host, held: bucket.held, titles: bucket.titles }));
+
+    console.log(JSON.stringify({
+      event: 'news_offtopic_by_host',
+      heldTotal: held.length,
+      distinctHosts: ranked.length,
+      noUrl: held.filter((entry) => !hostOf(entry.row.url)).length,
+      hosts: ranked.slice(0, 40),
+    }, null, 2));
+    return;
+  }
+
   const refused = judged.filter((entry) => entry.row.ai_status !== 'skipped' && entry.refused);
   const clear = refused.filter((entry) => entry.confidence === 'clear');
   const needsJudgement = refused.filter((entry) => entry.confidence === 'needs-judgement');
@@ -225,6 +283,8 @@ async function main(): Promise<void> {
     apply,
     scanned: rows.length,
     alreadySkipped: rows.filter((row) => row.ai_status === 'skipped').length,
+    // Rows the vocabulary refused but the publisher rescues.
+    rescuedByPublisher: judged.filter((entry) => entry.rescuedByPublisher).length,
     refused: refused.length,
     clear: clear.length,
     needsJudgement: needsJudgement.length,
