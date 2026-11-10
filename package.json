@@ -20,6 +20,7 @@
     "news:ingest-audit": "npx tsx scripts/audit-news-ingest.ts",
     "news:gate": "npx tsx scripts/diagnose-news-gate.ts",
     "news:skip-sourceless": "npx tsx scripts/skip-sourceless-fallbacks.ts",
+    "news:source-fetch": "npx tsx scripts/diagnose-source-fetch.ts",
     "reviews:purge": "npx tsx scripts/purge-non-music-reviews.ts",
     "db:migrate": "npx tsx scripts/apply-migrations.ts"
   },

@@ -112,3 +112,59 @@ NPR class of failure entirely instead of detecting it well.
   synthetic > 4 MiB HTML fixture and mocked timeouts (no network).
 - A `news:source-fetch` probe run against the five highest-failure hosts before and
   after Tier 1, recorded in this document.
+
+---
+
+# Tier 1: shipped 2026-11-10
+
+`lib/source-fetch.ts` now owns the reader, the failure taxonomy and the per-run host
+circuit; `lib/ai-news.ts` and `npm run news:source-fetch` both use it, so the probe
+measures what ingestion does instead of approximating it.
+
+Before and after, measured with the same probe:
+
+| Host and URL | Before (2 MB cap, throw) | After (4 MB cap, parse partial) |
+|---|---|---|
+| npr.org article | 0 bytes, 15,011 ms, fallback brief | 0 bytes, 15,016 ms, **`host-blocked`, no retry, host skipped for the run** |
+| decider.com article | 2,015,232 bytes, killed by the cap | **3,167,553 bytes, 1,327 ms, 2,915 words — usable** |
+| pitchfork.com section | 1,966,234 bytes, marginal | 1,968,516 bytes, 209 ms, 1,781 words |
+| decider.com fake slug | — | 404 → `invalid`, no retry (was one wasted retry per run) |
+
+Regressions covered by `tests/source-fetch.test.ts`: a capped read keeps its
+document, a mid-body stall keeps what arrived, a stall before the first byte still
+fails, the cap is clamped, the circuit opens on a refusal and on two transient
+faults, a refused host is requested once rather than once per article, a 503 is
+retried once, and a page with no article body stops being requested after the second
+try.
+
+The JSON line per fetch (`{"event":"source_fetch",...}`) is the audit trail: host,
+outcome, kind, status, bytes, words, ms.
+
+## NPR and Decider: the feed evidence
+
+Both publishers do publish feeds, so the "use feeds where possible" half of the
+decision is answerable with numbers rather than assumption:
+
+| Feed | Items | `content:encoded` on first item | What it actually contains |
+|---|---|---|---|
+| `decider.com/feed/` | 10 | present | **66 characters** — an excerpt, not an article; the first item is television, not music |
+| `feeds.npr.org/1008/rss.xml` (NPR Music) | 10 | present | **941 characters** (~140 words) — a teaser that links back to the blocked article |
+| `www.npr.org/rss/rss.php?id=1008` (legacy) | — | — | times out, same edge block as the articles |
+
+So a feed does not by itself solve this. A 941-character teaser cannot support the
+400-word floor the brief has to clear, and the article behind it is the thing that
+is blocked. The feed also does not remove the licence question: syndication via RSS
+is not permission to rewrite.
+
+Proposed decision, ready to implement as a host policy setting:
+
+- **Decider — keep in the rewrite path.** Tier 1 already fixed it: the article body
+  reads in 1.3 s and yields 2,915 words. No feed needed, and the feed would only
+  make it worse by handing us 66 characters.
+- **NPR — stop rewriting it, stop spending the stall.** 0 bytes in 15 s at the edge,
+  and its feed carries nothing a 400-word brief can be built from. Rows keep their
+  headline and link, publish as a plain summary instead of a fallback brief, or wait.
+  Re-enable only with the NPR Story API key (full text, under their terms), which is
+  also the only route that settles the licence question.
+- **Any future host** is judged by the same measurement: if `news:source-fetch`
+  reports `host-blocked` twice on the same host, it belongs on the deny-list.

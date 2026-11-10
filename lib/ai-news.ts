@@ -2,9 +2,19 @@ import { lookup as lookupHostname } from 'node:dns/promises';
 import { isIP } from 'node:net';
 import OpenAI from 'openai';
 import * as cheerio from 'cheerio';
+import {
+  failureKindForStatus,
+  getSourceMaxBytes,
+  isRetryableSourceFailure,
+  isTimeoutError,
+  logSourceFetch,
+  readResponseText,
+  SourceFetchError,
+  sourceHostCircuit,
+  type SourceFailureKind,
+} from './source-fetch';
 
 const MAX_SOURCE_CHARACTERS = 14_000;
-const MAX_SOURCE_RESPONSE_BYTES = 2_000_000;
 const MIN_SOURCE_WORDS_FOR_AI = 20;
 /**
  * Floor for a rewrite that the model was asked for 700–1,000 words of.
@@ -56,7 +66,7 @@ const SOURCE_TOTAL_TIMEOUT_MS = 20_000;
  * permanent fallback for an otherwise fine OFFICIAL row.
  */
 const DNS_LOOKUP_TIMEOUT_MS = 5_000;
-/** One retry, because these are ordinary transient network failures. */
+/** One retry, and only for failures that can plausibly succeed when repeated. */
 const SOURCE_FETCH_ATTEMPTS = 2;
 const NEWS_API_TIMEOUT_MS = 8_000;
 const MAX_SOURCE_REDIRECTS = 3;
@@ -198,32 +208,27 @@ async function isPublicResolvableUrl(url: URL): Promise<boolean> {
   }
 }
 
-async function readResponseTextWithLimit(response: Response, maxBytes: number): Promise<string> {
-  if (!response.body) return '';
+/**
+ * Reads one publisher response, capped but never thrown away at the cap.
+ *
+ * The 2 MB throw-at-the-cap reader is why decider.com produced fallback briefs:
+ * it returned 2,015,232 bytes in 214 ms and the reader discarded the page. The
+ * readable body sits in the first hundred kilobytes — the rest is inline player
+ * scripts — so the cap now ends the read and the partial document is parsed.
+ */
+async function readSourceResponseText(response: Response): Promise<{
+  html: string;
+  bytesRead: number;
+  truncated: boolean;
+}> {
+  const result = await readResponseText(response, { maxBytes: getSourceMaxBytes() });
 
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  const chunks: string[] = [];
-  let totalBytes = 0;
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      totalBytes += value.byteLength;
-      if (totalBytes > maxBytes) throw new Error(`Source response exceeded the ${maxBytes}-byte limit.`);
-      chunks.push(decoder.decode(value, { stream: true }));
-    }
-
-    chunks.push(decoder.decode());
-    return chunks.join('');
-  } catch (error) {
-    await reader.cancel().catch(() => undefined);
-    throw error;
-  } finally {
-    reader.releaseLock();
-  }
+  return {
+    html: result.text,
+    bytesRead: result.bytesRead,
+    // A stall mid-body is the same deal as the cap: keep what arrived.
+    truncated: result.truncated || result.timedOut,
+  };
 }
 
 async function fetchPublicSourceResponse(url: URL): Promise<Response> {
@@ -232,35 +237,66 @@ async function fetchPublicSourceResponse(url: URL): Promise<Response> {
 
   for (let redirectCount = 0; redirectCount <= MAX_SOURCE_REDIRECTS; redirectCount += 1) {
     if (Date.now() - startedAt >= SOURCE_TOTAL_TIMEOUT_MS) {
-      throw new Error(`Source retrieval exceeded the ${SOURCE_TOTAL_TIMEOUT_MS}ms total budget.`);
+      throw new SourceFetchError(
+        'transient',
+        `Source retrieval exceeded the ${SOURCE_TOTAL_TIMEOUT_MS}ms total budget.`,
+        { hostname: currentUrl.hostname },
+      );
     }
     if (!(await isPublicResolvableUrl(currentUrl))) {
-      throw new Error('Source URL resolved to a private host or could not be resolved safely.');
+      throw new SourceFetchError(
+        'invalid',
+        'Source URL resolved to a private host or could not be resolved safely.',
+        { hostname: currentUrl.hostname },
+      );
     }
 
     const remainingBudget = Math.min(SOURCE_FETCH_TIMEOUT_MS, SOURCE_TOTAL_TIMEOUT_MS - (Date.now() - startedAt));
-    const response = await fetch(currentUrl, {
-      cache: 'no-store',
-      redirect: 'manual',
-      signal: AbortSignal.timeout(remainingBudget),
-      headers: {
-        Accept: 'text/html,application/xhtml+xml',
-        'User-Agent': 'Mozilla/5.0 (compatible; MusicTopNewsBot/1.0)',
-      },
-    });
+    let response: Response;
+
+    try {
+      response = await fetch(currentUrl, {
+        cache: 'no-store',
+        redirect: 'manual',
+        signal: AbortSignal.timeout(remainingBudget),
+        headers: {
+          Accept: 'text/html,application/xhtml+xml',
+          'User-Agent': 'Mozilla/5.0 (compatible; MusicTopNewsBot/1.0)',
+        },
+      });
+    } catch (error) {
+      // No headers at all: an edge rule or a hung socket, not a slow page.
+      // Waiting again would buy a second identical stall, so this is the one
+      // failure that must not be retried.
+      throw new SourceFetchError(
+        isTimeoutError(error) ? 'host-blocked' : 'transient',
+        isTimeoutError(error)
+          ? `${currentUrl.hostname} sent nothing within ${remainingBudget}ms.`
+          : `Could not connect to ${currentUrl.hostname}.`,
+        { hostname: currentUrl.hostname, cause: error },
+      );
+    }
 
     if (![301, 302, 303, 307, 308].includes(response.status)) return response;
 
     const location = response.headers.get('location');
     const nextUrl = location ? new URL(location, currentUrl) : null;
     if (!nextUrl || !['http:', 'https:'].includes(nextUrl.protocol) || isPrivateOrLocalHostname(nextUrl.hostname)) {
-      throw new Error('Source redirect was invalid or targeted a private host.');
+      throw new SourceFetchError(
+        'invalid',
+        'Source redirect was invalid or targeted a private host.',
+        { hostname: currentUrl.hostname },
+      );
     }
 
     currentUrl = nextUrl;
   }
 
-  throw new Error(`Source exceeded the ${MAX_SOURCE_REDIRECTS}-redirect limit.`);
+  throw new SourceFetchError(
+    'invalid',
+    `Source exceeded the ${MAX_SOURCE_REDIRECTS}-redirect limit.`,
+    { hostname: currentUrl.hostname },
+  );
 }
 
 function formatArticleContent(value: string): string {
@@ -587,12 +623,41 @@ function extractParagraphs($: cheerio.CheerioAPI, selector: string): string[] {
 async function readSourceDocument(parsedUrl: URL): Promise<string> {
   const response = await fetchPublicSourceResponse(parsedUrl);
 
-  if (!response.ok) return '';
+  if (!response.ok) {
+    const kind = failureKindForStatus(response.status) ?? 'invalid';
+    throw new SourceFetchError(
+      kind,
+      `${parsedUrl.hostname} answered HTTP ${response.status}.`,
+      { hostname: parsedUrl.hostname, status: response.status },
+    );
+  }
 
   const contentType = response.headers.get('content-type')?.toLowerCase() || '';
-  if (contentType && !contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) return '';
+  // A PDF or a JSON endpoint is not a page a brief can be rewritten from, and it
+  // will not become one on a retry.
+  if (contentType && !contentType.includes('text/html') && !contentType.includes('application/xhtml+xml')) {
+    throw new SourceFetchError(
+      'invalid',
+      `${parsedUrl.hostname} served ${contentType.split(';')[0]}, not HTML.`,
+      { hostname: parsedUrl.hostname, status: response.status },
+    );
+  }
 
-  const html = await readResponseTextWithLimit(response, MAX_SOURCE_RESPONSE_BYTES);
+  const { html, bytesRead, truncated } = await readSourceResponseText(response);
+
+  if (truncated) {
+    // Not a failure: the article body of a music site sits well inside the cap
+    // and the rest of the page is player scripts. Logged because a page that
+    // yields nothing after this line needs a larger cap, not another retry.
+    logSourceFetch({
+      event: 'source_fetch',
+      host: parsedUrl.hostname,
+      outcome: 'partial',
+      status: response.status,
+      bytes: bytesRead,
+    });
+  }
+
   const $ = cheerio.load(html);
   $(
     'script, style, noscript, nav, footer, header, aside, form, iframe, ' +
@@ -635,28 +700,79 @@ export async function fetchNewsSourceText(sourceUrl: string | null | undefined):
   const parsedUrl = getSafeHttpUrl(sourceUrl);
   if (!parsedUrl || isPrivateOrLocalHostname(parsedUrl.hostname)) return '';
 
+  const hostname = parsedUrl.hostname;
+  const verdict = sourceHostCircuit.shouldSkip(hostname);
+
+  if (verdict.skip) {
+    // Established earlier in this process: asking again answers the same thing
+    // and, for a blocked host, costs another fifteen-second wait to learn it.
+    logSourceFetch({
+      event: 'source_fetch',
+      host: hostname,
+      outcome: 'skipped',
+      reason: verdict.reason,
+    });
+    return '';
+  }
+
   let best = '';
 
   for (let attempt = 1; attempt <= SOURCE_FETCH_ATTEMPTS; attempt += 1) {
     const isLastAttempt = attempt === SOURCE_FETCH_ATTEMPTS;
+    const startedAt = Date.now();
 
     try {
       const candidate = await readSourceDocument(parsedUrl);
-      if (wordCount(candidate) >= MIN_SOURCE_WORDS_FOR_AI) return candidate;
+      const words = wordCount(candidate);
+
+      if (words >= MIN_SOURCE_WORDS_FOR_AI) {
+        sourceHostCircuit.recordSuccess(hostname);
+        logSourceFetch({
+          event: 'source_fetch',
+          host: hostname,
+          outcome: 'ok',
+          words,
+          ms: Date.now() - startedAt,
+        });
+        return candidate;
+      }
 
       if (candidate) best = candidate;
-      if (isLastAttempt) return best;
 
-      console.warn(
-        `${parsedUrl.hostname} returned ${wordCount(candidate)} usable words; retrying once.`,
-      );
+      // The page loaded and held no article body to rewrite from. Not a network
+      // fault, but a host that answers with scaffolding twice is not worth a
+      // request per article either, so it counts toward the same circuit.
+      sourceHostCircuit.recordFailure(hostname, 'unusable');
+      logSourceFetch({
+        event: 'source_fetch',
+        host: hostname,
+        outcome: 'unusable',
+        words,
+        ms: Date.now() - startedAt,
+      });
+
+      if (isLastAttempt) return best;
     } catch (error) {
-      if (isLastAttempt) {
-        console.warn('Could not retrieve the original news article:', error);
+      const kind: SourceFailureKind = error instanceof SourceFetchError ? error.kind : 'transient';
+      sourceHostCircuit.recordFailure(hostname, kind);
+      logSourceFetch({
+        event: 'source_fetch',
+        host: hostname,
+        outcome: 'failed',
+        kind,
+        status: error instanceof SourceFetchError ? error.status ?? undefined : undefined,
+        ms: Date.now() - startedAt,
+      });
+
+      if (isLastAttempt || !isRetryableSourceFailure(kind)) {
+        console.warn(
+          `Could not retrieve ${hostname} (${kind})${best ? '; keeping the part that arrived' : ''}:`,
+          error instanceof Error ? error.message : error,
+        );
         return best;
       }
 
-      console.warn(`Could not retrieve ${parsedUrl.hostname}; retrying once:`, error);
+      console.warn(`Could not retrieve ${hostname} (${kind}); retrying once.`);
     }
   }
 
