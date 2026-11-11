@@ -26,11 +26,23 @@ export type GazetteerCity = {
 const CITIES = (((gazetteer as { cities?: unknown })?.cities) ?? []) as Row[];
 
 /**
+ * Alternate spellings of the cities above 100,000 people, as
+ * `key → index into CITIES`, built by `npm run cities:gazetteer`.
+ *
+ * GeoNames files a city under one name — `Rome`, `Vienna`, `Milan` — while a
+ * promoter, a poster and a person on the phone say `Roma`, `Wien`, `Milano`. The
+ * table is small because the aliases only matter for cities big enough that a
+ * namesake village is not the intended answer, and because the largest city
+ * claims a contested spelling.
+ */
+const ALIASES = (((gazetteer as { aliases?: Record<string, number> })?.aliases) ?? {});
+
+/**
  * Matching key: accents folded, punctuation to spaces. Stricter than `cityKey`,
  * which keeps punctuation, because `Co. Meath` and `Co Meath` are one place and
  * a GeoNames name may carry an apostrophe the database does not.
  */
-function placeKey(value: string): string {
+export function placeKey(value: string): string {
   return value
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '')
@@ -99,6 +111,28 @@ function pickByName(name: string, countryCode?: string | null): GazetteerCity | 
 }
 
 /**
+ * The city an alternate spelling names — `Roma` → Rome, `Wien` → Vienna.
+ *
+ * Tried after the plain name and its spelling variants, because an alias is a
+ * weaker signal than a name: `New York` is both an alias of New York City and a
+ * name a person writes, and the caller's spelling should win that one. A country
+ * the alias contradicts is refused rather than corrected, so a row filed under
+ * Romania is not moved to Italy.
+ */
+function pickByAlias(name: string, countryCode?: string | null): GazetteerCity | null {
+  const index = ALIASES[placeKey(name)];
+  if (typeof index !== 'number') return null;
+
+  const row = CITIES[index];
+  if (!row) return null;
+
+  const wanted = countryCode?.trim().toUpperCase();
+  if (wanted && row[1] !== wanted) return null;
+
+  return toCity(row);
+}
+
+/**
  * The city with this name, preferring the visitor's own country — `Paris` in
  * France before Paris, Texas — and the largest place when the country is not
  * known.
@@ -142,7 +176,8 @@ export function findCityByName(name: string | null | undefined, countryCode?: st
     if (match) return { ...match, name: spelling };
   }
 
-  return null;
+  // Last, the alternate spellings: `Roma`, `Wien`, `Milano`, `Beograd`.
+  return pickByAlias(spelling, countryCode);
 }
 
 /**

@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
+import { placeKey } from '@/lib/visitor-cities';
 
 /**
  * Builds `lib/visitor-cities.json`: every city a visitor could plausibly be in,
@@ -37,12 +38,36 @@ type CityTuple = [string, string, number, number, number];
 type DumpRow = {
   name: string;
   ascii: string;
+  alternates: string[];
   countryCode: string;
   latitude: number;
   longitude: number;
   population: number;
   featureCode: string;
 };
+
+/**
+ * Alternate names, kept for the cities a promoter would name in their own
+ * language.
+ *
+ * This is what makes `Roma` Rome instead of a 3,000-person commune in Botoșani:
+ * the gazetteer files the city as `Rome` (its English name), and the promoter,
+ * every poster and the person on the phone call it `Roma`. GeoNames ships the
+ * alternate names in the dump — the column this builder used to read and throw
+ * away.
+ *
+ * 500,000 people is the line. Below it a namesake village is as likely as the
+ * city and a wrong alias costs a distance; above it the local name is in wide
+ * use and the alias is almost always the metropolis. Every alternate above that
+ * line is kept rather than a handful: the lists are alphabetical, so the first
+ * six of Rome's sixty-one are `An Roimh`, `An Ròimh`, `Erroma`, `Hrom` — and
+ * `Roma` never made the cut.
+ */
+const ALIAS_MIN_POPULATION = 500_000;
+const ALIAS_MIN_LENGTH = 3;
+const ALIAS_MAX_LENGTH = 28;
+/** A name, not a code: `ROM` and `VIE` are airport codes wearing a name's slot. */
+const ALIAS_SHAPE = /^[\p{L}][\p{L}\s'.-]{2,27}$/u;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -101,6 +126,7 @@ function parseDump(contents: string): DumpRow[] {
     rows.push({
       name: fields[1].trim(),
       ascii: (fields[2] || '').trim(),
+      alternates: (fields[3] || '').split(',').map((alternate) => alternate.trim()).filter(Boolean),
       countryCode,
       latitude,
       longitude,
@@ -118,8 +144,9 @@ function parseDump(contents: string): DumpRow[] {
  * `Belgrade` — and keeping every one of them makes the nearest-city search
  * return a district when the person means the city.
  */
-function toTuples(rows: DumpRow[]): CityTuple[] {
+function toTuples(rows: DumpRow[]): { cities: CityTuple[]; alternates: Map<string, string[]> } {
   const best = new Map<string, CityTuple>();
+  const alternates = new Map<string, string[]>();
 
   for (const row of rows) {
     if (!row.name) continue;
@@ -137,10 +164,55 @@ function toTuples(rows: DumpRow[]): CityTuple[] {
         Number(row.longitude.toFixed(4)),
         Math.round(row.population),
       ]);
+      alternates.set(`${row.name}|${row.countryCode}`, row.alternates);
     }
   }
 
-  return Array.from(best.values()).sort((a, b) => a[0].localeCompare(b[0]));
+  return {
+    cities: Array.from(best.values()).sort((a, b) => a[0].localeCompare(b[0])),
+    alternates,
+  };
+}
+
+/**
+ * Alternate name → index into `cities`.
+ *
+ * Cities are visited largest first so the metropolis claims a shared spelling:
+ * `Roma` belongs to Rome (2.8 M) before Roma, Botoșani (3,000) can take it, and
+ * the answer does not depend on which row GeoNames happened to list first.
+ */
+function buildAliasIndex(cities: CityTuple[], alternates: Map<string, string[]>): Record<string, number> {
+  const aliases: Record<string, number> = {};
+
+  const bySize = cities
+    .map((city, index) => ({ city, index }))
+    .filter((entry) => entry.city[4] >= ALIAS_MIN_POPULATION)
+    .sort((a, b) => b.city[4] - a.city[4]);
+
+  for (const { city, index } of bySize) {
+    const list = alternates.get(`${city[0]}|${city[1]}`) ?? [];
+    const primary = placeKey(city[0]);
+
+    for (const alternate of list) {
+      if (alternate.length < ALIAS_MIN_LENGTH || alternate.length > ALIAS_MAX_LENGTH) continue;
+      if (!ALIAS_SHAPE.test(alternate)) continue;
+      // An all-caps token is a code, not how anyone writes a city.
+      if (alternate === alternate.toUpperCase()) continue;
+
+      const key = placeKey(alternate);
+      if (!key || key.length < ALIAS_MIN_LENGTH) continue;
+      // The primary name is already in the name index; the largest city wins a
+      // contested spelling, and the first claim is never overwritten.
+      if (key === primary || key in aliases) continue;
+
+      aliases[key] = index;
+    }
+  }
+
+  const sorted: Record<string, number> = {};
+  for (const key of Object.keys(aliases).sort()) sorted[key] = aliases[key];
+
+  return sorted;
 }
 
 async function main(): Promise<void> {
@@ -148,12 +220,14 @@ async function main(): Promise<void> {
   await downloadDump(force);
 
   const rows = parseDump(readFileSync(CACHE_FILE, 'utf8'));
-  const cities = toTuples(rows);
+  const { cities, alternates } = toTuples(rows);
+  const aliases = buildAliasIndex(cities, alternates);
 
   const payload = {
     source: 'GeoNames cities15000 — CC BY 4.0 — https://www.geonames.org/',
     generatedAt: new Date().toISOString().slice(0, 10),
     cities,
+    aliases,
   };
 
   writeFileSync(OUTPUT_PATH, `${JSON.stringify(payload)}\n`, 'utf8');
@@ -166,9 +240,15 @@ async function main(): Promise<void> {
     dumpRows: rows.length,
     cities: cities.length,
     majorCities: withPopulation,
+    aliases: Object.keys(aliases).length,
     distinctCountries: new Set(cities.map((city) => city[1])).size,
     kilobytes: Math.round(bytes / 1024),
   }, null, 2));
+
+  for (const probe of ['roma', 'wien', 'milano', 'beograd', 'nyc']) {
+    const index = aliases[probe];
+    console.log(`  alias ${probe} → ${index === undefined ? '(none)' : cities[index].slice(0, 2).join(', ')}`);
+  }
 
   const serbia = cities.filter((city) => city[1] === 'RS').slice(0, 5);
   console.log('Serbia sample:', JSON.stringify(serbia));

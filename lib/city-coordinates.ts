@@ -1,5 +1,6 @@
 import coordinates from '@/lib/city-coordinates.json';
 import { cityKey } from '@/lib/concert-city';
+import { findCityByName } from '@/lib/visitor-cities';
 import type { Coordinate } from '@/lib/geo-distance';
 
 /**
@@ -70,6 +71,18 @@ export function getCityCoordinates(city: string | null | undefined): Coordinate 
 
     coordinate = { latitude: tuple[0] as number, longitude: tuple[1] as number };
     break;
+  }
+
+  /**
+   * The table is built from the cities that have dates, so a venue in a city
+   * that went on sale this morning has no entry until the next build. The
+   * gazetteer is already in memory on this route — it places the visitor — and
+   * it knows every city above 15,000 people by name or alternate name, so the
+   * row gets a distance instead of a dash.
+   */
+  if (!coordinate) {
+    const known = findCityByName(city);
+    if (known) coordinate = known.coordinate;
   }
 
   cache.set(primaryKey, coordinate);

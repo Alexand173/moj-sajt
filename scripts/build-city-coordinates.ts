@@ -4,6 +4,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { cityKey, resolveConcertCity } from '@/lib/concert-city';
 import { REGION_COUNTRIES } from '@/lib/geo-location';
+import { findCityByName } from '@/lib/visitor-cities';
 
 /**
  * Builds `lib/city-coordinates.json`: one [lat, lon] per concert city, so the
@@ -213,6 +214,17 @@ function isPopulatedPlace(result: GeocodeResult): boolean {
   return result.feature_code.startsWith('PPL');
 }
 
+/**
+ * Above this, a place is a city people travel to rather than a namesake.
+ *
+ * A promoter writes the city in their own language: `Roma` is Rome, `Wien` is
+ * Vienna, `Milano` is Milan. The geocoder answers with both the metropolis and a
+ * village that shares the spelling, and ranking the exact name first handed the
+ * rail **Roma, Botoșani** — 47.8, 26.6, a 3,000-person commune in Romania — so a
+ * Rome date read 620 km from Niš instead of 785.
+ */
+const MAJOR_CITY_POPULATION = 100_000;
+
 function pickCandidate(
   results: GeocodeResult[],
   query: string,
@@ -229,16 +241,23 @@ function pickCandidate(
 
   if (pool.length === 0) return null;
 
-  // The name the feed used is the strongest signal, so an exact match wins even
-  // when a larger same-prefix city exists (Jackson before Jacksonville). Within
-  // equals, the biggest place wins: Rome over `Roma, Botoșani`.
+  /**
+   * Size leads, exactness breaks ties.
+   *
+   * A major city that matches the query wins over a small place that matches it
+   * perfectly, because the small place is almost always the wrong one — a
+   * concert is played where people are. Among places of comparable size the
+   * exact name still wins, which is what keeps `Jackson, Mississippi` from
+   * becoming Jacksonville.
+   */
   return pool
     .map((result) => ({
       result,
-      exact: cityKey(result.name || '') === wanted ? 1 : 0,
       population: result.population ?? 0,
+      major: (result.population ?? 0) >= MAJOR_CITY_POPULATION ? 1 : 0,
+      exact: cityKey(result.name || '') === wanted ? 1 : 0,
     }))
-    .sort((a, b) => b.exact - a.exact || b.population - a.population)[0].result;
+    .sort((a, b) => b.major - a.major || b.exact - a.exact || b.population - a.population)[0].result;
 }
 
 type Choose = (results: GeocodeResult[]) => GeocodeResult | null;
@@ -275,6 +294,26 @@ async function lookup(variant: string, choose: Choose): Promise<GeocodeResult | 
 }
 
 async function geocode(city: CityCandidate, allowed: Set<string> | null): Promise<GeocodeResult | null> {
+  /**
+   * The gazetteer first, because it is the better source and it is already here.
+   *
+   * It carries GeoNames' population and alternate names, so `Roma` is Rome and
+   * `Wien` is Vienna. The geocoder does not: asked for `Roma` it answers a
+   * 3,000-person commune in Botoșani and never Rome at all, and asked for
+   * `Milano` it offers a `Milan` of 42 people. That is how a Rome date came to
+   * read 620 km from Niš instead of 785.
+   */
+  const known = findCityByName(city.name);
+  if (known && (!allowed || allowed.has(known.countryCode))) {
+    return {
+      name: known.name,
+      latitude: known.coordinate.latitude,
+      longitude: known.coordinate.longitude,
+      country_code: known.countryCode,
+      population: known.population,
+    };
+  }
+
   // First pass: inside the region, so `Milano` cannot become Milano, Texas.
   for (const variant of searchVariants(city.name)) {
     const match = await lookup(variant, (results) => pickCandidate(results, variant, allowed, false));

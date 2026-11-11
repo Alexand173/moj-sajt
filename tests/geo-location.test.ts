@@ -7,6 +7,7 @@ import {
 } from '@/lib/geo-location';
 import { findCityByName, findNearestCity, gazetteerSize } from '@/lib/visitor-cities';
 import { getCityCoordinates } from '@/lib/city-coordinates';
+import { haversineKm, type Coordinate } from '@/lib/geo-distance';
 
 /**
  * The visits that were wrong in production, expressed as data.
@@ -60,6 +61,24 @@ describe('visitor city gazetteer', () => {
 
   it('refuses a name it does not know, which is what makes a village a village', () => {
     expect(findCityByName('Brezovica', 'RS')).toBeNull();
+  });
+
+  it('knows a city by the name its own country uses', () => {
+    // GeoNames files the city as `Rome`; the promoter, the poster and the person
+    // on the phone say `Roma`. Without the alias index a Rome date measured 620
+    // km from Niš — the distance to a 3,000-person commune in Botoșani.
+    expect(findCityByName('Roma')?.name).toBe('Rome');
+    expect(findCityByName('Wien')?.name).toBe('Vienna');
+    expect(findCityByName('Milano')?.name).toBe('Milan');
+    expect(findCityByName('Beograd')?.name).toBe('Belgrade');
+  });
+
+  it('lets the country decide between a metropolis and its namesake', () => {
+    expect(findCityByName('Paris')?.countryCode).toBe('FR');
+    expect(findCityByName('Paris', 'US')?.countryCode).toBe('US');
+    // An alias that contradicts the country is refused, not corrected: a row
+    // filed under Romania is not quietly moved to Italy.
+    expect(findCityByName('Roma', 'RO')).toBeNull();
   });
 
   it('finds the nearest city inside the radius and the same country', () => {
@@ -322,5 +341,25 @@ describe('getCityCoordinates', () => {
 
   it('resolves Göteborg, whose manual override was stored under the wrong key', () => {
     expect(getCityCoordinates('Göteborg')).toEqual({ latitude: 57.7089, longitude: 11.9746 });
+  });
+
+  it('measures a Rome date from Niš at the real ~785 km, not 620', () => {
+    // The regression that made the rail lie: `Roma` had been geocoded to
+    // Roma, Botoșani (47.83, 26.6), so a Rome show read 620 km away — closer
+    // than Vienna, which is 692.
+    const rome = getCityCoordinates('Roma');
+    if (!rome) throw new Error('the coordinate table is missing Roma');
+
+    const distanceKm = haversineKm(NIS, rome);
+
+    expect(distanceKm).toBeGreaterThan(760);
+    expect(distanceKm).toBeLessThan(810);
+    expect(distanceKm).toBeGreaterThan(haversineKm(NIS, getCityCoordinates('Vienna') as Coordinate));
+  });
+
+  it('places a city the checked-in table has never seen', () => {
+    // The table is built from cities that have dates; the gazetteer is the net
+    // under a venue that went on sale after the last build.
+    expect(getCityCoordinates('Thessaloniki')).not.toBeNull();
   });
 });
