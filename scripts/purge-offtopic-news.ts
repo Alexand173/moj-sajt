@@ -45,12 +45,12 @@ const MAX_APPLY_RATIO = 0.5;
  * `clear` — a blocked subject (a game, a patch note, a digest), or no music
  * evidence at all alongside off-topic evidence. Applying these is routine.
  *
- * `needs-judgement` — the row has no music words *and* no off-topic words, which
- * covers most junk but also every review whose headline is just an artist and a
- * title: a dry run put "Xiu Xiu – Xiu Mutha Fuckin' Xiu", "Blackpink – Go" and an
- * Asha Bhosle interview in this bucket, and those rows have no URL to check the
- * publisher against either. Nothing here is stamped unless `--include-ambiguous`
- * is passed, because vocabulary cannot tell those apart from a car review.
+ * `needs-judgement` — everything else the gate refuses, including the row with no
+ * music words *and* no off-topic words. That bucket used to hold every artist-only
+ * review as well, because there was no way to tell it from a cricket explainer.
+ * Publisher trust settles it: a zero-evidence row from a known general newsroom is
+ * now `clear`, and one whose host is a music publication — or unknown — stays here.
+ * Nothing in this bucket is stamped unless `--include-ambiguous` is passed.
  */
 type Confidence = 'clear' | 'needs-judgement';
 
@@ -93,6 +93,8 @@ interface JudgedRow {
   row: NewsRow;
   refused: boolean;
   reason: string;
+  /** Set when a named subject blocked the row, rather than a score. */
+  hardBlock: string | null;
   confidence: Confidence;
   /** Published by a music outlet, so the gate's silence is not evidence. */
   trustedPublisher: boolean;
@@ -111,23 +113,6 @@ function judge(row: NewsRow): JudgedRow {
   );
 
   /**
-   * Only two shapes are unambiguous enough to stamp without a human:
-   *
-   * - a blocked subject, which names something that is never music;
-   * - no music evidence at all, plus off-topic evidence.
-   *
-   * Everything else that the gate refuses is held. That deliberately includes the
-   * "one weak music word, nothing against" bucket: a dry run showed it holding
-   * both "How to Choose the Right City After College" and "Rethinking European
-   * music exports", so a single soft term — often just the word "live" — is noise
-   * in either direction.
-   */
-  const confidence: Confidence = !looksLikeAudioGear(row.title)
-    && (verdict.hardBlock || (verdict.musicScore === 0 && verdict.offTopicScore >= 2))
-    ? 'clear'
-    : 'needs-judgement';
-
-  /**
    * A music publication is trusted the way the scraper trusts its curated list:
    * "Blackpink – Go" and "Xiu Xiu – Xiu Mutha Fuckin' Xiu" carry no music
    * vocabulary, and the host is the only signal that resolves them. Such a row is
@@ -135,10 +120,46 @@ function judge(row: NewsRow): JudgedRow {
    */
   const trustedPublisher = isMusicPublicationUrl(row.url);
 
+  /**
+   * The publisher is known and is not a music publication.
+   *
+   * This is what resolves the "no evidence either way" bucket the first version of
+   * this script had to hold: an artist-only review and a cricket explainer both
+   * score zero, so vocabulary cannot separate them — but the host can. When the
+   * publisher is a general newsroom, zero music evidence means the story is not
+   * about music.
+   */
+  const host = hostOf(row.url);
+  const hasKnownPublisher = host !== '(no url)' && host !== '(bad url)';
+  const noMusicEvidence = verdict.musicScore === 0;
+
+  /**
+   * Three shapes are unambiguous enough to stamp without a human:
+   *
+   * - a blocked subject, which names something that is never music;
+   * - no music evidence at all, plus off-topic evidence;
+   * - no music evidence at all, from a publisher we can see is a general newsroom.
+   *
+   * The third is new and it is what the backlog needed: 32 of 1,000 audited rows
+   * scored zero in both directions, and that bucket held both the cricket explainer
+   * and an artist-only album review. Vocabulary cannot separate them; the host can.
+   * Rows whose publisher is unknown or a music publication stay held, which is the
+   * honest residue.
+   */
+  const confidence: Confidence = !looksLikeAudioGear(row.title)
+    && (
+      Boolean(verdict.hardBlock)
+      || (noMusicEvidence && verdict.offTopicScore >= 2)
+      || (noMusicEvidence && hasKnownPublisher && !trustedPublisher)
+    )
+    ? 'clear'
+    : 'needs-judgement';
+
   return {
     row,
     refused: !verdict.relevant && !trustedPublisher,
     reason: verdict.hardBlock || `score ${verdict.musicScore} vs ${verdict.offTopicScore}`,
+    hardBlock: verdict.hardBlock,
     confidence,
     trustedPublisher,
     rescuedByPublisher: trustedPublisher && !verdict.relevant,
@@ -268,7 +289,23 @@ async function main(): Promise<void> {
   const clear = refused.filter((entry) => entry.confidence === 'clear');
   const needsJudgement = refused.filter((entry) => entry.confidence === 'needs-judgement');
   const includeAmbiguous = process.argv.includes('--include-ambiguous');
-  const selected = includeAmbiguous ? refused : clear;
+  /**
+   * `--blocks-only` stamps only the rows a named subject blocked (sport, gossip,
+   * self-help, legal, a game) and leaves the "no music evidence from a general
+   * newsroom" bucket alone.
+   *
+   * Both are `clear` by definition, but they carry different risk: a cricket
+   * explainer is wrong beyond argument, while an artist-only headline with no
+   * music vocabulary is occasionally a real story. At 1,043 candidates the split
+   * matters, so it is one flag rather than a judgement baked into the run.
+   */
+  const blocksOnly = process.argv.includes('--blocks-only');
+  const clearBySubject = clear.filter((entry) => Boolean(entry.hardBlock)).length;
+  const selected = includeAmbiguous
+    ? refused
+    : blocksOnly
+      ? clear.filter((entry) => Boolean(entry.hardBlock))
+      : clear;
 
   const byCategory: Record<string, number> = {};
   const byReason: Record<string, number> = {};
@@ -287,9 +324,14 @@ async function main(): Promise<void> {
     rescuedByPublisher: judged.filter((entry) => entry.rescuedByPublisher).length,
     refused: refused.length,
     clear: clear.length,
+    // Split so the report says how much of the bucket is a named subject and how
+    // much is the zero-evidence rule.
+    clearBySubject,
+    clearBySilence: clear.length - clearBySubject,
     needsJudgement: needsJudgement.length,
     wouldSkip: selected.length,
     includeAmbiguous,
+    blocksOnly,
     byCategory,
     byReason,
   }, null, 2));

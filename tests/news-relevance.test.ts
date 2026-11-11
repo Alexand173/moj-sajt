@@ -93,6 +93,76 @@ describe('news relevance gate', () => {
 });
 
 /**
+ * The rows that were live on the WORLD feed when the gate was audited: every one
+ * of them `generated`, published under MusicTop's byline, and every one refused by
+ * the gate as it stands — they predated the tightening and were never purged.
+ *
+ * Each headline is here for its own reason, and the reason is in the test.
+ */
+describe('the non-music stories that were published', () => {
+  it('blocks sport by subject, not by score', () => {
+    // Scored zero in both directions, so no scoring rule could ever have refused
+    // it. Sport had to be named.
+    const verdict = assessNewsRelevance({
+      title: 'What is the DLS method? Duckworth–Lewis rules explained for ODIs and T20Is',
+      excerpt: 'Wondering how rain-affected matches are decided in cricket? How the DLS method works in ODIs and T20s.',
+    });
+
+    expect(verdict.hardBlock).toBe('sport');
+    expect(verdict.relevant).toBe(false);
+  });
+
+  it('refuses a business story that mentions K-pop once', () => {
+    // The headline of the world feed: a beverage business story. One body mention
+    // of K-pop scored 3 and carried it past a bar of 2.
+    const verdict = assessNewsRelevance({
+      title: "SOJU, I LOVE YOU: WORLD'S BEST-SELLING SPIRIT GETS LOCAL BOOST - NEWS | INDAILY, INSIDE SOUTH AUSTRALIA",
+      excerpt: 'An Adelaide young business leader is looking to expand a locally made South Korean beverage amid growing interest in K-pop and K-dramas.',
+    });
+
+    expect(verdict.relevant).toBe(false);
+  });
+
+  it('refuses a motivational column and a property dispute', () => {
+    expect(assessNewsRelevance({ title: 'Where Leaders Go Wrong with Emotional Intelligence' }).hardBlock).toBe('self-help');
+    expect(assessNewsRelevance({ title: 'The Difference Between Being Interested and Being Committed' }).relevant).toBe(false);
+    expect(assessNewsRelevance({ title: 'Renovation contractor ordered to refund Rs 11 lakh after abandoning promised materials' }).hardBlock).toBe('legal-property');
+    expect(assessNewsRelevance({ title: 'Afreximbank targets over $540m deals at Lagos CANEX' }).relevant).toBe(false);
+  });
+
+  it('refuses celebrity physique gossip with no music in it', () => {
+    expect(assessNewsRelevance({
+      title: 'Pumped Robbie Williams, 52, displays his very buff physique as he poses for a shirtless backstage photo ahead of his tour',
+    }).relevant).toBe(false);
+  });
+
+  it('keeps music-business reporting only from the music trade press', () => {
+    // The trade-off, stated rather than hidden: business vocabulary outweighs the
+    // single word "music", so a general newsroom's earnings story is refused. The
+    // trade press is in the curated registry and is trusted by publisher, which is
+    // where this reporting actually comes from.
+    const earnings = {
+      title: 'Music company revenue beats forecasts as streaming grows',
+      excerpt: 'The group reported quarterly results with recorded music revenue up.',
+    };
+
+    expect(assessNewsRelevance(earnings, 'news-api').relevant).toBe(false);
+    expect(assessNewsRelevance(earnings, 'music-publication').relevant).toBe(true);
+  });
+
+  it('still keeps the obituary that only says "music legend" in the headline', () => {
+    // The evidence rule must not undo the false-negative work: one soft headline
+    // word is a subject, one strong body word is a mention.
+    const verdict = assessNewsRelevance({
+      title: "Montrealers honour Leonard Cohen, ten years after the music legend's death",
+      excerpt: "A steady stream of Montrealers visited Cohen's grave to honour the late singer, ten years after his death.",
+    });
+
+    expect(verdict.relevant).toBe(true);
+  });
+});
+
+/**
  * Three real headlines the gate rejected while they were being published as
  * music news. Each scored a single point from one soft word, so the fix had to
  * supply the missing evidence instead of lowering the bar: a performer's craft

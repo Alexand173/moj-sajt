@@ -330,6 +330,74 @@ export function isLikelyEditorialImageUrl(value: string | null | undefined): boo
   }
 }
 
+/**
+ * Ask the publisher's CDN for the largest version of an image it already serves.
+ *
+ * News feeds hand over whatever size their own listing page used — the soju hero
+ * arrived as `Danny-Yoon.jpg?w=1024` and was drawn across 1545px, a 1.51x upscale
+ * that reads as a soft, cheap photograph. The CDN almost always has more: `?w=` is
+ * a resize instruction, and 1024 was simply one choice of many.
+ *
+ * Only explicit width *parameters* are rewritten. A `-1024x682.jpg` filename
+ * suffix is left alone on purpose: WordPress serves only the sizes it generated,
+ * so a guessed `-2048x1365.jpg` either 404s or, worse, silently leaves the hero
+ * blank. Parameters are honoured by the CDNs actually in play (Jetpack/Photon on
+ * `?w=`, Cloudinary on `w_`, Imgix on `w=`), which is why this is safe.
+ */
+const UPSCALE_TARGET_WIDTH = 2000;
+
+export function upgradePublisherImageUrl(
+  value: string | null | undefined,
+  targetWidth: number = UPSCALE_TARGET_WIDTH,
+): string | null {
+  const safeUrl = getSafeMediaUrl(value);
+  if (!safeUrl) return null;
+
+  try {
+    const parsed = new URL(safeUrl);
+    let changed = false;
+
+    // `?w=1024`, `?width=1024`, `?resize=1024,682`, `?imwidth=1024`
+    const widthParams = ['w', 'width', 'imwidth'];
+    for (const key of widthParams) {
+      const current = Number.parseInt(parsed.searchParams.get(key) || '', 10);
+      if (Number.isFinite(current) && current > 0 && current < targetWidth) {
+        parsed.searchParams.set(key, String(targetWidth));
+        changed = true;
+      }
+    }
+
+    const resize = parsed.searchParams.get('resize');
+    if (resize) {
+      const [width, height] = resize.split(',');
+      const currentWidth = Number.parseInt(width, 10);
+      if (Number.isFinite(currentWidth) && currentWidth > 0 && currentWidth < targetWidth) {
+        const scaledHeight = Number.parseInt(height, 10);
+        const nextHeight = Number.isFinite(scaledHeight) && scaledHeight > 0
+          ? Math.round((scaledHeight / currentWidth) * targetWidth)
+          : 0;
+        parsed.searchParams.set('resize', nextHeight > 0 ? `${targetWidth},${nextHeight}` : String(targetWidth));
+        changed = true;
+      }
+    }
+
+    // Cloudinary keeps the transform in the path: `/image/upload/w_1024/...`
+    const cloudinary = /\/upload\/(?:[^/]*\/)?w_(\d+)(?=\/|,)/;
+    if (cloudinary.test(parsed.pathname)) {
+      const nextPath = parsed.pathname.replace(cloudinary, (match, width) =>
+        Number.parseInt(width, 10) < targetWidth ? match.replace(`w_${width}`, `w_${targetWidth}`) : match);
+      if (nextPath !== parsed.pathname) {
+        parsed.pathname = nextPath;
+        changed = true;
+      }
+    }
+
+    return changed ? parsed.toString() : safeUrl;
+  } catch {
+    return safeUrl;
+  }
+}
+
 export function getMediaIdentity(value: string): string {
   try {
     const parsed = new URL(value);

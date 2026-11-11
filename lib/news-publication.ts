@@ -37,6 +37,29 @@ export function hasRecordedSource(article: NewsSourceFields | null | undefined):
 }
 
 /**
+ * Split a provider's batch into what may be stored and what may not.
+ *
+ * At ingest the rule is simpler than at publication: a row with no URL is never
+ * stored, because it can never be published, credited or fetched. Ten thousand
+ * such rows accumulated in 2026 and had to be deleted by hand; this is the guard
+ * that stops a second collection, and it is a pure function so the behaviour is
+ * testable without a database.
+ */
+export function splitIngestableArticles<T extends NewsSourceFields>(
+  articles: readonly T[] | null | undefined,
+): { storable: T[]; droppedWithoutSource: T[] } {
+  const storable: T[] = [];
+  const droppedWithoutSource: T[] = [];
+
+  for (const article of articles || []) {
+    if (hasRecordedSource(article)) storable.push(article);
+    else droppedWithoutSource.push(article);
+  }
+
+  return { storable, droppedWithoutSource };
+}
+
+/**
  * The sitemap rule: an attributed page with a validated rewrite.
  *
  * Stricter than "is published" on purpose. A fallback or link-out page is a real

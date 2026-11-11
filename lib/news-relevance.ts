@@ -104,6 +104,14 @@ const OFF_TOPIC_TERMS = buildTermPattern([
   'election', 'senator', 'congress', 'senate', 'prime minister', 'stock market', 'share prices?', 'stocks?', 'earnings report',
   'ipo', 'crypto', 'bitcoin', 'smartphone', 'iphone', 'android', 'chatgpt', 'software', 'downloader',
   'changelog', 'github', 'plugin', 'browser extension',
+  // Business and trade. Scored, not blocked: a music-business story ("Warner
+  // Music revenue rises") is music news, and blocking the word would silence the
+  // trade press the registry deliberately includes. "Afreximbank targets over
+  // $540m deals at Lagos CANEX" carried no music vocabulary at all, so it loses on
+  // score instead.
+  'tariffs?', 'exports?', 'imports?', 'exporter', 'trade deals?', 'trade war',
+  'revenue', 'turnover', 'shareholders?', 'acquisitions?', 'mergers?',
+  'quarterly results', 'quarterly earnings', 'profit warning', 'interest rates?',
   'fiscalía', 'gobierno', 'elecciones', 'votar', 'presidente', 'parlamento', 'justicia',
   // A books column reached the reviews page as "October's Best Reviewed Fiction".
   'fiction', 'novels?', 'book reviews?',
@@ -143,6 +151,45 @@ const HARD_BLOCKS: Array<{ pattern: RegExp; reason: string }> = [
     // through.
     pattern: /\b(reviewed fiction|book reviews?|best books?)\b/i,
     reason: 'books',
+  },
+  {
+    /**
+     * Sport is never music news, and a sports story can carry music vocabulary by
+     * accident: a fixture report mentioning a walk-on song, or an article about a
+     * player's pre-match playlist. Blocking the subject is what stops those.
+     *
+     * The row that prompted this: "What is the DLS method? Duckworth–Lewis rules
+     * explained for ODIs and T20Is" — published under WORLD with a full brief,
+     * scoring nothing in either direction, so scoring alone could not refuse it.
+     */
+    pattern: /\b(cricket|wickets?|innings|test match|one[- ]day international|t20is?|odi|goalkeepers?|premier league|la liga|serie a|bundesliga|nba|nfl|mlb|nhl|ufc|playoffs?|transfer window|wimbledon|hat[- ]trick|medal table)\b/i,
+    reason: 'sport',
+  },
+  {
+    // "Where Leaders Go Wrong with Emotional Intelligence" and "The Difference
+    // Between Being Interested and Being Committed" were both published as music
+    // news. A motivational column has no music words to score against, so it needs
+    // a category rather than a score.
+    pattern: /\b(emotional intelligence|self[- ]help|productivity hacks?|success advice|life coach(?:ing)?|mindfulness)\b/i,
+    reason: 'self-help',
+  },
+  {
+    // "Renovation contractor ordered to refund Rs 11 lakh after abandoning promised
+    // materials" — a property dispute, in the WORLD feed, under MusicTop's byline.
+    pattern: /\b(real estate|property dispute|refund order|land dispute|contractor|tenants? (?:rights|dispute)|renovation contractor)\b/i,
+    reason: 'legal-property',
+  },
+  {
+    /**
+     * Body-and-appearance gossip. Scored first and it was not enough: the headline
+     * that prompted this — "Pumped Robbie Williams, 52, displays his very buff
+     * physique as he poses for a shirtless backstage photo ahead of his tour" —
+     * says "tour", so it carries real music weight and outscored the gossip.
+     * A story whose subject is someone's body is not music news, whatever else the
+     * sentence contains.
+     */
+    pattern: /\b(physique|shirtless|bikini|baby bump|doppelganger|divorce filing|red carpet outfit)\b/i,
+    reason: 'celebrity-gossip',
   },
   {
     // A digest is several unrelated stories under one headline, so it is not one
@@ -229,6 +276,25 @@ export function assessNewsRelevance(
     // version number only blocks when software vocabulary sits next to it.
     ?? (VERSION_NUMBER.test(text) && SOFTWARE_WORD.test(text) ? 'software-release' : null);
 
+  /**
+   * Is music the subject, or only a mention?
+   *
+   * "SOJU, I LOVE YOU: WORLD'S BEST-SELLING SPIRIT GETS LOCAL BOOST" scored 3 for
+   * one body mention of K-pop, inside a business story about a beverage, and that
+   * single mention carried it past the bar. One mention is context; a subject
+   * either says something musical in the headline — even a single soft word — or
+   * says it twice in the body.
+   *
+   * One soft headline word is enough because the headline is the subject, not a
+   * mention: "…ten years after the music legend's death" is an obituary of a
+   * singer, and requiring a *strong* term there would refuse it. The obituary has
+   * one strong body hit only, which is why the body clause asks for two.
+   *
+   * Only the general firehose is held to this. A curated music outlet is trusted
+   * by host, so it does not have to prove its subject in English.
+   */
+  const hasSubjectEvidence = titleMusicScore >= SOFT_MUSIC_WEIGHT || strongHits >= 2;
+
   const relevant = hardBlock
     ? false
     : policy === 'music-publication'
@@ -240,8 +306,9 @@ export function assessNewsRelevance(
       // unmistakable music term in the headline is enough on its own, because
       // feeds truncate the body and an obituary or a DJ profile rarely says
       // "music" twice.
-      : (musicScore >= RELEVANT_MUSIC_SCORE && musicScore >= offTopicScore) ||
-        (titleStrongHits > 0 && musicScore > offTopicScore);
+      : hasSubjectEvidence
+        && ((musicScore >= RELEVANT_MUSIC_SCORE && musicScore >= offTopicScore)
+          || (titleStrongHits > 0 && musicScore > offTopicScore));
 
   return {
     relevant,

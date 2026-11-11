@@ -11,6 +11,7 @@ import AlbumGallery from '@/components/AlbumGallery';
 import OfficialNewsReader, { useOfficialBrief } from '@/components/OfficialNewsReader';
 import { getFeedCardLayout } from '@/lib/news-feed-layout';
 import { buildNewsArticlePath } from '@/lib/news-slug';
+import { upgradePublisherImageUrl } from '@/lib/news-media';
 
 export type NewsProfile = {
   first_name?: string | null;
@@ -97,10 +98,15 @@ function EditorialHero({ region, article }: { region: string; article?: NewsEdit
     );
   }
 
+  // The hero spans the full content width, so a 1024px feed image would be
+  // stretched across ~1500px. Ask the publisher's CDN for the large version of the
+  // same photo first; the stored URL is a resize instruction, not a limit.
+  const heroImage = upgradePublisherImageUrl(article.image) || article.image;
+
   return (
     <section className="relative min-h-[36rem] overflow-hidden border-b-4 border-accent-red bg-ink sm:min-h-[42rem] lg:min-h-[calc(78vh-8rem)]">
-      {article.image && (
-        <img src={article.image} alt={article.title || `${region} featured story`} loading="eager" fetchPriority="high" decoding="async" className="absolute inset-0 h-full w-full object-cover transition-all duration-700" />
+      {heroImage && (
+        <img src={heroImage} alt={article.title || `${region} featured story`} loading="eager" fetchPriority="high" decoding="async" className="absolute inset-0 h-full w-full object-cover transition-all duration-700" />
       )}
       <div className="mt-image-overlay absolute inset-0" />
       <div className="relative z-10 flex min-h-[36rem] items-end sm:min-h-[42rem] lg:min-h-[calc(78vh-8rem)]">

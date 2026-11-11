@@ -89,10 +89,12 @@ export const OFFICIAL_NEWS_SOURCES: OfficialNewsSource[] = [
   { url: 'https://www.lacoope.net/musica/noticias', region: 'latino' },
 
   // --- ASIA ---
+  { url: 'https://www.lifestyleasia.com/hk/culture/music/', region: 'asia' },
+  { url: 'https://www.nme.com/tag/asia', region: 'asia' },
+  { url: 'https://musically.com/south-asia/', region: 'asia' },
   { url: 'https://www.soompi.com/category/music', region: 'asia' },
   { url: 'https://www.billboard-japan.com', region: 'asia' },
-  { url: 'https://natalie.mu/music', region: 'asia' },
-  { url: 'https://rockinon.com', region: 'asia' },
+   { url: 'https://rockinon.com', region: 'asia' },
   { url: 'https://www.cdjournal.com', region: 'asia' },
   { url: 'http://www.izm.co.kr', region: 'asia' },
   { url: 'https://www.visla.kr', region: 'asia' },
@@ -106,7 +108,7 @@ export const OFFICIAL_NEWS_SOURCES: OfficialNewsSource[] = [
   { url: 'https://www.nme.com/en_asia/news/music', region: 'asia' },
   { url: 'https://www.bandwagon.asia/news', region: 'asia' },
   { url: 'https://aramajapan.com/', region: 'asia' },
-  { url: 'https://www.tokyohive.com/', region: 'asia' },
+
   { url: 'https://www.sbs.com.au/popasia/blog', region: 'asia' },
   { url: 'https://koreajoongangdaily.joins.com/section/entertainment', region: 'asia' },
   { url: 'https://www.hellokpop.com/category/news/', region: 'asia' },
@@ -246,6 +248,9 @@ const GENERAL_NEWSROOM_HOSTS: string[] = [
   'theguardian.com',
   'standard.co.uk',
   'variety.com',
+  // Lifestyle Asia is a lifestyle magazine with a music section; its food, travel
+  // and hotel coverage is not music news.
+  'lifestyleasia.com',
   'sbs.com.au',
   'koreajoongangdaily.joins.com',
   'telerama.fr',

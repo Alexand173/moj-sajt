@@ -8,7 +8,9 @@ import {
   remainingQuotaByRegion,
 } from '../../../lib/news-balance';
 import { NEWS_REGION_QUERIES, type NewsRegion } from '../../../lib/news-regions';
+import { upgradePublisherImageUrl } from '../../../lib/news-media';
 import { assessNewsRelevance } from '../../../lib/news-relevance';
+import { splitIngestableArticles } from '../../../lib/news-publication';
 import { getPublisherRegion, isMusicPublicationUrl } from '../../../lib/news-sources';
 
 /**
@@ -64,6 +66,9 @@ interface NewsFetchResult {
   failed: boolean;
   /** True when the region had already received its daily allowance. */
   quotaSkipped?: boolean;
+  /** Articles the provider returned without a URL, which are never stored. */
+  droppedWithoutUrl?: number;
+  droppedWithoutUrlTitles?: string[];
 }
 
 const NEWS_API_PAGE_SIZE = 100;
@@ -145,7 +150,17 @@ async function fetchNews(
     // politics stories entered that feed. Spanish music vocabulary is part of the
     // gate now, so every region goes through the same check.
     const rejected: string[] = [];
-    const filteredArticles = data.articles
+    /**
+     * An article with no URL cannot be published, so it is never stored: there is
+     * nobody to credit, nothing to link to and nothing to fetch, and its article
+     * page would return 404 by rule (`lib/news-publication.ts`).
+     *
+     * Dropped before `.slice()` on purpose — a URL-less article that consumed a
+     * quota slot would silently leave the region one story short for the day.
+     */
+    const { storable, droppedWithoutSource } = splitIngestableArticles(data.articles);
+    const urlLess = droppedWithoutSource.map((art) => art.title || 'untitled');
+    const filteredArticles = storable
       .filter((art) => {
         /**
          * How much to trust the story depends on who published it, not only on
@@ -174,15 +189,27 @@ async function fetchNews(
     if (rejected.length > 0) {
       console.log(`🚫 Dropped ${rejected.length} non-music article(s) for ${region}: ${rejected.slice(0, 5).join(' | ')}`);
     }
+    if (urlLess.length > 0) {
+      // Named, not just counted: a provider that starts omitting URLs is a change
+      // in the feed, and the headline is what identifies which feed.
+      console.warn(`🚫 Dropped ${urlLess.length} article(s) with no source URL for ${region}: ${urlLess.slice(0, 5).join(' | ')}`);
+    }
 
     return {
       region,
       failed: false,
+      droppedWithoutUrl: urlLess.length,
+      droppedWithoutUrlTitles: urlLess.slice(0, 5),
       articles: filteredArticles.map((art) => ({
         title: art.title || 'No Title',
         excerpt: art.description || '',
         content: art.content || '',
-        image: art.urlToImage || 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745',
+        // Stored at the largest size the publisher's CDN will serve, so the hero
+        // does not have to upscale a listing-page thumbnail. See
+        // `upgradePublisherImageUrl`.
+        image: upgradePublisherImageUrl(art.urlToImage)
+          || art.urlToImage
+          || 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745',
         url: art.url || null,
         category: 'LATEST',
         /**
@@ -252,6 +279,12 @@ export async function GET() {
     const quotaSkippedRegions = regionalResults
       .filter((result) => result.quotaSkipped)
       .map((result) => result.region);
+    // Reported per run, so "the feed stopped omitting URLs" is a number in the log
+    // rather than something noticed months later in a purge report.
+    const droppedWithoutUrl = regionalResults.reduce((total, result) => total + (result.droppedWithoutUrl || 0), 0);
+    const droppedWithoutUrlSample = regionalResults
+      .flatMap((result) => result.droppedWithoutUrlTitles || [])
+      .slice(0, 5);
     const allNews = regionalResults
       .flatMap((result) => result.articles)
       .filter((news) => news.title !== 'No Title');
@@ -276,6 +309,8 @@ export async function GET() {
         message: success ? 'No new LATEST articles found.' : 'One or more regional News API requests failed.',
         failedRegions,
         quotaSkippedRegions,
+        droppedWithoutUrl,
+        droppedWithoutUrlSample,
         dailyTarget,
         regions: regionCounts,
         ai: aiSummary,
@@ -347,6 +382,8 @@ export async function GET() {
       conflictsSkipped,
       failedRegions,
       quotaSkippedRegions,
+      droppedWithoutUrl,
+      droppedWithoutUrlSample,
       dailyTarget,
       regions: regionCounts,
       ai: aiSummary,

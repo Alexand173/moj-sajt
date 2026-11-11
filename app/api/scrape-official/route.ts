@@ -194,7 +194,15 @@ async function upsertInChunks(mixedData: ScrapedArticle[]): Promise<UpsertResult
   return { inserted, failedChunks, failedRows, skippedConflicts };
 }
 
-export async function GET() {
+/**
+ * The scrape itself, separated from its entry point.
+ *
+ * Two callers share this work: the HTTP route below, which is guarded, and the
+ * GitHub Actions run that executes this file directly (`isDirectScript`). Keeping
+ * the body out of `GET` is what lets the guard exist without breaking the
+ * workflow — and without the workflow having to send a secret it never needed.
+ */
+async function runScraper(): Promise<Response> {
   console.log("🚀 Startujem Official Scraper (100+ sajtova)...");
 
   try {
@@ -303,10 +311,32 @@ export async function GET() {
   }
 }
 
+/**
+ * Header check for the HTTP entry point, identical to the one the cron routes use.
+ *
+ * The route was the only ingest endpoint anyone could call: a visitor could
+ * trigger 140 scrapes, spend the day's per-region quota and write rows. The same
+ * `CRON_SECRET` the other cron routes already honour closes it, and an unset
+ * secret stays permissive outside production so local runs are unaffected.
+ */
+function isAuthorized(request: Request): boolean {
+  const cronSecret = process.env.CRON_SECRET?.trim();
+  if (!cronSecret) return process.env.NODE_ENV !== 'production';
+  return request.headers.get('authorization') === `Bearer ${cronSecret}`;
+}
+
+export async function GET(request: Request) {
+  if (!isAuthorized(request)) {
+    return new Response(JSON.stringify({ success: false, error: 'Unauthorized.' }), { status: 401 });
+  }
+
+  return runScraper();
+}
+
 // OKIDAČ ZA GITHUB ACTIONS (Van GET funkcije)
 if (isDirectScript) {
   console.log("🔔 GitHub Actions detektovan. Ručno pokrećem Official Scraper...");
-  GET()
+  runScraper()
     .then(async (res) => {
       const data = await res.json() as {
         success?: boolean;

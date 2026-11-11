@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hasRecordedSource, isIndexedNewsArticle } from '@/lib/news-publication';
+import { hasRecordedSource, isIndexedNewsArticle, splitIngestableArticles } from '@/lib/news-publication';
 
 /**
  * The rule that took 985 published pages down.
@@ -29,6 +29,29 @@ describe('source presence', () => {
     expect(hasRecordedSource({ url: 'javascript:alert(1)' })).toBe(false);
     expect(hasRecordedSource(null)).toBe(false);
     expect(hasRecordedSource(undefined)).toBe(false);
+  });
+});
+
+describe('ingest guard', () => {
+  it('keeps rows with a source and isolates the ones without', () => {
+    const batch = [
+      { title: 'Doja Cat at the American Airlines Center', url: 'https://example.com/a' },
+      { title: 'Untitled provider artefact', url: null },
+      { title: 'Empty string URL', url: '' },
+    ];
+
+    const { storable, droppedWithoutSource } = splitIngestableArticles(batch);
+
+    expect(storable.map((row) => row.title)).toEqual(['Doja Cat at the American Airlines Center']);
+    expect(droppedWithoutSource.map((row) => row.title)).toEqual([
+      'Untitled provider artefact',
+      'Empty string URL',
+    ]);
+  });
+
+  it('handles an empty or missing batch', () => {
+    expect(splitIngestableArticles([]).storable).toEqual([]);
+    expect(splitIngestableArticles(null).droppedWithoutSource).toEqual([]);
   });
 });
 
