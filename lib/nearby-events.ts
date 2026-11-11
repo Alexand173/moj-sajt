@@ -43,26 +43,17 @@ type ConcertRow = {
 };
 
 /**
- * The rail shows 12 rows. The ranker can only order what it loaded, and the
- * nearest date is almost never among the soonest dozen — the pool is ordered by
- * date, not by where the visitor is.
+ * The board lists every date in the region, so the pool has to hold them all.
+ * The ranker can only order what it loaded, and the pool arrives ordered by
+ * date rather than by where the visitor is.
  *
- * 300 was too small to be honest about distance. A visitor in Mason City was
+ * 300 was too small to be honest about distance — a visitor in Mason City was
  * competing against the soonest 300 dates in the whole US region, so a show two
- * hours away could be excluded by a show in Florida a month earlier. 1,200 narrow
- * rows is still one indexed range query, and it is the difference between "near
- * you" and "the first three hundred rows of the country".
+ * hours away could be pushed out by a show in Florida a month earlier. 1,200
+ * narrow rows is still one indexed range query, and it covers every region's
+ * on-sale count several times over.
  */
 const ROW_LIMIT = 1200;
-const RESULT_LIMIT = 12;
-
-/**
- * Half the rail is enough for the visitor's own city. A visitor in London has
- * hundreds of London dates, and filling all twelve slots with them would hide the
- * nearby cities the distance ordering exists to surface. The remaining slots go to
- * the closest shows elsewhere.
- */
-const LOCAL_RESULT_LIMIT = 6;
 
 /**
  * `date` is stored as `YYYY-MM-DD` with no time, so comparing it to `Date.now()`
@@ -164,41 +155,15 @@ export type NearbyViewer = {
   coordinate: Coordinate | null;
 };
 
-export type NearbyLimits = {
-  /** Cards in the rail. */
-  total: number;
-  /** Cards the visitor's own city may occupy. */
-  local: number;
-};
-
 /**
- * Picks the rail from an already-ordered candidate list: one card per artist — a
- * rail of twelve nights from the same tour would say less than twelve different
- * shows — and no more than `limits.local` from the visitor's own city.
- */
-export function selectNearby<T>(candidates: NearbyCandidate<T>[], limits: NearbyLimits): NearbyCandidate<T>[] {
-  const picked: NearbyCandidate<T>[] = [];
-  const seenArtists = new Set<string>();
-  let locals = 0;
-
-  for (const candidate of candidates) {
-    if (picked.length >= limits.total) break;
-
-    const artistKey = comparableCity(candidate.artist);
-    if (seenArtists.has(artistKey)) continue;
-    if (candidate.isLocal && locals >= limits.local) continue;
-
-    seenArtists.add(artistKey);
-    if (candidate.isLocal) locals += 1;
-    picked.push(candidate);
-  }
-
-  return picked;
-}
-
-/**
- * One card per artist, ordered by how close the show is, with the local group
- * capped so nearby cities still make it onto the rail.
+ * Every date in the region, ordered by how close the show is.
+ *
+ * The board used to show twelve rows, one per artist, with the visitor's own
+ * city capped at half of them. That is the right shape for a rail of cards and
+ * the wrong one for a board people scroll: a visitor in Belgrade could not see
+ * the eleventh Belgrade date, and a tour with three nights in one city was cut
+ * to one. Ordering is the only rule now — the nearest city first, then distance,
+ * then the sooner date — and the list runs as far as the region does.
  */
 function toEvents(rows: ConcertRow[], viewer: NearbyViewer): NearbyEvent[] {
   const nearKey = comparableCity(viewer.city);
@@ -227,7 +192,7 @@ function toEvents(rows: ConcertRow[], viewer: NearbyViewer): NearbyEvent[] {
       }),
   );
 
-  return selectNearby(ranked, { total: RESULT_LIMIT, local: LOCAL_RESULT_LIMIT }).map((entry) => ({
+  return ranked.map((entry) => ({
     id: String(entry.item.id),
     artist: entry.artist,
     imageUrl: entry.item.image_url || null,
@@ -251,17 +216,18 @@ function toViewer(location: NearbyLocation | null): NearbyViewer {
   };
 }
 
+/**
+ * The board for the visitor's own region, and nothing else.
+ *
+ * A region is what the visitor is shopping in — the row links to that region's
+ * page, the city column names cities in it, and a date two continents away is
+ * not "nearby" however cheap the flight. So a thin or empty region feed produces
+ * the empty state rather than a list filled from everywhere else.
+ *
+ * A visitor whose country belongs to no region (`world`) has no slice to narrow
+ * to, and a visitor no service could place has no region at all; both get the
+ * whole feed, ordered by distance when there is a point to measure from.
+ */
 export async function getNearbyEvents(location: NearbyLocation | null): Promise<NearbyEvent[]> {
-  const region = location?.regionKey && location.regionKey !== 'world' ? location.regionKey : null;
-  const viewer = toViewer(location);
-
-  const nearby = toEvents(await loadRows(location?.regionKey ?? null), viewer);
-  if (nearby.length > 0) return nearby;
-
-  // A thin region feed should still fill the rail, so widen to every region
-  // rather than shipping an empty section. The visitor's city stops mattering
-  // here, but their coordinates still order the widened pool by distance.
-  if (region) return toEvents(await loadRows(null), { city: null, coordinate: viewer.coordinate });
-
-  return [];
+  return toEvents(await loadRows(location?.regionKey ?? null), toViewer(location));
 }

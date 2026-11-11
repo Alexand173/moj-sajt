@@ -120,6 +120,18 @@ export function findCityByName(name: string | null | undefined, countryCode?: st
   const direct = pickByName(spelling, countryCode);
   if (direct) return direct;
 
+  /**
+   * DB-IP names a district in brackets: `Madrid (Fuencarral - El Pardo)`,
+   * `Merksem (Antwerpen)`. The city is the part outside them, and it is the
+   * database's own answer — not a correction of it — so the gazetteer's
+   * spelling of that name is what the page says.
+   */
+  const withoutDistrict = spelling.replace(/\s*\([^)]*\)\s*/g, ' ').trim();
+  if (withoutDistrict && withoutDistrict !== spelling) {
+    const match = pickByName(withoutDistrict, countryCode);
+    if (match) return match;
+  }
+
   const withoutSuffix = spelling.replace(/\s+\b(City|Town)\b$/i, '').trim();
   const withSuffix = /\b(City|Town)$/i.test(spelling) ? spelling : `${spelling} City`;
 

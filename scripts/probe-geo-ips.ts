@@ -4,38 +4,40 @@ import { resolvePlaceName } from '@/lib/geo-location';
 import { findCityByName } from '@/lib/visitor-cities';
 
 /**
- * Shows what the shipped database says about a set of addresses, and what the
- * correction does with the answer.
+ * What db-ip.com says about a set of addresses, and what the correction does
+ * with the answer.
  *
- *   npm run geo:probe                       # the default matrix, one per region
- *   npm run geo:probe -- 178.220.0.1 128.101.101.101
- *   npm run geo:probe -- --no-compare        # skip the second opinion (offline)
+ *   npm run geo:probe                                   # the default matrix
+ *   npm run geo:probe -- 213.196.109.5 128.101.101.101
+ *   npm run geo:probe -- --no-compare                    # skip the second opinion
  *
- * The second opinion is ipapi.co, an independent IP database that behaves like
- * the ones the platform and the analytics use. When MaxMind and ipapi agree and
- * the correction agrees with both, the label is as good as IP geolocation gets.
+ * The second opinion is ipapi.co, an independent database. Where the two name
+ * the same city the label is as good as IP geolocation gets; where they differ,
+ * the address describes a block rather than a place and the number is a guess.
+ * The case that started all this — `213.196.109.5` — is in the default matrix.
  */
 
 const DEFAULT_IPS = [
-  '128.101.101.101', // University of Minnesota — MaxMind documents this as Minneapolis
-  '8.8.8.8',         // Google DNS — a wide block, expect no city
+  '213.196.109.5',   // Telekom Srbija — the block that named Belgrade for a Niš visitor
+  '128.101.101.101', // University of Minnesota, documented as Minneapolis
+  '8.8.8.8',         // Google DNS — a wide block, expect the operator's city
   '81.2.69.142',     // MaxMind's UK test address
   '91.64.0.1',       // Deutsche Telekom, Berlin
   '133.11.0.1',      // University of Tokyo
-  '178.220.0.1',     // Serbian ISP block — the case that started this
-  '212.200.65.1',    // Telekom Srbija
+  '43.153.57.1',     // Tencent Cloud, Santa Clara
 ];
 
 type Row = {
   ip: string;
   country: string | null;
+  region: string;
   databaseCity: string | null;
-  accuracyKm: number | null;
+  subdivision: string | null;
   shownCity: string | null;
   snappedFrom: string | null;
   inGazetteer: boolean;
-  region: string;
   secondOpinion: string | null;
+  agrees: string;
 };
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -53,7 +55,7 @@ async function secondOpinion(ip: string): Promise<string | null> {
     clearTimeout(timeout);
     if (!response.ok) return null;
 
-    const payload = (await response.json()) as { city?: string | null; error?: boolean };
+    const payload = (await response.json()) as { city?: string | null; error?: boolean | string };
     if (payload.error) return null;
 
     return payload.city?.trim() || null;
@@ -78,20 +80,22 @@ async function main(): Promise<void> {
         countryName: record.countryName,
         latitude: record.latitude,
         longitude: record.longitude,
-        accuracyRadiusKm: record.accuracyRadiusKm,
       })
       : { name: null, snapped: false };
+
+    const opinion = compare ? await secondOpinion(ip) : null;
 
     rows.push({
       ip,
       country: record?.countryCode ?? null,
+      region: getRegionKeyForCountry(record?.countryCode ?? null),
       databaseCity: record?.city ?? null,
-      accuracyKm: record?.accuracyRadiusKm ?? null,
+      subdivision: record?.subdivision ?? null,
       shownCity: resolved.name,
       snappedFrom: resolved.snapped ? record?.city ?? null : null,
       inGazetteer: Boolean(findCityByName(record?.city, record?.countryCode)),
-      region: getRegionKeyForCountry(record?.countryCode ?? null),
-      secondOpinion: compare ? await secondOpinion(ip) : null,
+      secondOpinion: opinion,
+      agrees: record?.city && opinion ? (record.city === opinion ? 'yes' : 'differs') : '-',
     });
 
     if (compare) await sleep(300);
@@ -101,27 +105,21 @@ async function main(): Promise<void> {
     ip: row.ip,
     country: row.country ?? '-',
     region: row.region,
-    'MaxMind city': row.databaseCity ?? '(none)',
-    'accuracy km': row.accuracyKm ?? '-',
+    'db-ip.com city': row.databaseCity ?? '(none)',
+    subdivision: row.subdivision ?? '-',
     'shown as': row.shownCity ?? '(none)',
     snapped: row.snappedFrom ?? '',
     'ipapi.co': row.secondOpinion ?? '-',
-    agree: row.databaseCity && row.secondOpinion
-      ? (row.databaseCity === row.secondOpinion ? 'yes' : 'differs')
-      : '-',
+    agree: row.agrees,
   })));
-
-  const placed = rows.filter((row) => row.shownCity).length;
-  const snapped = rows.filter((row) => row.snappedFrom).length;
-  const agreed = rows.filter((row) => row.databaseCity && row.secondOpinion
-    && row.databaseCity === row.secondOpinion).length;
 
   console.log(JSON.stringify({
     event: 'geo_probe',
+    service: 'db-ip.com',
     addresses: rows.length,
-    named: placed,
-    correctedBySnap: snapped,
-    agreesWithSecondOpinion: agreed,
+    named: rows.filter((row) => row.shownCity).length,
+    correctedBySnap: rows.filter((row) => row.snappedFrom).length,
+    agreesWithSecondOpinion: rows.filter((row) => row.agrees === 'yes').length,
   }, null, 2));
 }
 

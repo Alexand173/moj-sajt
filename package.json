@@ -33,7 +33,6 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
-    "@maxmind/geoip2-node": "^7.1.0",
     "@next/env": "16.2.2",
     "@next/third-parties": "^16.2.6",
     "@supabase/ssr": "^0.10.3",
@@ -41,7 +40,6 @@
     "@vercel/analytics": "^2.0.1",
     "axios": "^1.14.0",
     "cheerio": "^1.2.0",
-    "geolite2-city": "^1.0.115",
     "google-auth-library": "^10.6.2",
     "googleapis": "^171.4.0",
     "lucide-react": "^0.577.0",

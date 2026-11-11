@@ -96,3 +96,24 @@ describe('NearbyEventsRail board', () => {
     expect(screen.getAllByText('in town').length).toBeGreaterThan(0);
   });
 });
+
+describe('NearbyEventsRail city line', () => {
+  it('names the city the address resolved to, and says nothing when it could not', async () => {
+    stubFeeds(() => jsonResponse({ location: NIS, events: [] }));
+
+    render(<NearbyEventsRail />);
+
+    expect(await screen.findByText('Near Niš')).toBeTruthy();
+    expect(screen.queryByText(/Set your city/)).toBeNull();
+  });
+
+  it('shows no city line when nothing placed the visitor', async () => {
+    stubFeeds(() => jsonResponse({ location: null, events: [] }));
+
+    render(<NearbyEventsRail />);
+
+    // The section still renders its own heading and empty state.
+    expect(await screen.findByText('No dates on sale')).toBeTruthy();
+    expect(screen.queryByText(/^Near /)).toBeNull();
+  });
+});

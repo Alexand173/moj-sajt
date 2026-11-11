@@ -136,9 +136,9 @@ type NearbyRowProps = {
 };
 
 /**
- * One show. A grid row, not a card: the pitch is fixed at 84 px on phones and
- * 72 px from `sm`, so five rows fit the window on a phone and six on a desktop
- * and the distance column lines up down the whole board.
+ * One show. A grid row, not a card: the pitch is fixed at 88 px on phones and
+ * 76 px from `sm`, so seven rows fit the window on a phone and ten on a desktop,
+ * and every column lines up down the whole board.
  */
 function NearbyRow({ event, saved, onToggle }: NearbyRowProps) {
   const date = formatShowDate(event.date);
@@ -147,25 +147,37 @@ function NearbyRow({ event, saved, onToggle }: NearbyRowProps) {
   return (
     <li
       data-nearby-row
-      className="grid h-[84px] grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-x-3 border-b border-line transition-colors hover:bg-paper-muted/50 sm:h-[72px] sm:grid-cols-[3rem_minmax(0,1fr)_4.5rem_7rem_auto] sm:gap-x-4"
+      className="grid h-[88px] grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-x-3 border-b border-line transition-colors hover:bg-paper-muted/50 sm:h-[76px] sm:grid-cols-[3.5rem_minmax(0,1fr)_minmax(0,9rem)_4.5rem_7rem_auto] sm:gap-x-4"
     >
-      <div className="size-12 shrink-0 overflow-hidden bg-paper-muted">
+      <div className="size-12 shrink-0 overflow-hidden bg-paper-muted sm:size-14">
         <ArtistThumb src={event.imageUrl} artist={event.artist} />
       </div>
 
       <div className="min-w-0">
         <p className="truncate text-sm font-black leading-tight tracking-[-0.01em] text-ink">{event.artist}</p>
+        {/* Phones have no city column, so the venue line carries it — the date
+            and distance follow on the line below rather than being dropped. */}
         <p className="mt-0.5 truncate text-[11px] leading-tight text-muted">
-          {event.venue ?? event.city ?? 'Venue to be announced'}
+          {event.venue ?? 'Venue to be announced'}
+          {event.city && (
+            <span className="sm:hidden">
+              <span className="text-line-strong"> / </span>
+              {event.city}
+            </span>
+          )}
         </p>
-        {/* Phones hide the date and distance columns, so the row repeats both
-            here rather than losing them. */}
         <p className="mt-1 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.04em] text-muted tabular-nums sm:hidden">
           <span>{date.label}</span>
           {distance && <span className="text-line-strong">/</span>}
           {distance && <span>{distance}</span>}
         </p>
       </div>
+
+      {/* Where the show is, in its own column: the distance number beside it is
+          only meaningful next to the city it measures to. */}
+      <span className="hidden min-w-0 truncate text-[11px] text-muted sm:block">
+        {event.city ?? '—'}
+      </span>
 
       <span className="hidden text-right font-mono text-[11px] tabular-nums text-muted sm:block">
         {distance ?? '—'}
@@ -195,7 +207,7 @@ function NearbyRow({ event, saved, onToggle }: NearbyRowProps) {
             target="_blank"
             rel="noopener noreferrer"
             aria-label={`Tickets for ${event.artist}`}
-            className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.14em] text-ink transition-colors hover:text-accent-red"
+            className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.14em] text-accent-blue transition-colors hover:text-accent-red"
           >
             <Ticket aria-hidden="true" className="size-3.5" />
             <span className="hidden sm:inline">Tickets</span>
@@ -215,15 +227,16 @@ function NearbyRow({ event, saved, onToggle }: NearbyRowProps) {
  * Concerts the visitor can get to, as a departure board rather than a rail.
  *
  * The form follows the job. A horizontal rail of wide cards shows four shows per
- * screen and buries the rest behind arrows nobody presses; distance — the one
- * thing this section knows that the region grid below does not — gets a column of
- * its own and reads down the page as a scale. Six rows fit above the region grid,
- * and the board holds its exact height while loading and when empty, because it
- * sits above the page title.
+ * screen and buries the rest behind arrows nobody presses; a board lists every
+ * date in the region — nearest city first, then by distance — and gives the city
+ * and the distance each a column of their own, so the number has something to
+ * refer to and the page reads as a scale. Seven rows fit on a phone and ten on a
+ * desktop, and the board holds its exact height while loading and when empty,
+ * because it sits above the page title.
  *
  * The visitor is placed on the server from their address (`lib/geo-location`):
- * the shipped GeoLite2 database first, corrected to the nearest real city when
- * an address resolves to a village.
+ * ipwho.is first, then db-ip.com, corrected to the nearest real city when an
+ * address resolves to a village.
  */
 export default function NearbyEventsRail({ className = '' }: { className?: string }) {
   const [status, setStatus] = useState<'loading' | 'ready' | 'empty'>('loading');
@@ -280,8 +293,10 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
   const inTown = events.filter((event) => event.distanceKm !== null && event.distanceKm <= 0).length;
 
   const subline = city
-    ? (inTown > 0 ? `${inTown} in ${city}, the rest within reach.` : 'The nearest dates we track, closest first.')
-    : 'The soonest dates on sale right now, across every region we track.';
+    ? (inTown > 0
+      ? `${inTown} in ${city} first, then every other date by distance.`
+      : 'Every date on sale in this region, nearest first.')
+    : 'Every date on sale, across every region we track.';
 
   const emptyCopy = city
     ? `Nothing is on sale within reach of ${city} right now. Every date we track is listed by region below.`
@@ -357,18 +372,19 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
       </div>
 
       {/* Column strip. A header over a fixed-height window is what makes the list
-          read as a board; the km and date columns are only labelled where they
-          are actually visible. */}
+          read as a board, so it uses the row's own grid template — a header whose
+          columns drift from the rows below it is worse than no header at all. */}
       {status === 'ready' && (
         <div
           aria-hidden="true"
-          className="mt-6 hidden items-center gap-x-4 border-b border-ink pb-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-muted sm:flex"
+          className="mt-6 hidden gap-x-4 border-b border-ink pb-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-muted sm:grid sm:grid-cols-[3.5rem_minmax(0,1fr)_minmax(0,9rem)_4.5rem_7rem_auto]"
         >
-          <span className="w-12 shrink-0" />
-          <span className="min-w-0 flex-1">Artist / venue</span>
-          <span className="w-[4.5rem] shrink-0 text-right">Distance</span>
-          <span className="w-28 shrink-0 text-right">Date</span>
-          <span className="w-16 shrink-0" />
+          <span />
+          <span className="min-w-0">Artist / venue</span>
+          <span className="min-w-0">City</span>
+          <span className="text-right">Distance</span>
+          <span className="text-right">Date</span>
+          <span />
         </div>
       )}
 
@@ -376,7 +392,7 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
         /* The board's own height, so an empty result leaves the page title where
            it was instead of pulling the whole page up. */
         <div className="mt-6">
-          <div className="flex h-[26.25rem] flex-col justify-center gap-4 border-y border-line-strong bg-paper-muted/40 px-6 sm:h-[28.75rem]">
+          <div className="flex h-[39.6rem] flex-col justify-center gap-4 border-y border-line-strong bg-paper-muted/40 px-6 sm:h-[50.4rem]">
             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-ink">
               {city ? 'No dates within reach' : 'No dates on sale'}
             </p>
@@ -393,17 +409,18 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
       )}
 
       {status === 'loading' && (
-        <div className="mt-6 h-[26.25rem] overflow-hidden sm:h-[28.75rem]" aria-hidden="true">
+        <div className="mt-6 h-[39.6rem] overflow-hidden sm:h-[50.4rem]" aria-hidden="true">
           <ul className="border-t border-line">
-            {[0, 1, 2, 3, 4, 5].map((index) => (
-              <li key={index} className="flex h-[84px] items-center gap-3 border-b border-line sm:h-[72px] sm:gap-4">
+            {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((index) => (
+              <li key={index} className="flex h-[88px] items-center gap-3 border-b border-line sm:h-[76px] sm:gap-4">
                 <div className="size-12 shrink-0 bg-paper-muted" />
                 <div className="flex min-w-0 flex-1 flex-col gap-2">
                   <div className="h-3 w-40 bg-paper-muted" />
                   <div className="h-2.5 w-28 bg-paper-muted/70" />
                 </div>
+                <div className="hidden h-2.5 w-24 shrink-0 bg-paper-muted sm:block" />
+                <div className="hidden h-2.5 w-10 shrink-0 bg-paper-muted sm:block" />
                 <div className="hidden h-2.5 w-16 shrink-0 bg-paper-muted sm:block" />
-                <div className="hidden h-2.5 w-20 shrink-0 bg-paper-muted sm:block" />
               </li>
             ))}
           </ul>
@@ -417,7 +434,7 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
           role="list"
           ref={boardRef}
           onScroll={syncEdges}
-          className="mt-0 h-[27rem] overflow-y-auto overscroll-contain border-t border-line sm:h-[29rem]"
+          className="mt-0 h-[39.6rem] overflow-y-auto overscroll-contain border-t border-line sm:h-[50.4rem]"
         >
           {events.map((event) => (
             <NearbyRow

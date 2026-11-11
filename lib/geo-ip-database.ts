@@ -1,159 +1,134 @@
-import { existsSync, readFileSync } from 'node:fs';
-import path from 'node:path';
-import { gunzipSync } from 'node:zlib';
 import { isPublicIpAddress } from '@/lib/ip-address';
 
 /**
- * The visitor's city, from a database we ship rather than one the platform
- * provides.
+ * The visitor's city, from a free service that needs no key.
  *
- * Vercel resolves the IP in front of the function and sends the result in
- * `x-vercel-ip-*`. For this site it named **Brezovica**, a Serbian village, for a
- * visitor whose Analytics reports Niš. Google and MaxMind both put the same
- * address in Niš, so the fault is the database, not the reader — and the fix is
- * to read one that agrees with the analytics the editorial team already trusts.
+ * Two of them, in order, because both are free and neither is guaranteed:
  *
- * The data is `geolite2-city` (MaxMind GeoLite2-City, refreshed twice a week,
- * CC BY-SA 4.0). It ships gzipped, so the first lookup in a process inflates it
- * into a buffer and hands that to `Reader.openBuffer` — no temporary file, no
- * write to a read-only bundle.
+ * 1. **ipwho.is** answers the city with its coordinate, which is what the
+ *    distance ranking needs:
+ *      GET https://ipwho.is/213.196.109.5
+ *      { "success": true, "country_code": "RS", "region": "Nisava",
+ *        "city": "Nis", "latitude": 43.3247223, "longitude": 21.9033327 }
+ * 2. **db-ip.com** answers the city without one, so the gazetteer supplies the
+ *    point (`lib/visitor-cities`):
+ *      GET https://api.db-ip.com/v2/free/213.196.109.5
+ *      { "countryCode": "RS", "stateProv": "Central Serbia", "city": "Niš" }
  *
- * Everything here fails closed. A missing file, an unreadable database or a
- * malformed address returns `null` and the caller falls back down the ladder;
- * losing the database must never take the tickets page down with it.
+ * Both name **Niš** for the block that serves Niš. That is the whole reason this
+ * exists: Vercel's headers named a Serbian village, and a shipped MaxMind
+ * database named Belgrade — the operator's registered city — with a confident
+ * 20 km radius, while ipwho.is, db-ip.com and the visitor's own Analytics all
+ * put the same address in Niš.
+ *
+ * Neither service is paid and neither needs an account. ipwho.is allows 10,000
+ * requests a month without a key and db-ip.com 1,000 a day; every answer is
+ * cached per address for six hours in `lib/geo-location`, so ordinary traffic
+ * spends a handful of requests a day.
  */
+
+export type IpProvider = 'ipwhois' | 'dbip';
 
 export type IpLocation = {
   city: string | null;
   countryCode: string | null;
   countryName: string | null;
-  /** First-level administrative division, e.g. `Nišava`, `Minnesota`. */
+  /** First-level administrative division, e.g. `Nisava`, `Minnesota`. */
   subdivision: string | null;
   latitude: number | null;
   longitude: number | null;
-  /**
-   * How wide the block is, in kilometres. A 5 km radius is a street; a 1000 km
-   * radius is a country centroid and must not be read as a city.
-   */
+  /** Only a paid service reports one; kept so the precision gate still works. */
   accuracyRadiusKm: number | null;
+  /** Which service answered — the first question any geo bug asks. */
+  provider: IpProvider;
 };
 
-const DATABASE_PACKAGE = 'geolite2-city';
-const DATABASE_FILE = 'GeoLite2-City.mmdb.gz';
-
-type GeoCityRecord = {
-  city?: { names?: Record<string, string> };
-  country?: { isoCode?: string; names?: Record<string, string> };
-  subdivisions?: Array<{ names?: Record<string, string> }>;
-  location?: { latitude?: number; longitude?: number; accuracyRadius?: number };
-};
-
-type GeoReader = { city: (ip: string) => GeoCityRecord };
-
-let readerPromise: Promise<GeoReader | null> | null = null;
-let warned = false;
-
-function warnOnce(message: string): void {
-  if (warned) return;
-  warned = true;
-  console.warn(`GeoIP database unavailable: ${message}`);
-}
-
-/** Where the packaged database is, after bundling traced it into the function. */
-function resolveDatabasePath(): string | null {
-  const candidates = [
-    process.env.GEOIP_DB_PATH,
-    path.join(process.cwd(), 'node_modules', DATABASE_PACKAGE, DATABASE_FILE),
-    path.join(process.cwd(), '..', 'node_modules', DATABASE_PACKAGE, DATABASE_FILE),
-  ].filter((candidate): candidate is string => Boolean(candidate));
-
-  for (const candidate of candidates) {
-    if (existsSync(candidate)) return candidate;
-  }
-
-  return null;
-}
-
 /**
- * Reads the database once per process.
- *
- * `@maxmind/geoip2-node` is ESM-only, so it is imported dynamically: a static
- * import would either fail the CommonJS build or force the whole route to be
- * ESM. The inflated buffer is held for the lifetime of the process, which is
- * what makes the second lookup free.
+ * Long enough for a slow service, short enough that a timeout is invisible next
+ * to the platform header it falls back to.
  */
-async function getReader(): Promise<GeoReader | null> {
-  if (process.env.GEOIP_DISABLED === '1') return null;
+const LOOKUP_TIMEOUT_MS = 3_500;
 
-  if (!readerPromise) {
-    readerPromise = (async (): Promise<GeoReader | null> => {
-      const file = resolveGzPath();
-      if (!file) {
-        warnOnce(`no ${DATABASE_FILE} found; run npm install geolite2-city`);
-        return null;
-      }
-
-      try {
-        const geoip = await import('@maxmind/geoip2-node');
-        const ReaderClass = (geoip as unknown as {
-          Reader?: { openBuffer?: (buffer: Buffer) => unknown };
-        }).Reader;
-
-        if (!ReaderClass?.openBuffer) {
-          warnOnce('@maxmind/geoip2-node exposed no Reader.openBuffer');
-          return null;
-        }
-
-        const buffer = gunzipSync(readFileSync(file));
-        return ReaderClass.openBuffer(buffer) as GeoReader;
-      } catch (error) {
-        warnOnce(error instanceof Error ? error.message : String(error));
-        return null;
-      }
-    })();
-  }
-
-  return readerPromise;
-}
-
-let gzPath: string | null | undefined;
-
-function resolveGzPath(): string | null {
-  if (gzPath === undefined) gzPath = resolveDatabasePath();
-  return gzPath;
-}
-
-/**
- * The database's opinion about an address, or `null` when it has none.
- *
- * An address inside a private range is answered without touching the database:
- * a development machine asking about `::1` must not be placed in a city.
- */
-export async function lookupIpLocation(ip: string | null | undefined): Promise<IpLocation | null> {
-  if (!isPublicIpAddress(ip)) return null;
-
-  const reader = await getReader();
-  if (!reader) return null;
+async function fetchJson(url: string): Promise<Record<string, unknown> | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), LOOKUP_TIMEOUT_MS);
 
   try {
-    const record = reader.city(ip as string);
+    const response = await fetch(url, {
+      signal: controller.signal,
+      // One visitor's address is not a document to cache at the edge.
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+    });
+    if (!response.ok) return null;
 
-    return {
-      city: record.city?.names?.en?.trim() || null,
-      countryCode: record.country?.isoCode?.trim().toUpperCase() || null,
-      countryName: record.country?.names?.en?.trim() || null,
-      subdivision: record.subdivisions?.[0]?.names?.en?.trim() || null,
-      latitude: Number.isFinite(record.location?.latitude) ? (record.location?.latitude as number) : null,
-      longitude: Number.isFinite(record.location?.longitude) ? (record.location?.longitude as number) : null,
-      accuracyRadiusKm: Number.isFinite(record.location?.accuracyRadius) ? (record.location?.accuracyRadius as number) : null,
-    };
+    return (await response.json()) as Record<string, unknown>;
   } catch {
-    // `AddressNotFoundError` is the normal answer for an unallocated range.
+    // A timeout, a refusal or a rate limit is not an error the page should see:
+    // the ladder falls back to the next service, then to the platform headers.
     return null;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
-/** For the probe script and for a debug view: is the database actually loadable? */
-export async function isIpDatabaseAvailable(): Promise<boolean> {
-  return Boolean(await getReader());
+function text(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function number(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+async function lookupWithIpWhoIs(ip: string): Promise<IpLocation | null> {
+  const payload = await fetchJson(`https://ipwho.is/${encodeURIComponent(ip)}`);
+  if (!payload || payload.success === false) return null;
+
+  const countryCode = text(payload.country_code);
+  if (!countryCode) return null;
+
+  return {
+    city: text(payload.city),
+    countryCode: countryCode.toUpperCase(),
+    countryName: text(payload.country),
+    subdivision: text(payload.region),
+    latitude: number(payload.latitude),
+    longitude: number(payload.longitude),
+    accuracyRadiusKm: null,
+    provider: 'ipwhois',
+  };
+}
+
+async function lookupWithDbIp(ip: string): Promise<IpLocation | null> {
+  const payload = await fetchJson(`https://api.db-ip.com/v2/free/${encodeURIComponent(ip)}`);
+  if (!payload || payload.error) return null;
+
+  const countryCode = text(payload.countryCode);
+  if (!countryCode) return null;
+
+  return {
+    city: text(payload.city),
+    countryCode: countryCode.toUpperCase(),
+    countryName: text(payload.countryName),
+    subdivision: text(payload.stateProv),
+    latitude: null,
+    longitude: null,
+    accuracyRadiusKm: null,
+    provider: 'dbip',
+  };
+}
+
+/**
+ * The services' opinion about an address, or `null` when neither has one.
+ *
+ * An address inside a private range is answered without a request: a development
+ * machine asking about `::1` must not be placed in a city, and must not spend a
+ * lookup on it either.
+ */
+export async function lookupIpLocation(ip: string | null | undefined): Promise<IpLocation | null> {
+  // The unit tests set this so a suite never depends on the network.
+  if (process.env.GEOIP_DISABLED === '1') return null;
+  if (!isPublicIpAddress(ip)) return null;
+
+  return (await lookupWithIpWhoIs(ip as string)) ?? (await lookupWithDbIp(ip as string));
 }

@@ -1,6 +1,6 @@
 import { getRegionKeyForCountry } from '@/lib/geo-regions';
-import { lookupIpLocation } from '@/lib/geo-ip-database';
-import { isPublicIpAddress } from '@/lib/ip-address';
+import { lookupIpLocation, type IpLocation } from '@/lib/geo-ip-database';
+import { isPublicIpAddress, normalizeIpAddress } from '@/lib/ip-address';
 import { findCityByName, findNearestCity } from '@/lib/visitor-cities';
 import { parseCoordinate, type Coordinate } from '@/lib/geo-distance';
 
@@ -14,11 +14,12 @@ export { REGION_COUNTRIES, getRegionKeyForCountry } from '@/lib/geo-regions';
  *
  * 1. **Cloudflare location headers**, if this site is ever proxied through it.
  *    They are free and precise, and cost a handful of lines to prefer.
- * 2. **The shipped GeoLite2 database.** This is the source of truth. Vercel's
- *    own headers named a Serbian village for a visitor that Google Analytics —
- *    and MaxMind, and the visitor — put in Niš.
- * 3. **Vercel's headers.** Kept as a fallback so a deployment without the
- *    database still places visitors approximately.
+ * 2. **Free city services, asked for the visitor's address** — ipwho.is, then
+ *    db-ip.com. This is the source of truth: Vercel's headers named a Serbian
+ *    village, and a shipped MaxMind database named Belgrade, for a visitor that
+ *    both of these — and the visitor's own Analytics — put in Niš.
+ * 3. **Vercel's headers.** Kept as a fallback for when neither service can
+ *    answer: a timeout, a rate limit, or a host without outbound access.
  * 4. **Two keyless IP providers.** For other hosts, and for local development
  *    where no platform header exists.
  * 5. Nothing — the rail then shows the region's soonest dates, unnamed.
@@ -27,7 +28,7 @@ export { REGION_COUNTRIES, getRegionKeyForCountry } from '@/lib/geo-regions';
  * city the same way whichever layer answered.
  */
 
-export type GeoSource = 'cloudflare' | 'geolite2' | 'vercel' | 'ipapi';
+export type GeoSource = 'cloudflare' | 'ipwhois' | 'dbip' | 'vercel' | 'ipapi';
 
 export type GeoLocation = {
   city: string | null;
@@ -146,24 +147,123 @@ function buildLocation(
 }
 
 /**
- * Best-effort client address, left-most first. `cf-connecting-ip` leads because
- * when Cloudflare is in front it is the only entry a client cannot forge.
+ * The headers that can carry the visitor's address, in the order they are read.
+ *
+ * `cf-connecting-ip` leads because when Cloudflare is in front it is the only
+ * entry a client cannot forge. `x-forwarded-for` is the ordinary case on Vercel
+ * and its left-most entry is the client; `x-real-ip` is the same address under
+ * the name nginx and Vercel both set, kept in case a proxy rewrites only one.
  */
-export function getRequestIp(headers: Headers): string | null {
-  const candidates = [
-    headers.get('cf-connecting-ip'),
-    headers.get('x-forwarded-for')?.split(',')[0],
-    headers.get('x-vercel-forwarded-for')?.split(',')[0],
-    headers.get('x-real-ip'),
-    headers.get('x-client-ip'),
-  ];
+const IP_HEADERS = [
+  'cf-connecting-ip',
+  'x-forwarded-for',
+  'x-vercel-forwarded-for',
+  'x-real-ip',
+  'x-client-ip',
+] as const;
 
-  for (const candidate of candidates) {
-    const ip = candidate?.trim();
-    if (ip && isPublicIpAddress(ip)) return ip;
+export type IpCandidate = {
+  header: string;
+  /** The raw header, so a multi-hop `x-forwarded-for` can be read as sent. */
+  value: string;
+  normalized: string | null;
+  isPublic: boolean;
+  used: boolean;
+};
+
+export type RequestAddress = {
+  ip: string | null;
+  /** Which header supplied `ip` — the first question any geo bug asks. */
+  header: string | null;
+  candidates: IpCandidate[];
+};
+
+/**
+ * Every address the request offers, and the one that was picked.
+ *
+ * This exists because "the site is not using my IP" is not answerable from the
+ * rendered page: a city on screen looks the same whether a proxy, a platform
+ * header or the shipped database produced it. The debug route prints this
+ * verbatim, so the next disagreement is settled by reading, not by guessing.
+ *
+ * A private, carrier-grade-NAT or malformed entry is skipped rather than
+ * returned: a shared address belongs to nobody in particular, and Vercel's
+ * own header knows the real one.
+ */
+export function describeRequestIp(headers: Headers): RequestAddress {
+  const candidates: IpCandidate[] = [];
+  let chosen: { ip: string; header: string } | null = null;
+
+  for (const header of IP_HEADERS) {
+    const value = headers.get(header);
+    if (!value?.trim()) continue;
+
+    // `x-forwarded-for` is a chain: the client is the left-most entry, every
+    // later one is a proxy that appended itself.
+    const normalized = normalizeIpAddress(value.split(',')[0]);
+    const isPublic = isPublicIpAddress(normalized);
+
+    candidates.push({ header, value, normalized, isPublic, used: false });
+    if (!chosen && normalized && isPublic) chosen = { ip: normalized, header };
   }
 
-  return null;
+  if (chosen) {
+    const used = candidates.find((candidate) => candidate.header === chosen.header);
+    if (used) used.used = true;
+  }
+
+  return { ip: chosen?.ip ?? null, header: chosen?.header ?? null, candidates };
+}
+
+/** Best-effort client address, left-most first. */
+export function getRequestIp(headers: Headers): string | null {
+  return describeRequestIp(headers).ip;
+}
+
+/**
+ * The service's answer as a location on the ladder.
+ *
+ * Shared by the request path and the debug route so both apply the same rules.
+ * db-ip.com answers a name and no coordinate, so the coordinate comes from the
+ * gazetteer — the same list the distance ranking uses, which also means the page
+ * says whatever spelling the concert feed uses (`Niš`, not `Nis`).
+ *
+ * The precision gate is kept for a source that does report a coordinate: a
+ * record describing a 1,000 km block keeps its country and loses its point,
+ * because averaging a country into a centroid is how a visitor in Kansas got
+ * attached to Google's DNS resolver.
+ */
+export function locationFromIpRecord(record: IpLocation): GeoLocation {
+  const resolved = resolvePlaceName({
+    name: record.city,
+    countryCode: record.countryCode,
+    countryName: record.countryName,
+    latitude: record.latitude,
+    longitude: record.longitude,
+    accuracyRadiusKm: record.accuracyRadiusKm,
+  });
+
+  const precise = record.accuracyRadiusKm === null
+    || record.accuracyRadiusKm <= MAX_COORDINATE_PRECISION_KM;
+
+  // A reported point is used when the source is confident in it; otherwise the
+  // gazetteer supplies one from the name it just resolved.
+  const coordinate = precise && record.latitude !== null && record.longitude !== null
+    ? { latitude: record.latitude, longitude: record.longitude }
+    : (resolved.name ? findCityByName(resolved.name, record.countryCode)?.coordinate ?? null : null);
+
+  return buildLocation(
+    {
+      name: resolved.name,
+      countryCode: record.countryCode,
+      countryName: record.countryName,
+      latitude: record.latitude,
+      longitude: record.longitude,
+      accuracyRadiusKm: record.accuracyRadiusKm,
+    },
+    record.provider,
+    { accuracyRadiusKm: record.accuracyRadiusKm, coordinate },
+  );
 }
 
 /** Percent-decoded and trimmed: Vercel sends `Ni%C5%A1`, Cloudflare sends `Niš`. */
@@ -329,22 +429,7 @@ export async function getRequestLocation(headers: Headers): Promise<GeoLocation 
   if (ip) {
     const record = await lookupIpLocation(ip);
     if (record) {
-      const precise = record.accuracyRadiusKm === null
-        || record.accuracyRadiusKm <= MAX_COORDINATE_PRECISION_KM;
-
-      const location = buildLocation(
-        {
-          name: record.city,
-          countryCode: record.countryCode,
-          countryName: record.countryName,
-          latitude: precise ? record.latitude : null,
-          longitude: precise ? record.longitude : null,
-          accuracyRadiusKm: record.accuracyRadiusKm,
-        },
-        'geolite2',
-        { accuracyRadiusKm: record.accuracyRadiusKm },
-      );
-
+      const location = locationFromIpRecord(record);
       writeCache(ip, location);
       return location;
     }

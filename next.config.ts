@@ -58,18 +58,8 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '5mb',
     },
   },
-  /**
-   * The IP database is a ~26 MB gzipped file read at runtime, so it has to be
-   * traced into the one function that reads it. Left out of the trace it would
-   * be dropped from the bundle and every visitor would silently fall back to the
-   * platform headers this change exists to replace.
-   */
-  outputFileTracingIncludes: {
-    '/api/events/nearby': [
-      './node_modules/geolite2-city/GeoLite2-City.mmdb.gz',
-      './node_modules/geolite2-city/NOTICE',
-    ],
-  },
+  // Nothing has to be traced for geolocation any more: the city comes from
+  // db-ip.com over HTTP, so the deployment carries no IP database at all.
   // Let legacy route redirects handle trailing-slash requests with status 301.
   skipTrailingSlashRedirect: true,
   // OBRISANO: Nema više redirekcije sa '/'

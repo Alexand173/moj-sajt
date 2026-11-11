@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { getRequestLocation, resolvePlaceName } from '@/lib/geo-location';
+import {
+  describeRequestIp,
+  getRequestLocation,
+  locationFromIpRecord,
+  resolvePlaceName,
+} from '@/lib/geo-location';
 import { findCityByName, findNearestCity, gazetteerSize } from '@/lib/visitor-cities';
 import { getCityCoordinates } from '@/lib/city-coordinates';
 
@@ -175,6 +180,133 @@ describe('getRequestLocation', () => {
 
   it('returns null when nothing places the visitor', async () => {
     expect(await getRequestLocation(headers({}))).toBeNull();
+  });
+});
+
+describe('resolvePlaceName with the names the services send', () => {
+  it('strips the district db-ip.com puts in brackets', () => {
+    // db-ip.com writes `Madrid (Fuencarral - El Pardo)`; the visitor wants
+    // Madrid, and that is the city the service itself named.
+    expect(resolvePlaceName({
+      name: 'Madrid (Fuencarral - El Pardo)',
+      countryCode: 'ES',
+      countryName: 'Spain',
+      latitude: null,
+      longitude: null,
+    })).toEqual({ name: 'Madrid', snapped: false });
+  });
+
+  it('keeps the city the service named, even a small one', () => {
+    // The page says what the service answers — no second guess at it.
+    expect(resolvePlaceName({
+      name: 'Falkensee',
+      countryCode: 'DE',
+      countryName: 'Germany',
+      latitude: null,
+      longitude: null,
+    })).toEqual({ name: 'Falkensee', snapped: false });
+  });
+
+  it('spells the city the way the concert feed does', () => {
+    // ipwho.is answers `Nis`; the feed and the page say `Niš`.
+    expect(resolvePlaceName({
+      name: 'Nis',
+      countryCode: 'RS',
+      countryName: 'Serbia',
+      ...NIS,
+    })).toEqual({ name: 'Niš', snapped: false });
+  });
+});
+
+describe('describeRequestIp', () => {
+  it('reads the visitor from x-forwarded-for and says which header it used', () => {
+    const address = describeRequestIp(headers({
+      'x-forwarded-for': '203.0.113.9, 76.76.21.21',
+      'x-real-ip': '76.76.21.21',
+    }));
+
+    expect(address.ip).toBe('203.0.113.9');
+    expect(address.header).toBe('x-forwarded-for');
+    // Both headers are reported, so a disagreement can be read rather than guessed.
+    expect(address.candidates).toHaveLength(2);
+    expect(address.candidates[0].used).toBe(true);
+  });
+
+  it('falls through a private hop to the header that carries a real address', () => {
+    const address = describeRequestIp(headers({
+      'x-forwarded-for': '192.168.1.5',
+      'x-real-ip': '203.0.113.9',
+    }));
+
+    expect(address.ip).toBe('203.0.113.9');
+    expect(address.header).toBe('x-real-ip');
+    expect(address.candidates[0].isPublic).toBe(false);
+  });
+
+  it('never returns carrier-grade NAT, which cannot be placed', () => {
+    expect(describeRequestIp(headers({ 'x-forwarded-for': '100.64.3.4' })).ip).toBeNull();
+  });
+
+  it('normalizes a port or an IPv4-mapped address before the reader sees it', () => {
+    expect(describeRequestIp(headers({ 'x-real-ip': '203.0.113.9:51514' })).ip).toBe('203.0.113.9');
+    expect(describeRequestIp(headers({ 'x-real-ip': '::ffff:203.0.113.9' })).ip).toBe('203.0.113.9');
+  });
+});
+
+describe('locationFromIpRecord', () => {
+  it('uses the coordinate the service reported', () => {
+    // ipwho.is answers the city and its point.
+    const location = locationFromIpRecord({
+      city: 'Nis',
+      countryCode: 'RS',
+      countryName: 'Serbia',
+      subdivision: 'Nisava',
+      latitude: 43.3247223,
+      longitude: 21.9033327,
+      accuracyRadiusKm: null,
+      provider: 'ipwhois',
+    });
+
+    expect(location.city).toBe('Niš');
+    expect(location.source).toBe('ipwhois');
+    expect(location.regionKey).toBe('europa');
+    expect(location.latitude).toBeCloseTo(43.32, 1);
+    expect(location.longitude).toBeCloseTo(21.9, 1);
+  });
+
+  it('asks the gazetteer for a point when the service sends none', () => {
+    // db-ip.com answers a name only; the ranking still needs somewhere to measure from.
+    const location = locationFromIpRecord({
+      city: 'Niš',
+      countryCode: 'RS',
+      countryName: 'Serbia',
+      subdivision: 'Central Serbia',
+      latitude: null,
+      longitude: null,
+      accuracyRadiusKm: null,
+      provider: 'dbip',
+    });
+
+    expect(location.source).toBe('dbip');
+    expect(location.latitude).toBeCloseTo(43.32, 1);
+    expect(location.longitude).toBeCloseTo(21.9, 1);
+  });
+
+  it('keeps the country when the city cannot be placed', () => {
+    const location = locationFromIpRecord({
+      city: 'Somewhere Unknown',
+      countryCode: 'RS',
+      countryName: 'Serbia',
+      subdivision: null,
+      latitude: null,
+      longitude: null,
+      accuracyRadiusKm: null,
+      provider: 'dbip',
+    });
+
+    expect(location.countryCode).toBe('RS');
+    expect(location.regionKey).toBe('europa');
+    expect(location.latitude).toBeNull();
   });
 });
 
