@@ -1,14 +1,33 @@
+import { getRegionKeyForCountry } from '@/lib/geo-regions';
+import { lookupIpLocation } from '@/lib/geo-ip-database';
+import { isPublicIpAddress } from '@/lib/ip-address';
+import { findCityByName, findNearestCity } from '@/lib/visitor-cities';
+import { parseCoordinate, type Coordinate } from '@/lib/geo-distance';
+
+export { REGION_COUNTRIES, getRegionKeyForCountry } from '@/lib/geo-regions';
+
 /**
- * City-level location for the "near you" surfaces, resolved from the request's
- * IP address on the server.
+ * City-level location for the "near you" surfaces, resolved on the server from
+ * the request's address.
  *
- * Two keyless providers are tried in order, because a single free endpoint is
- * too easy to lose to a rate limit. The IP is never stored or logged: it is used
- * for one lookup and then dropped, and the resolved city is cached in memory so
- * repeat requests from the same address do not hit the provider again.
+ * The ladder, in order, and why the order is this one:
+ *
+ * 1. **Cloudflare location headers**, if this site is ever proxied through it.
+ *    They are free and precise, and cost a handful of lines to prefer.
+ * 2. **The shipped GeoLite2 database.** This is the source of truth. Vercel's
+ *    own headers named a Serbian village for a visitor that Google Analytics —
+ *    and MaxMind, and the visitor — put in Niš.
+ * 3. **Vercel's headers.** Kept as a fallback so a deployment without the
+ *    database still places visitors approximately.
+ * 4. **Two keyless IP providers.** For other hosts, and for local development
+ *    where no platform header exists.
+ * 5. Nothing — the rail then shows the region's soonest dates, unnamed.
+ *
+ * Every source feeds one normaliser, so a village is corrected to its nearest
+ * city the same way whichever layer answered.
  */
 
-import { parseCoordinate, type Coordinate } from '@/lib/geo-distance';
+export type GeoSource = 'cloudflare' | 'geolite2' | 'vercel' | 'ipapi';
 
 export type GeoLocation = {
   city: string | null;
@@ -19,82 +38,190 @@ export type GeoLocation = {
   /** Decimal degrees used to rank nearby concerts by air distance. */
   latitude: number | null;
   longitude: number | null;
+  /** Which layer answered — surfaced by the debug view, never by the UI copy. */
+  source: GeoSource;
+  /** Set when the raw lookup named a place smaller than the city we show. */
+  snappedFrom?: string | null;
+  /** The raw accuracy radius, when the source reports one. */
+  accuracyRadiusKm?: number | null;
 };
 
 /**
- * Countries grouped by the region keys the ticket pages use. Exported so the
- * city geocoder can prefer a candidate on the right continent: `Milano` must not
- * resolve to Milano, Texas.
+ * How far a lookup may be moved to reach a real city.
+ *
+ * 75 km is the distance at which "nearby" is still honest for a concert list: a
+ * village 40 km from Niš is a Niš visitor for every practical purpose, while a
+ * town 300 km away belongs to a different city's audience. MaxMind's own
+ * accuracy is usually better than this; the limit exists so that a wide block
+ * cannot be turned into a confident-sounding city.
  */
-export const REGION_COUNTRIES: Record<string, readonly string[]> = {
-  us: ['US', 'CA'],
-  uk: ['GB', 'IE'],
-  latino: ['MX', 'BR', 'AR', 'CO', 'CL', 'PE', 'VE', 'EC', 'GT', 'CU', 'DO', 'PR', 'CR', 'PA', 'UY', 'PY', 'BO', 'ES', 'PT'],
-  europa: [
-    'DE', 'FR', 'IT', 'PL', 'SE', 'NO', 'DK', 'FI', 'IS', 'EE', 'LV', 'LT', 'RS', 'BA', 'BG', 'RO',
-    'GR', 'AL', 'HR', 'MK', 'ME', 'XK', 'SI', 'AT', 'BE', 'CH', 'CY', 'CZ', 'HU', 'LU', 'MT', 'NL', 'SK',
-  ],
-  asia: ['JP', 'KR', 'CN', 'IN', 'TW', 'TH', 'PH', 'ID', 'VN', 'SG', 'MY', 'HK'],
-};
+const SNAP_ACCURACY_LIMIT_KM = 75;
 
-const COUNTRY_TO_REGION = new Map<string, string>(
-  Object.entries(REGION_COUNTRIES).flatMap(([region, codes]) => codes.map((code) => [code, region] as const)),
-);
-
-export function getRegionKeyForCountry(countryCode: string | null): string {
-  if (!countryCode) return 'world';
-  return COUNTRY_TO_REGION.get(countryCode.trim().toUpperCase()) ?? 'world';
-}
+/**
+ * Above this radius the record describes a region, not a place. Snapping a
+ * 1,000 km hit would invent a city somewhere in the middle of a country, which
+ * is worse than admitting we only know the country.
+ */
+const MAX_COORDINATE_PRECISION_KM = 150;
 
 const GEO_TIMEOUT_MS = 3_500;
-const LOCATION_TTL_MS = 6 * 60 * 60 * 1000;
-const LOCATION_CACHE_LIMIT = 500;
+const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const CACHE_LIMIT = 500;
 
-type ResolvedPlace = {
-  city: string | null;
+type RawPlace = {
+  name: string | null;
   countryCode: string | null;
   countryName: string | null;
-  coordinate: Coordinate | null;
+  latitude: number | null;
+  longitude: number | null;
+  /** Present only when the source reports how wide its answer is. */
+  accuracyRadiusKm?: number | null;
 };
 
-const locationCache = new Map<string, { place: GeoLocation; expiresAt: number }>();
+/**
+ * Applied to every source, so all four agree on what a place is called.
+ *
+ * - A name the gazetteer knows keeps the gazetteer's spelling: the page says
+ *   `Niš`, not `Nis`, and the same string the concert feed uses.
+ * - Otherwise a known coordinate is moved at most 75 km, and only within the
+ *   same country, to the nearest real city. That is what turns `Brezovica`
+ *   into `Niš`; the country bound is what stops a border village snapping to
+ *   the town across the frontier.
+ * - A coordinate without enough precision is never snapped: naming a city from
+ *   a country-sized block is guesswork dressed as data.
+ */
+export function resolvePlaceName(place: RawPlace): { name: string | null; snapped: boolean } {
+  const canonical = findCityByName(place.name, place.countryCode);
+  if (canonical) return { name: canonical.name, snapped: false };
 
-/** Private and loopback addresses cannot be geolocated; treat them as unknown. */
-function isPublicIp(value: string): boolean {
-  if (!value) return false;
-  if (value.includes(':')) {
-    return !/^(::1|fe80|fc|fd)/i.test(value);
+  if (place.latitude === null || place.longitude === null) {
+    return { name: place.name, snapped: false };
   }
 
-  if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(value)) return false;
-  if (value === '0.0.0.0' || value.startsWith('127.') || value.startsWith('10.') || value.startsWith('169.254.')) return false;
-  if (value.startsWith('192.168.')) return false;
+  /**
+   * The gate lives here, not at the call sites, because it is the same rule
+   * everywhere: a record that covers 1,000 km describes a country, and naming a
+   * city from its centre is worse than admitting we do not know one. Without
+   * this, `8.8.8.8` — a US-wide block with no city — resolved to a town in
+   * Kansas purely because it was the nearest name to the centroid.
+   */
+  const accuracy = place.accuracyRadiusKm;
+  if (accuracy !== null && accuracy !== undefined && accuracy > SNAP_ACCURACY_LIMIT_KM) {
+    return { name: place.name, snapped: false };
+  }
 
-  const private172 = /^172\.(\d{1,3})\./.exec(value);
-  if (private172 && Number(private172[1]) >= 16 && Number(private172[1]) <= 31) return false;
+  const nearest = findNearestCity(
+    { latitude: place.latitude, longitude: place.longitude },
+    { countryCode: place.countryCode, maxKm: SNAP_ACCURACY_LIMIT_KM },
+  );
 
-  return true;
+  if (!nearest) return { name: place.name, snapped: false };
+
+  return { name: nearest.city.name, snapped: place.name !== nearest.city.name };
+}
+
+function buildLocation(
+  place: RawPlace,
+  source: GeoSource,
+  extra: { accuracyRadiusKm?: number | null; coordinate?: Coordinate | null } = {},
+): GeoLocation {
+  const resolved = resolvePlaceName(place);
+  const coordinate = extra.coordinate ?? (
+    place.latitude !== null && place.longitude !== null
+      ? { latitude: place.latitude, longitude: place.longitude }
+      : null
+  );
+
+  return {
+    city: resolved.name,
+    countryCode: place.countryCode,
+    countryName: place.countryName,
+    regionKey: getRegionKeyForCountry(place.countryCode),
+    latitude: coordinate?.latitude ?? null,
+    longitude: coordinate?.longitude ?? null,
+    source,
+    snappedFrom: resolved.snapped ? place.name : null,
+    accuracyRadiusKm: extra.accuracyRadiusKm ?? null,
+  };
 }
 
 /**
- * Best-effort client address. Vercel sets `x-forwarded-for` (and its own
- * `x-vercel-forwarded-for`); the left-most entry is the client.
+ * Best-effort client address, left-most first. `cf-connecting-ip` leads because
+ * when Cloudflare is in front it is the only entry a client cannot forge.
  */
 export function getRequestIp(headers: Headers): string | null {
   const candidates = [
+    headers.get('cf-connecting-ip'),
     headers.get('x-forwarded-for')?.split(',')[0],
     headers.get('x-vercel-forwarded-for')?.split(',')[0],
-    headers.get('cf-connecting-ip'),
     headers.get('x-real-ip'),
     headers.get('x-client-ip'),
   ];
 
   for (const candidate of candidates) {
     const ip = candidate?.trim();
-    if (ip && isPublicIp(ip)) return ip;
+    if (ip && isPublicIpAddress(ip)) return ip;
   }
 
   return null;
+}
+
+/** Percent-decoded and trimmed: Vercel sends `Ni%C5%A1`, Cloudflare sends `Niš`. */
+function cleanHeaderCity(value: string | null): string | null {
+  if (!value?.trim()) return null;
+
+  let city = value;
+  try {
+    city = decodeURIComponent(value);
+  } catch {
+    city = value;
+  }
+
+  return city.replace(/\s+/g, ' ').trim().slice(0, 64) || null;
+}
+
+/**
+ * Layer 0: Cloudflare's visitor location headers.
+ *
+ * `request.cf` is a Workers-only object and does not exist in a Node runtime,
+ * and these headers only appear when the "add visitor location headers" managed
+ * transform is enabled. Tried first because it is free and better, never relied
+ * on: this domain answers straight from Vercel with no `cf-ray` at all.
+ */
+function readCloudflareLocation(headers: Headers): RawPlace | null {
+  const name = cleanHeaderCity(headers.get('cf-ipcity'));
+  const countryCode = headers.get('cf-ipcountry')?.trim().toUpperCase() || null;
+  if (!name && !countryCode) return null;
+
+  const coordinate = parseCoordinate(headers.get('cf-iplatitude'), headers.get('cf-iplongitude'));
+
+  return {
+    name,
+    countryCode,
+    countryName: null,
+    latitude: coordinate?.latitude ?? null,
+    longitude: coordinate?.longitude ?? null,
+  };
+}
+
+/** Layer 2: Vercel's headers, kept for a deployment without the database. */
+function readPlatformLocation(headers: Headers): RawPlace | null {
+  const countryCode = headers.get('x-vercel-ip-country')?.trim().toUpperCase() || null;
+  const name = cleanHeaderCity(headers.get('x-vercel-ip-city'));
+  if (!countryCode && !name) return null;
+
+  const coordinate = parseCoordinate(
+    headers.get('x-vercel-ip-latitude'),
+    headers.get('x-vercel-ip-longitude'),
+  );
+
+  return {
+    name,
+    countryCode,
+    countryName: null,
+    latitude: coordinate?.latitude ?? null,
+    longitude: coordinate?.longitude ?? null,
+  };
 }
 
 async function fetchJson<T>(url: string): Promise<T | null> {
@@ -135,16 +262,17 @@ type IpApiComResponse = {
   lon?: number | null;
 };
 
-async function lookupPlace(ip: string): Promise<ResolvedPlace | null> {
+async function lookupPlace(ip: string): Promise<RawPlace | null> {
   const primary = await fetchJson<IpApiCoResponse>(`https://ipapi.co/${encodeURIComponent(ip)}/json/`);
   if (primary && !primary.error && (primary.country_code || primary.city)) {
+    const coordinate = parseCoordinate(primary.latitude, primary.longitude);
+
     return {
-      city: primary.city?.trim() || null,
+      name: primary.city?.trim() || null,
       countryCode: primary.country_code?.trim().toUpperCase() || null,
       countryName: primary.country_name?.trim() || null,
-      // ipapi.co returns these alongside the city, so distance ordering costs no
-      // extra request.
-      coordinate: parseCoordinate(primary.latitude, primary.longitude),
+      latitude: coordinate?.latitude ?? null,
+      longitude: coordinate?.longitude ?? null,
     };
   }
 
@@ -152,16 +280,21 @@ async function lookupPlace(ip: string): Promise<ResolvedPlace | null> {
     `http://ip-api.com/json/${encodeURIComponent(ip)}?fields=status,country,countryCode,city,lat,lon`,
   );
   if (fallback?.status === 'success') {
+    const coordinate = parseCoordinate(fallback.lat, fallback.lon);
+
     return {
-      city: fallback.city?.trim() || null,
+      name: fallback.city?.trim() || null,
       countryCode: fallback.countryCode?.trim().toUpperCase() || null,
       countryName: fallback.country?.trim() || null,
-      coordinate: parseCoordinate(fallback.lat, fallback.lon),
+      latitude: coordinate?.latitude ?? null,
+      longitude: coordinate?.longitude ?? null,
     };
   }
 
   return null;
 }
+
+const locationCache = new Map<string, { place: GeoLocation; expiresAt: number }>();
 
 function readCache(ip: string): GeoLocation | null {
   const hit = locationCache.get(ip);
@@ -175,59 +308,51 @@ function readCache(ip: string): GeoLocation | null {
 }
 
 function writeCache(ip: string, place: GeoLocation): void {
-  if (locationCache.size >= LOCATION_CACHE_LIMIT) {
+  if (locationCache.size >= CACHE_LIMIT) {
     const oldest = locationCache.keys().next().value;
     if (oldest) locationCache.delete(oldest);
   }
 
-  locationCache.set(ip, { place, expiresAt: Date.now() + LOCATION_TTL_MS });
+  locationCache.set(ip, { place, expiresAt: Date.now() + CACHE_TTL_MS });
 }
 
 /**
- * Vercel resolves the visitor's city in front of the function on every request,
- * so those headers are used first: they cost nothing and cannot be rate limited.
- * Vercel also sends the coordinates it matched, which is exactly what the nearby
- * rail needs to rank dates by distance. The keyless IP providers below stay as
- * the fallback for other hosts.
+ * The visitor's location, or null when no layer can place them (local
+ * development, a proxy that strips every header, a failed lookup).
  */
-function readPlatformLocation(headers: Headers): GeoLocation | null {
-  const countryCode = headers.get('x-vercel-ip-country')?.trim().toUpperCase() || null;
-  const rawCity = headers.get('x-vercel-ip-city')?.trim() || null;
-  if (!countryCode && !rawCity) return null;
+export async function getRequestLocation(headers: Headers): Promise<GeoLocation | null> {
+  const cloudflare = readCloudflareLocation(headers);
+  if (cloudflare) return buildLocation(cloudflare, 'cloudflare');
 
-  let city = rawCity;
-  if (city) {
-    try {
-      city = decodeURIComponent(city);
-    } catch {
-      city = rawCity;
+  const ip = getRequestIp(headers);
+
+  if (ip) {
+    const record = await lookupIpLocation(ip);
+    if (record) {
+      const precise = record.accuracyRadiusKm === null
+        || record.accuracyRadiusKm <= MAX_COORDINATE_PRECISION_KM;
+
+      const location = buildLocation(
+        {
+          name: record.city,
+          countryCode: record.countryCode,
+          countryName: record.countryName,
+          latitude: precise ? record.latitude : null,
+          longitude: precise ? record.longitude : null,
+          accuracyRadiusKm: record.accuracyRadiusKm,
+        },
+        'geolite2',
+        { accuracyRadiusKm: record.accuracyRadiusKm },
+      );
+
+      writeCache(ip, location);
+      return location;
     }
   }
 
-  const coordinate = parseCoordinate(
-    headers.get('x-vercel-ip-latitude'),
-    headers.get('x-vercel-ip-longitude'),
-  );
-
-  return {
-    city: city?.replace(/\s+/g, ' ').trim().slice(0, 64) || null,
-    countryCode,
-    countryName: null,
-    regionKey: getRegionKeyForCountry(countryCode),
-    latitude: coordinate?.latitude ?? null,
-    longitude: coordinate?.longitude ?? null,
-  };
-}
-
-/**
- * The visitor's location, or null when the address is unknown (local
- * development, a proxy that strips the header, or a failed lookup).
- */
-export async function getRequestLocation(headers: Headers): Promise<GeoLocation | null> {
   const platform = readPlatformLocation(headers);
-  if (platform) return platform;
+  if (platform) return buildLocation(platform, 'vercel');
 
-  const ip = getRequestIp(headers);
   if (!ip) return null;
 
   const cached = readCache(ip);
@@ -236,14 +361,7 @@ export async function getRequestLocation(headers: Headers): Promise<GeoLocation 
   const place = await lookupPlace(ip);
   if (!place) return null;
 
-  const location: GeoLocation = {
-    city: place.city,
-    countryCode: place.countryCode,
-    countryName: place.countryName,
-    regionKey: getRegionKeyForCountry(place.countryCode),
-    latitude: place.coordinate?.latitude ?? null,
-    longitude: place.coordinate?.longitude ?? null,
-  };
+  const location = buildLocation(place, 'ipapi');
   writeCache(ip, location);
 
   return location;

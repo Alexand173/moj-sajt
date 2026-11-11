@@ -15,6 +15,7 @@ function jsonResponse(body: Record<string, unknown>): Response {
 }
 
 const WARSAW = { city: 'Warsaw', regionKey: 'uk', regionLabel: 'the UK' };
+const NIS = { city: 'Niš', regionKey: 'europa', regionLabel: 'Europe' };
 
 function stubFeeds(nearby: () => Response | Promise<Response>): void {
   vi.stubGlobal('fetch', vi.fn((input: unknown) => (
@@ -36,11 +37,10 @@ describe('NearbyEventsRail empty states', () => {
 
     render(<NearbyEventsRail className="mt-8" />);
 
-    expect(await screen.findByText(/No dates are on sale within reach of Warsaw right now/)).toBeTruthy();
-    expect(screen.getByText('Nothing on sale nearby')).toBeTruthy();
-    // The rail list and its arrows are gone, so no carousel is left dangling.
+    expect(await screen.findByText(/Nothing is on sale within reach of Warsaw right now/)).toBeTruthy();
+    expect(screen.getByText('No dates within reach')).toBeTruthy();
+    // No board is rendered in the empty state, so no list is left dangling.
     expect(screen.queryByRole('list')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'More nearby events' })).toBeNull();
     // The empty result is announced rather than silently skipped.
     expect(screen.getByRole('status').textContent).toBe('No concerts on sale near Warsaw right now.');
   });
@@ -51,9 +51,48 @@ describe('NearbyEventsRail empty states', () => {
     render(<NearbyEventsRail />);
 
     expect(await screen.findByText(/The promoter feed has no dates on sale right now/)).toBeTruthy();
-    expect(screen.getByText('Nothing on sale right now')).toBeTruthy();
+    expect(screen.getByText('No dates on sale')).toBeTruthy();
     expect(screen.getByRole('status').textContent).toBe('No concerts on sale right now.');
     // The heading stays, which is what keeps the page title below from moving.
     expect(screen.getByRole('heading', { name: 'Concerts nearby' })).toBeTruthy();
+  });
+});
+
+describe('NearbyEventsRail board', () => {
+  it('names the city the server resolved and shows distance on each row', async () => {
+    stubFeeds(() => jsonResponse({
+      location: NIS,
+      events: [
+        {
+          id: '1',
+          artist: 'Nick Cave',
+          venue: 'Sava Centar',
+          city: 'Beograd',
+          date: '2026-12-01',
+          ticketUrl: 'https://tickets.example.com',
+          imageUrl: null,
+          distanceKm: 240,
+        },
+        {
+          id: '2',
+          artist: 'Doja Cat',
+          venue: 'Arena',
+          city: 'Niš',
+          date: '2026-12-05',
+          ticketUrl: null,
+          imageUrl: null,
+          distanceKm: 0,
+        },
+      ],
+    }));
+
+    render(<NearbyEventsRail />);
+
+    // The location line is the visible proof that the geolocation resolved.
+    expect(await screen.findByText('Near Niš')).toBeTruthy();
+    expect(screen.getByText('Nick Cave')).toBeTruthy();
+    // Distance is a column of its own, and a local show reads "in town".
+    expect(screen.getAllByText('240 km').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('in town').length).toBeGreaterThan(0);
   });
 });

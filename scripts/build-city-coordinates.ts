@@ -341,8 +341,14 @@ async function main(): Promise<void> {
     }
   }
 
+  /**
+   * Override keys go through `cityKey` like every other key. They did not, and
+   * the consequence was silent: `göteborg` was written literally while the
+   * lookup asked for `goteborg` (accents fold), so the override that was added
+   * because the geocoder puts Göteborg in a botanical garden never applied.
+   */
   for (const [key, coordinate] of Object.entries(MANUAL_OVERRIDES)) {
-    table[key] = coordinate;
+    table[cityKey(key)] = coordinate;
     console.log(`  manual override ${key} → ${coordinate[0]}, ${coordinate[1]}`);
   }
 

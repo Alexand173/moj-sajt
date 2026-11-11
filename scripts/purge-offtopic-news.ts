@@ -227,6 +227,14 @@ async function main(): Promise<void> {
   const judged = rows.map((row) => judge(row, knownArtists));
 
   /**
+   * The same rows judged with no artist knowledge at all, so the report can say
+   * what the roster bought us. Without this the count of held rows moves between
+   * runs and nothing explains the movement; with it, "the roster rescued N rows"
+   * is a number instead of a hope.
+   */
+  const withoutArtists = rows.map((row) => judge(row, buildArtistNameIndex([])));
+
+  /**
    * Undo half first. A row the rule keeps but that is already `skipped` was
    * marked under an older rule or by the reviews cleanup; putting it back is what
    * makes this command safe to run twice and safe to regret.
@@ -330,6 +338,8 @@ async function main(): Promise<void> {
     alreadySkipped: rows.filter((row) => row.ai_status === 'skipped').length,
     // Rows the vocabulary refused but the publisher rescues.
     rescuedByPublisher: judged.filter((entry) => entry.rescuedByPublisher).length,
+    // Rows that only pass because the roster knows the artist's name.
+    rescuedByArtist: judged.filter((entry, index) => !entry.refused && withoutArtists[index].refused).length,
     refused: refused.length,
     clear: clear.length,
     // Split so the report says how much of the bucket is a named subject and how
@@ -350,10 +360,43 @@ async function main(): Promise<void> {
     );
   }
 
-  if (needsJudgement.length > 0 && !includeAmbiguous) {
+  /**
+   * What the held rows actually are, split by whether they can even be seen.
+   *
+   * This is the difference between a number and a decision. Since Phase 3 a row
+   * with no URL 404s, so a held row without a URL is not a reader-facing problem
+   * at all; a held row with one is the real question, and the hosts it comes from
+   * are how that question gets answered.
+   */
+  if (needsJudgement.length > 0) {
+    const isReachable = (entry: JudgedRow) => {
+      const host = hostOf(entry.row.url);
+      return host !== '(no url)' && host !== '(bad url)';
+    };
+
+    const heldWithUrl = needsJudgement.filter(isReachable);
+    const heldWithoutUrl = needsJudgement.filter((entry) => !isReachable(entry));
+
+    const byHost = new Map<string, number>();
+    for (const entry of heldWithUrl) {
+      const host = hostOf(entry.row.url);
+      byHost.set(host, (byHost.get(host) ?? 0) + 1);
+    }
+
+    const top = [...byHost.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12);
+
+    console.log(JSON.stringify({
+      event: 'news_held_breakdown',
+      held: heldWithoutUrl.length + heldWithUrl.length,
+      reachable: heldWithUrl.length,
+      unreachable: heldWithoutUrl.length,
+      publishers: heldWithUrl.length,
+      topPublishers: top.map(([host, count]) => ({ host, count })),
+    }, null, 2));
+
     console.log(
-      `Held back ${needsJudgement.length} row(s) with no evidence either way — real artist-only reviews live there. `
-      + 'Pass --include-ambiguous to include them.',
+      `${heldWithUrl.length} held row(s) are reachable and need a decision; `
+      + `${heldWithoutUrl.length} hold no source URL, so they already 404 and reach nobody.`,
     );
   }
 

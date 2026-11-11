@@ -85,33 +85,33 @@ export default async function TicketRegionsPage() {
 
         <NearbyEventsRail className="mt-8 border-b border-line pb-10" />
 
-        <div className="mt-10 flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl">
-            <p className="mt-kicker">On sale now</p>
-            <h1 className="mt-4 text-[clamp(2.2rem,5vw,4rem)] font-black leading-[0.94] tracking-[-0.05em] text-ink uppercase">
+        {/* Two lines and out of the way. The title says what this is, the sentence
+            says where the links go, and the figures sit beside them on one row —
+            the grid of regions is the content, and it starts higher for it. */}
+        <div className="mt-12 flex flex-col gap-5 border-b-2 border-ink pb-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-[clamp(1.75rem,3.2vw,2.75rem)] font-black leading-[0.98] tracking-[-0.05em] text-ink uppercase lg:whitespace-nowrap">
               Concert tickets by region
             </h1>
+            <p className="mt-2 max-w-3xl text-[0.9375rem] leading-snug text-muted">
+              Every region we track, ordered by the artists on sale; links go straight to the promoter or Ticketmaster.
+            </p>
           </div>
 
-          <dl className="flex flex-wrap gap-x-8 gap-y-4 border-l-2 border-accent-red pl-5">
+          <dl className="flex shrink-0 gap-x-6 gap-y-2">
             {stats.map((stat) => (
               <div key={stat.label}>
-                <dt className="text-[10px] font-bold tracking-[0.18em] text-muted uppercase">{stat.label}</dt>
-                <dd className="mt-1 font-mono text-2xl font-black leading-none tracking-[-0.04em] text-ink tabular-nums">{stat.value}</dd>
+                <dt className="text-[9px] font-bold tracking-[0.18em] text-muted uppercase">{stat.label}</dt>
+                <dd className="mt-1 font-mono text-lg font-black leading-none tracking-[-0.04em] text-ink tabular-nums">{stat.value}</dd>
               </div>
             ))}
           </dl>
         </div>
 
-        <p className="mt-6 max-w-2xl text-[0.9625rem] leading-relaxed text-muted sm:text-base">
-          Every region MusicTop tracks, ordered by the artists currently on sale. Ticket links go straight to the promoter or
-          Ticketmaster, and each date is cross-checked against the promoter&apos;s published schedule before it is listed.
-        </p>
-
         {/* `role="list"` is required, not redundant: Preflight's `list-style: none`
             makes Safari drop list semantics, and VoiceOver then skips the count. */}
         {regions.length > 0 ? (
-          <ul role="list" className="mt-10 grid grid-cols-1 gap-px bg-line sm:grid-cols-2 lg:grid-cols-4">
+          <ul role="list" className="mt-6 grid grid-cols-1 gap-px bg-line sm:grid-cols-2 lg:grid-cols-4">
             {regions.map((region) => (
               <li key={region.region}>
                 <Link

@@ -2,6 +2,7 @@ import { loadEnvConfig } from '@next/env';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { isMusicNews } from '../lib/news-relevance';
+import { isUsableScrapedTitle } from '../lib/scrape-limits';
 
 loadEnvConfig(process.cwd());
 
@@ -10,10 +11,10 @@ loadEnvConfig(process.cwd());
  *
  *   npm run news:probe-sources -- https://example.com/news/ https://other.com/
  *
- * The scraper asks each page for `h2`/`h3` blocks with a link and a headline over
- * 25 characters, then applies the trusted-publication relevance policy. A source
- * that returns zero items is dead weight: WORLD had seven of them and received no
- * OFFICIAL rows at all for two weeks.
+ * The scraper asks each page for `h2`/`h3` blocks with a link and a headline the
+ * shared shape rule accepts, then applies the trusted-publication relevance
+ * policy. A source that returns zero items is dead weight: WORLD had seven of them
+ * and received no OFFICIAL rows at all for two weeks.
  */
 
 const TIMEOUT_MS = 15_000;
@@ -36,7 +37,10 @@ async function probe(url: string): Promise<Record<string, unknown>> {
 
       const title = $(element).text().trim();
       const link = $(element).find('a').attr('href') || $(element).closest('a').attr('href');
-      if (title.length <= 25 || !link) return;
+      // The scraper's own rule, imported rather than copied: this file used to
+      // repeat the 26-character floor and would have kept reporting a source as
+      // healthy under a rule the scraper no longer applies.
+      if (!isUsableScrapedTitle(title) || !link) return;
 
       if (!isMusicNews({ title }, 'music-publication')) {
         offTopic += 1;

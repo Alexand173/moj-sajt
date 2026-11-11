@@ -4,7 +4,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, CalendarDays, ChevronLeft, ChevronRight, MapPin, Star, Ticket } from 'lucide-react';
+import { ArrowUpRight, ChevronDown, ChevronUp, MapPin, Star, Ticket } from 'lucide-react';
 import type { NearbyEvent } from '@/lib/nearby-events';
 import useSavedEvents from '@/hooks/useSavedEvents';
 
@@ -13,13 +13,13 @@ type NearbyResponse = {
   events: NearbyEvent[];
 };
 
-/** Honoured by the arrows only; scrolling a list is motion too. */
+/** Honoured by the scroll buttons only; scrolling a list is motion too. */
 function prefersReducedMotion(): boolean {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
-const weekdayMonthDayFormatter = new Intl.DateTimeFormat('en-US', {
+const showDateFormatter = new Intl.DateTimeFormat('en-US', {
   weekday: 'short',
   month: 'short',
   day: 'numeric',
@@ -27,13 +27,13 @@ const weekdayMonthDayFormatter = new Intl.DateTimeFormat('en-US', {
 });
 
 /**
- * The feed stores `YYYY-MM-DD` and carries no start time, so the card states the
- * day and never a clock time. Reading the day in UTC stops the date slipping to
- * the previous evening for visitors west of Greenwich.
+ * The feed stores `YYYY-MM-DD` with no start time, so a row states the day and
+ * never a clock time. Reading the day in UTC stops the date slipping to the
+ * previous evening for visitors west of Greenwich.
  */
 function formatShowDate(value: string): { label: string; iso: string } {
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
-  if (!match) return { label: 'Date to be confirmed', iso: value };
+  if (!match) return { label: 'Date TBC', iso: value };
 
   const eventDay = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
   const now = new Date();
@@ -43,21 +43,20 @@ function formatShowDate(value: string): { label: string; iso: string } {
   if (difference === 0) return { label: 'Today', iso: value };
   if (difference === 1) return { label: 'Tomorrow', iso: value };
 
-  return { label: weekdayMonthDayFormatter.format(eventDay), iso: value };
+  return { label: showDateFormatter.format(eventDay), iso: value };
 }
 
 const kilometreFormatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
 
 /**
- * Distance is the reason the rail is ordered the way it is, so it is stated on the
- * card. A show in the visitor's own city reads "in town" rather than a "0 km".
+ * Distance is the ordering rule of this section, so it is stated on every row.
+ * A show in the visitor's own city reads "in town" rather than 0 km.
  */
-function formatDistance(distanceKm: number | null): { label: string; ariaLabel: string } | null {
+function formatDistance(distanceKm: number | null): string | null {
   if (distanceKm === null) return null;
-  if (distanceKm <= 0) return { label: 'in town', ariaLabel: 'in your town' };
+  if (distanceKm <= 0) return 'in town';
 
-  const value = kilometreFormatter.format(distanceKm);
-  return { label: `${value} km`, ariaLabel: `${value} kilometres away` };
+  return `${kilometreFormatter.format(distanceKm)} km`;
 }
 
 /** First and last initial, at most two: `Koncert przy świecach` → KŚ, `Aitana` → AI. */
@@ -66,24 +65,20 @@ function artistInitials(name: string): string {
   if (words.length === 0) return 'MT';
   if (words.length === 1) return Array.from(words[0]).slice(0, 2).join('').toUpperCase();
 
-  const first = Array.from(words[0])[0];
-  const last = Array.from(words[words.length - 1])[0];
-  return `${first}${last}`.toUpperCase();
+  return `${Array.from(words[0])[0]}${Array.from(words[words.length - 1])[0]}`.toUpperCase();
 }
 
-/** Ticketmaster artwork can stall as well as 404; neither should leave a blank card. */
+/** Ticketmaster artwork stalls as often as it 404s; neither should leave a blank row. */
 const IMAGE_FALLBACK_MS = 6000;
 
 /**
- * Poster or initials. Ticketmaster artwork 404s and stalls more often than the
- * feed implies, and an empty dark rectangle reads as a broken card, so a failed
- * or stalled load falls back to the artist's initials over the brand pattern.
+ * Poster or initials. A row is 48 px square, so a failed poster has to fall back
+ * to something that still identifies the artist rather than a grey hole.
  */
 function ArtistThumb({ src, artist }: { src: string | null; artist: string }) {
   const [status, setStatus] = useState<'loading' | 'loaded' | 'failed'>('loading');
-  // The watchdog must not run for cards the browser has not reached yet:
-  // `loading="lazy"` defers the request, and a timer started at mount would
-  // replace a perfectly good poster with initials before it was ever fetched.
+  // A timer started at mount would replace a lazy image that the browser has not
+  // requested yet, so the watchdog only starts once the row is near the viewport.
   const [nearViewport, setNearViewport] = useState(() => typeof IntersectionObserver === 'undefined');
   const imageRef = useRef<HTMLImageElement | null>(null);
 
@@ -106,7 +101,6 @@ function ArtistThumb({ src, artist }: { src: string | null; artist: string }) {
     if (!src || !nearViewport) return undefined;
 
     const timer = window.setTimeout(() => {
-      // A photo that already painted is never replaced by the timeout.
       setStatus((current) => (current === 'loaded' ? current : 'failed'));
     }, IMAGE_FALLBACK_MS);
 
@@ -115,13 +109,8 @@ function ArtistThumb({ src, artist }: { src: string | null; artist: string }) {
 
   if (!src || status === 'failed') {
     return (
-      <div className="relative h-full w-full overflow-hidden bg-ink" aria-hidden="true">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_18%,rgb(230_57_70_/_0.32),transparent_62%)]" />
-        <div className="absolute inset-0 bg-[repeating-linear-gradient(45deg,rgb(255_255_255_/_0.07)_0,rgb(255_255_255_/_0.07)_1px,transparent_1px,transparent_9px)]" />
-        <span className="absolute inset-0 flex items-center justify-center text-3xl font-black tracking-[-0.08em] text-white/70">
-          {artistInitials(artist)}
-        </span>
-        <span className="absolute bottom-2 right-3 text-[8px] font-bold tracking-[0.26em] text-white/25 uppercase">MusicTop</span>
+      <div className="flex size-full items-center justify-center bg-ink" aria-hidden="true">
+        <span className="text-xs font-black tracking-[-0.04em] text-white/70">{artistInitials(artist)}</span>
       </div>
     );
   }
@@ -135,22 +124,113 @@ function ArtistThumb({ src, artist }: { src: string | null; artist: string }) {
       decoding="async"
       onLoad={() => setStatus('loaded')}
       onError={() => setStatus('failed')}
-      className="h-full w-full object-cover transition-all duration-700 motion-reduce:transition-none"
+      className="size-full object-cover"
     />
   );
 }
 
+type NearbyRowProps = {
+  event: NearbyEvent;
+  saved: boolean;
+  onToggle: () => void;
+};
+
 /**
- * Shows within reach of the visitor's IP-derived city, with the whole region as a
- * safety net. The rail is fetched on the client so the tickets hub keeps its
- * shared cache and no visitor's location ends up in the HTML we serve everyone.
+ * One show. A grid row, not a card: the pitch is fixed at 84 px on phones and
+ * 72 px from `sm`, so five rows fit the window on a phone and six on a desktop
+ * and the distance column lines up down the whole board.
+ */
+function NearbyRow({ event, saved, onToggle }: NearbyRowProps) {
+  const date = formatShowDate(event.date);
+  const distance = formatDistance(event.distanceKm);
+
+  return (
+    <li
+      data-nearby-row
+      className="grid h-[84px] grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-x-3 border-b border-line transition-colors hover:bg-paper-muted/50 sm:h-[72px] sm:grid-cols-[3rem_minmax(0,1fr)_4.5rem_7rem_auto] sm:gap-x-4"
+    >
+      <div className="size-12 shrink-0 overflow-hidden bg-paper-muted">
+        <ArtistThumb src={event.imageUrl} artist={event.artist} />
+      </div>
+
+      <div className="min-w-0">
+        <p className="truncate text-sm font-black leading-tight tracking-[-0.01em] text-ink">{event.artist}</p>
+        <p className="mt-0.5 truncate text-[11px] leading-tight text-muted">
+          {event.venue ?? event.city ?? 'Venue to be announced'}
+        </p>
+        {/* Phones hide the date and distance columns, so the row repeats both
+            here rather than losing them. */}
+        <p className="mt-1 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.04em] text-muted tabular-nums sm:hidden">
+          <span>{date.label}</span>
+          {distance && <span className="text-line-strong">/</span>}
+          {distance && <span>{distance}</span>}
+        </p>
+      </div>
+
+      <span className="hidden text-right font-mono text-[11px] tabular-nums text-muted sm:block">
+        {distance ?? '—'}
+      </span>
+
+      <time
+        dateTime={date.iso}
+        className="hidden text-right font-mono text-[11px] uppercase tracking-[0.04em] text-ink tabular-nums sm:block"
+      >
+        {date.label}
+      </time>
+
+      <div className="flex items-center gap-1 justify-self-end sm:gap-1.5">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-pressed={saved}
+          aria-label={saved ? `Remove ${event.artist} from saved events` : `Save ${event.artist}`}
+          className={`grid size-6 place-items-center border transition-colors sm:size-7 ${saved ? 'border-accent-red text-accent-red' : 'border-line text-muted hover:border-ink hover:text-ink'}`}
+        >
+          <Star aria-hidden="true" className={`size-3 sm:size-3.5 ${saved ? 'fill-current' : ''}`} />
+        </button>
+
+        {event.ticketUrl ? (
+          <a
+            href={event.ticketUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Tickets for ${event.artist}`}
+            className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.14em] text-ink transition-colors hover:text-accent-red"
+          >
+            <Ticket aria-hidden="true" className="size-3.5" />
+            <span className="hidden sm:inline">Tickets</span>
+            {/* The arrow is the first thing to go on a phone: the artist name
+                needs the width more than the link needs decoration. */}
+            <ArrowUpRight aria-hidden="true" className="hidden size-3 sm:inline" />
+          </a>
+        ) : (
+          <span className="text-[9px] font-black uppercase tracking-[0.14em] text-placeholder">Soon</span>
+        )}
+      </div>
+    </li>
+  );
+}
+
+/**
+ * Concerts the visitor can get to, as a departure board rather than a rail.
+ *
+ * The form follows the job. A horizontal rail of wide cards shows four shows per
+ * screen and buries the rest behind arrows nobody presses; distance — the one
+ * thing this section knows that the region grid below does not — gets a column of
+ * its own and reads down the page as a scale. Six rows fit above the region grid,
+ * and the board holds its exact height while loading and when empty, because it
+ * sits above the page title.
+ *
+ * The visitor is placed on the server from their address (`lib/geo-location`):
+ * the shipped GeoLite2 database first, corrected to the nearest real city when
+ * an address resolves to a village.
  */
 export default function NearbyEventsRail({ className = '' }: { className?: string }) {
   const [status, setStatus] = useState<'loading' | 'ready' | 'empty'>('loading');
   const [events, setEvents] = useState<NearbyEvent[]>([]);
   const [location, setLocation] = useState<NearbyResponse['location']>(null);
   const [edges, setEdges] = useState({ start: true, end: false });
-  const railRef = useRef<HTMLUListElement | null>(null);
+  const boardRef = useRef<HTMLUListElement | null>(null);
   const { ids: saved, failedEvent, toggle: toggleSaved } = useSavedEvents();
 
   useEffect(() => {
@@ -170,12 +250,12 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
   }, []);
 
   const syncEdges = useCallback(() => {
-    const rail = railRef.current;
-    if (!rail) return;
+    const board = boardRef.current;
+    if (!board) return;
 
     setEdges({
-      start: rail.scrollLeft <= 4,
-      end: rail.scrollLeft + rail.clientWidth >= rail.scrollWidth - 4,
+      start: board.scrollTop <= 4,
+      end: board.scrollTop + board.clientHeight >= board.scrollHeight - 4,
     });
   }, []);
 
@@ -187,49 +267,49 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
     return () => window.removeEventListener('resize', syncEdges);
   }, [status, events.length, syncEdges]);
 
-  const scrollRail = (direction: -1 | 1) => {
-    const rail = railRef.current;
-    if (!rail) return;
+  const scrollBoard = (direction: -1 | 1) => {
+    const board = boardRef.current;
+    if (!board) return;
 
-    const card = rail.querySelector('[data-nearby-card]') as HTMLElement | null;
-    const step = card ? card.offsetWidth + 16 : rail.clientWidth * 0.8;
-    rail.scrollBy({ left: direction * step, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+    const row = board.querySelector('[data-nearby-row]') as HTMLElement | null;
+    const step = (row?.offsetHeight ?? 76) * 2;
+    board.scrollBy({ top: direction * step, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
   };
 
-  const isNearYou = Boolean(location?.city);
-  // One heading in every case: the city is already named in the kicker and subline.
-  const heading = 'Concerts nearby';
-  const subline = isNearYou
-    ? `Shows within reach of ${location?.city} — plus the rest of the ${location?.regionLabel ?? 'world'} schedule.`
+  const city = location?.city ?? null;
+  const inTown = events.filter((event) => event.distanceKm !== null && event.distanceKm <= 0).length;
+
+  const subline = city
+    ? (inTown > 0 ? `${inTown} in ${city}, the rest within reach.` : 'The nearest dates we track, closest first.')
     : 'The soonest dates on sale right now, across every region we track.';
-  // The rail sits above the page title, so it keeps its slot even when the feed
-  // returns nothing: an empty section here would drag the title of the page up.
-  const emptyCopy = isNearYou
-    ? `No dates are on sale within reach of ${location?.city} right now. Every date we track is listed by region below.`
+
+  const emptyCopy = city
+    ? `Nothing is on sale within reach of ${city} right now. Every date we track is listed by region below.`
     : 'The promoter feed has no dates on sale right now. Every date we track is listed by region below.';
-  // Announced once the rail resolves, so neither a count nor an empty result is silent.
+
+  // Announced once the board resolves, so neither a count nor an empty result is silent.
   const countAnnouncement = status === 'ready'
-    ? (isNearYou
-      ? `${events.length} concerts near ${location?.city}.`
-      : `${events.length} concerts on sale across every region we track.`)
+    ? (city ? `${events.length} concerts near ${city}.` : `${events.length} concerts on sale across every region we track.`)
     : status === 'empty'
-      ? (isNearYou ? `No concerts on sale near ${location?.city} right now.` : 'No concerts on sale right now.')
+      ? (city ? `No concerts on sale near ${city} right now.` : 'No concerts on sale right now.')
       : '';
 
   return (
     <section aria-labelledby="nearby-events" className={className}>
       <p role="status" aria-live="polite" className="sr-only">{countAnnouncement}</p>
 
-      <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
-          <p className="mt-kicker text-accent-red">
-            <MapPin aria-hidden="true" className="size-3" />
-            {isNearYou ? `Near ${location?.city}` : 'Next dates'}
-          </p>
-          <h2 id="nearby-events" className="mt-3 text-3xl font-black leading-[0.95] tracking-[-0.06em] text-ink sm:text-4xl">
-            {heading}
+          <h2 id="nearby-events" className="text-3xl font-black leading-[0.95] tracking-[-0.06em] text-ink sm:text-4xl">
+            Concerts nearby
           </h2>
-          <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted">{subline}</p>
+          {city && (
+            <p className="mt-2 flex items-center gap-1.5 text-[10px] font-black tracking-[0.16em] text-accent-red uppercase">
+              <MapPin aria-hidden="true" className="size-3" />
+              Near {city}
+            </p>
+          )}
+          <p className="mt-1.5 max-w-xl text-sm leading-relaxed text-muted">{subline}</p>
           {failedEvent && (
             <p role="status" className="mt-2 max-w-xl text-[11px] font-bold tracking-[0.04em] text-accent-red">
               {failedEvent.label
@@ -239,9 +319,9 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
           )}
         </div>
 
-        {/* `min-h-9` holds the row on phones where it stacks under the heading,
-            so dropping the arrows in the empty state cannot shorten the section. */}
-        <div className="flex min-h-9 items-center gap-2 sm:shrink-0">
+        {/* `min-h-8` holds the row on phones where it stacks under the heading, so
+            dropping the arrows in the empty state cannot shorten the section. */}
+        <div className="flex min-h-8 items-center gap-2 sm:shrink-0">
           {location && location.regionKey !== 'world' && (
             <Link
               href={`/tickets/${location.regionKey}`}
@@ -255,149 +335,98 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
             <>
               <button
                 type="button"
-                onClick={() => scrollRail(-1)}
+                onClick={() => scrollBoard(-1)}
                 disabled={edges.start}
-                aria-label="Previous nearby events"
-                className="inline-flex size-9 items-center justify-center rounded-full border border-line text-ink transition-colors hover:border-ink disabled:cursor-not-allowed disabled:text-placeholder"
+                aria-label="Earlier nearby concerts"
+                className="inline-flex size-8 items-center justify-center border border-line text-ink transition-colors hover:border-ink disabled:cursor-not-allowed disabled:text-placeholder"
               >
-                <ChevronLeft aria-hidden="true" className="size-4" />
+                <ChevronUp aria-hidden="true" className="size-3.5" />
               </button>
               <button
                 type="button"
-                onClick={() => scrollRail(1)}
+                onClick={() => scrollBoard(1)}
                 disabled={edges.end}
-                aria-label="More nearby events"
-                className="inline-flex size-9 items-center justify-center rounded-full border border-line text-ink transition-colors hover:border-ink disabled:cursor-not-allowed disabled:text-placeholder"
+                aria-label="Later nearby concerts"
+                className="inline-flex size-8 items-center justify-center border border-line text-ink transition-colors hover:border-ink disabled:cursor-not-allowed disabled:text-placeholder"
               >
-                <ChevronRight aria-hidden="true" className="size-4" />
+                <ChevronDown aria-hidden="true" className="size-3.5" />
               </button>
             </>
           )}
         </div>
       </div>
 
+      {/* Column strip. A header over a fixed-height window is what makes the list
+          read as a board; the km and date columns are only labelled where they
+          are actually visible. */}
+      {status === 'ready' && (
+        <div
+          aria-hidden="true"
+          className="mt-6 hidden items-center gap-x-4 border-b border-ink pb-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-muted sm:flex"
+        >
+          <span className="w-12 shrink-0" />
+          <span className="min-w-0 flex-1">Artist / venue</span>
+          <span className="w-[4.5rem] shrink-0 text-right">Distance</span>
+          <span className="w-28 shrink-0 text-right">Date</span>
+          <span className="w-16 shrink-0" />
+        </div>
+      )}
+
       {status === 'empty' && (
-        // Sized to the rail it replaces (312px on phones, 328px from sm, plus the
-        // same mt-7/pb-2), so an empty feed leaves the page exactly where it was.
-        <div className="mt-7 pb-2">
-          <div className="flex h-[19.5rem] flex-col justify-center gap-4 border border-dashed border-line-strong bg-paper-muted/40 px-6 sm:h-[20.5rem]">
-            <CalendarDays aria-hidden="true" className="size-5 text-placeholder" />
-            <span className="text-[10px] font-black tracking-[0.2em] text-ink uppercase">
-              {isNearYou ? 'Nothing on sale nearby' : 'Nothing on sale right now'}
-            </span>
+        /* The board's own height, so an empty result leaves the page title where
+           it was instead of pulling the whole page up. */
+        <div className="mt-6">
+          <div className="flex h-[26.25rem] flex-col justify-center gap-4 border-y border-line-strong bg-paper-muted/40 px-6 sm:h-[28.75rem]">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-ink">
+              {city ? 'No dates within reach' : 'No dates on sale'}
+            </p>
             <p className="max-w-md text-sm leading-relaxed text-muted">{emptyCopy}</p>
+            <Link
+              href={location?.regionKey ? `/tickets/${location.regionKey}` : '/tickets'}
+              className="inline-flex w-fit items-center gap-1 text-[10px] font-black uppercase tracking-[0.16em] text-ink transition-colors hover:text-accent-red"
+            >
+              Browse {location?.regionLabel ?? 'all regions'}
+              <ArrowUpRight aria-hidden="true" className="size-3" />
+            </Link>
           </div>
         </div>
       )}
 
-      {status !== 'empty' && (
-        <ul
-          // Preflight removes list markers, and Safari drops list semantics when it
-          // does; the explicit role keeps the rail announced as a list in VoiceOver.
-          role="list"
-          ref={railRef}
-          onScroll={syncEdges}
-          className="mt-7 -mx-1 flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-2 no-scrollbar"
-        >
-        {status === 'loading' &&
-          [0, 1, 2].map((placeholder) => (
-            <li
-              key={`skeleton-${placeholder}`}
-              aria-hidden="true"
-              // Sized to a loaded card (312px on phones, 328px from sm) so the rail,
-              // now above the fold, cannot push the page title down when it resolves.
-              className="flex h-[19.5rem] min-w-[80vw] flex-col border border-line bg-white sm:h-[20.5rem] sm:min-w-[22rem] lg:min-w-[24rem]"
-            >
-              <div className="h-44 animate-pulse bg-paper-muted motion-reduce:animate-none sm:h-48" />
-              <div className="flex flex-1 animate-pulse flex-col gap-3 p-4 motion-reduce:animate-none">
-                <div className="h-4 w-3/4 bg-paper-muted" />
-                <div className="h-3 w-1/2 bg-paper-muted" />
-                <div className="mt-auto flex items-center justify-between border-t border-line pt-3">
-                  <div className="h-3 w-16 bg-paper-muted" />
-                  <div className="h-3 w-14 bg-paper-muted" />
+      {status === 'loading' && (
+        <div className="mt-6 h-[26.25rem] overflow-hidden sm:h-[28.75rem]" aria-hidden="true">
+          <ul className="border-t border-line">
+            {[0, 1, 2, 3, 4, 5].map((index) => (
+              <li key={index} className="flex h-[84px] items-center gap-3 border-b border-line sm:h-[72px] sm:gap-4">
+                <div className="size-12 shrink-0 bg-paper-muted" />
+                <div className="flex min-w-0 flex-1 flex-col gap-2">
+                  <div className="h-3 w-40 bg-paper-muted" />
+                  <div className="h-2.5 w-28 bg-paper-muted/70" />
                 </div>
-              </div>
-            </li>
-          ))}
-
-        {status === 'ready' &&
-          events.map((event) => {
-            const show = formatShowDate(event.date);
-            const isSaved = saved.has(event.id);
-            const distance = formatDistance(event.distanceKm);
-
-            return (
-              <li
-                key={event.id}
-                data-nearby-card
-                data-distance-km={event.distanceKm ?? undefined}
-                className="min-w-[80vw] snap-start border border-line bg-white transition-colors hover:border-ink sm:min-w-[22rem] lg:min-w-[24rem]"
-              >
-                <article className="group flex h-full flex-col">
-                  <div className="relative h-44 overflow-hidden bg-ink sm:h-48">
-                    <ArtistThumb src={event.imageUrl} artist={event.artist} />
-                    {event.city && (
-                      <span className="absolute left-0 top-0 bg-ink/85 px-2 py-1 text-[8px] font-black tracking-[0.14em] text-white uppercase">
-                        {event.city}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex flex-1 flex-col gap-3 p-4">
-                    <div className="flex items-start justify-between gap-2">
-                      <h3 className="line-clamp-2 text-sm font-black leading-tight tracking-[-0.02em] text-ink">{event.artist}</h3>
-                      <button
-                        type="button"
-                        onClick={() => toggleSaved({ id: event.id, label: event.artist })}
-                        aria-pressed={isSaved}
-                        aria-label={isSaved ? `Remove ${event.artist} from saved events` : `Save ${event.artist} to saved events`}
-                        className={`shrink-0 rounded-full p-1 transition-colors ${isSaved ? 'text-accent-red' : 'text-placeholder hover:text-ink'}`}
-                      >
-                        <Star aria-hidden="true" className={`size-4 ${isSaved ? 'fill-current' : ''}`} />
-                      </button>
-                    </div>
-
-                    {/* Venue and distance share the existing line, so a card keeps
-                        its height and the rail cannot shift the page below it. */}
-                    <div className="flex items-baseline justify-between gap-2">
-                      <p className="min-w-0 truncate text-[11px] text-muted">
-                        {event.venue || event.city || 'Venue to be announced'}
-                      </p>
-                      {distance && (
-                        <span
-                          aria-label={distance.ariaLabel}
-                          className="shrink-0 text-[10px] font-bold tracking-[0.04em] text-placeholder uppercase tabular-nums"
-                        >
-                          {distance.label}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="mt-auto flex items-center justify-between gap-2 border-t border-line pt-3">
-                      <span className="flex min-w-0 items-center gap-1.5 text-[9px] font-bold tracking-[0.08em] text-muted uppercase">
-                        <CalendarDays aria-hidden="true" className="size-3 shrink-0 text-accent-blue" />
-                        <time dateTime={show.iso} className="truncate">{show.label}</time>
-                      </span>
-                      {event.ticketUrl ? (
-                        <a
-                          href={event.ticketUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex shrink-0 items-center gap-1 text-[9px] font-black tracking-[0.12em] text-ink uppercase transition-colors hover:text-accent-red"
-                        >
-                          <Ticket aria-hidden="true" className="size-3" />
-                          Tickets
-                          <ArrowUpRight aria-hidden="true" className="size-3" />
-                        </a>
-                      ) : (
-                        <span className="shrink-0 text-[9px] font-black tracking-[0.12em] text-placeholder uppercase">Link pending</span>
-                      )}
-                    </div>
-                  </div>
-                </article>
+                <div className="hidden h-2.5 w-16 shrink-0 bg-paper-muted sm:block" />
+                <div className="hidden h-2.5 w-20 shrink-0 bg-paper-muted sm:block" />
               </li>
-            );
-          })}
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {status === 'ready' && (
+        <ul
+          // Preflight removes list markers and Safari drops list semantics with
+          // them; the explicit role keeps the board announced as a list.
+          role="list"
+          ref={boardRef}
+          onScroll={syncEdges}
+          className="mt-0 h-[27rem] overflow-y-auto overscroll-contain border-t border-line sm:h-[29rem]"
+        >
+          {events.map((event) => (
+            <NearbyRow
+              key={event.id}
+              event={event}
+              saved={saved.has(event.id)}
+              onToggle={() => toggleSaved({ id: event.id, label: event.artist })}
+            />
+          ))}
         </ul>
       )}
     </section>

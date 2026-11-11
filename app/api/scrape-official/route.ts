@@ -11,6 +11,7 @@ import {
 import { normalizeNewsRegion } from '../../../lib/news-regions';
 import { isMusicNews } from '../../../lib/news-relevance';
 import { OFFICIAL_NEWS_SOURCES } from '../../../lib/news-sources';
+import { isUsableScrapedTitle } from '../../../lib/scrape-limits';
 
 const isDirectScript = typeof require !== 'undefined' && require.main === module;
 if (isDirectScript) {
@@ -37,6 +38,8 @@ type UpsertResult = {
   inserted: number;
   failedChunks: number;
   failedRows: number;
+  /** Rows the database already had. Not failures — the feed repeats itself daily. */
+  skippedDuplicates: number;
   skippedConflicts: number;
 };
 
@@ -69,6 +72,18 @@ interface NewsSource {
 }
 
 /**
+ * OFFICIAL rows are stored without a picture, deliberately.
+ *
+ * They used to carry one shared Unsplash photograph each, so twenty unrelated
+ * publishers showed the same stock image and every detail page had a hero that
+ * belonged to no story. Reading the listing's own thumbnail was the next attempt;
+ * images are parked for now, so the field is written empty and the readers all
+ * treat it as "no picture" — the detail page hides its hero and the feed uses its
+ * own art. When images come back, this is the one place to fill in.
+ */
+const NO_IMAGE = '';
+
+/**
  * Scrapes a single source. Any network, parsing, or unexpected error is caught
  * here so one bad site can never abort the loop or fail the whole job.
  */
@@ -92,7 +107,14 @@ async function scrapeSource(source: NewsSource, scrapedData: ScrapedArticle[]): 
       const title = $(el).text().trim();
       const link = $(el).find('a').attr('href') || $(el).closest('a').attr('href');
 
-      if (title.length > 25 && link) {
+      /**
+       * The 26-character floor that used to live here dropped real headlines —
+       * "Blackpink – Go" is 14 characters, and a curated music source is trusted
+       * precisely so its short titles are still music news. The rule now rejects
+       * the site's own furniture ("Read more", "Load more", a bare domain) instead
+       * of measuring length, and lives in one place so the source probe agrees.
+       */
+      if (isUsableScrapedTitle(title) && link) {
         // Even a music source carries the occasional off-topic piece. Rewriting
         // one costs an AI call and publishes it under MusicTop's byline, so it is
         // cheaper to drop it here than to fix it later.
@@ -115,7 +137,9 @@ async function scrapeSource(source: NewsSource, scrapedData: ScrapedArticle[]): 
         scrapedData.push({
           title,
           excerpt: `SOURCE: ${domainName.toUpperCase()}`,
-          image: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745',
+          // Empty on purpose: no picture is better than the same stock photo on
+          // every story. See NO_IMAGE above.
+          image: NO_IMAGE,
           category: 'OFFICIAL',
           region: normalizeNewsRegion(source.region),
           url: fullLink,
@@ -145,35 +169,51 @@ async function scrapeSource(source: NewsSource, scrapedData: ScrapedArticle[]): 
 async function upsertInChunks(mixedData: ScrapedArticle[]): Promise<UpsertResult> {
   if (!supabase) {
     console.error('❌ Supabase klijent nije konfigurisan — preskačem upis.');
-    return { inserted: 0, failedChunks: 1, failedRows: mixedData.length, skippedConflicts: 0 };
+    return { inserted: 0, failedChunks: 1, failedRows: mixedData.length, skippedDuplicates: 0, skippedConflicts: 0 };
   }
 
   let inserted = 0;
   let failedChunks = 0;
   let failedRows = 0;
+  let skippedDuplicates = 0;
   let skippedConflicts = 0;
 
   for (let i = 0; i < mixedData.length; i += UPSERT_CHUNK_SIZE) {
     const chunk = mixedData.slice(i, i + UPSERT_CHUNK_SIZE);
     try {
-      const { error } = await supabase.from('news').upsert(chunk, {
+      /**
+       * `.select('url')` is what makes the count honest.
+       *
+       * `ignoreDuplicates` sends `Prefer: resolution=ignore-duplicates`, and
+       * without a returning clause a chunk of fifty already-stored rows answers
+       * with no error and no rows — so counting `chunk.length` reported fifty
+       * inserts that never happened. PostgREST's RETURNING only carries rows the
+       * statement actually wrote, so the difference is the duplicate count.
+       */
+      const { data, error } = await supabase.from('news').upsert(chunk, {
         onConflict: 'url',
         ignoreDuplicates: true,
-      });
+      }).select('url');
 
       if (error) throw error;
-      inserted += chunk.length;
+
+      const written = Array.isArray(data) ? data.length : chunk.length;
+      inserted += written;
+      skippedDuplicates += chunk.length - written;
     } catch (error: unknown) {
       if (isUniqueConstraintError(error)) {
         let chunkInserted = 0;
         for (const row of chunk) {
-          const { error: rowError } = await supabase.from('news').upsert(row, {
+          // Same returning clause as the batch path: without it a row the table
+          // already had is indistinguishable from one it just wrote.
+          const { data: writtenRows, error: rowError } = await supabase.from('news').upsert(row, {
             onConflict: 'url',
             ignoreDuplicates: true,
-          });
+          }).select('url');
 
           if (!rowError) {
-            chunkInserted += 1;
+            if (Array.isArray(writtenRows) && writtenRows.length === 0) skippedDuplicates += 1;
+            else chunkInserted += 1;
           } else if (isUniqueConstraintError(rowError)) {
             skippedConflicts += 1;
           } else {
@@ -191,7 +231,7 @@ async function upsertInChunks(mixedData: ScrapedArticle[]): Promise<UpsertResult
     }
   }
 
-  return { inserted, failedChunks, failedRows, skippedConflicts };
+  return { inserted, failedChunks, failedRows, skippedDuplicates, skippedConflicts };
 }
 
 /**
@@ -226,6 +266,7 @@ async function runScraper(): Promise<Response> {
     let insertedCount = 0;
     let failedUpsertChunks = 0;
     let failedUpsertRows = 0;
+    let skippedDuplicates = 0;
     let skippedConflicts = 0;
     let balancedCount = 0;
     let quotaDropped = 0;
@@ -278,8 +319,16 @@ async function runScraper(): Promise<Response> {
       insertedCount = upsertResult.inserted;
       failedUpsertChunks = upsertResult.failedChunks;
       failedUpsertRows = upsertResult.failedRows;
+      skippedDuplicates = upsertResult.skippedDuplicates;
       skippedConflicts = upsertResult.skippedConflicts;
-      console.log(`🚀 Uspešno uneto ${insertedCount}/${mixedData.length} vesti (${failedUpsertChunks} neuspešnih grupa, ${failedUpsertRows} neuspešnih redova, ${skippedConflicts} postojećih konflikata).`);
+      // The denominator is what was offered to the database after the quota trim,
+      // not everything that was scraped: divide by the pre-quota number and the
+      // ratio reads as failure when it is only policy.
+      console.log(
+        `🚀 Uneto ${insertedCount}/${balancedData.length} vesti `
+        + `(${skippedDuplicates} već postojećih, ${failedUpsertChunks} neuspešnih grupa, `
+        + `${failedUpsertRows} neuspešnih redova, ${skippedConflicts} konflikata naslova).`,
+      );
     }
 
     console.log(`ℹ️ Skrejping završen: ${succeededSources}/${SOURCES.length} sajtova uspešno, ${failedSources} neuspešno.`);
@@ -295,6 +344,7 @@ async function runScraper(): Promise<Response> {
       balancedCount,
       quotaDropped,
       regionCounts: balancedRegionCounts,
+      skippedDuplicates,
       failedUpsertChunks,
       failedUpsertRows,
       skippedConflicts,

@@ -43,11 +43,17 @@ type ConcertRow = {
 };
 
 /**
- * The rail shows 12 cards. The ranker can only order what it loaded, and the
- * nearest date is not always among the soonest dozen, so the pool is wider than
- * the result: 300 upcoming rows of this narrow select is still a cheap query.
+ * The rail shows 12 rows. The ranker can only order what it loaded, and the
+ * nearest date is almost never among the soonest dozen — the pool is ordered by
+ * date, not by where the visitor is.
+ *
+ * 300 was too small to be honest about distance. A visitor in Mason City was
+ * competing against the soonest 300 dates in the whole US region, so a show two
+ * hours away could be excluded by a show in Florida a month earlier. 1,200 narrow
+ * rows is still one indexed range query, and it is the difference between "near
+ * you" and "the first three hundred rows of the country".
  */
-const ROW_LIMIT = 300;
+const ROW_LIMIT = 1200;
 const RESULT_LIMIT = 12;
 
 /**
