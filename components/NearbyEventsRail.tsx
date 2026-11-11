@@ -147,7 +147,7 @@ function NearbyRow({ event, saved, onToggle }: NearbyRowProps) {
   return (
     <li
       data-nearby-row
-      className="grid h-[88px] grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-x-3 border-b border-line transition-colors hover:bg-paper-muted/50 sm:h-[76px] sm:grid-cols-[3.5rem_minmax(0,1fr)_minmax(0,9rem)_4.5rem_7rem_auto] sm:gap-x-4"
+      className="grid h-[88px] grid-cols-[3rem_minmax(0,1fr)_auto] items-center gap-x-3 border-b border-line transition-colors hover:bg-paper-muted/50 sm:h-[76px] sm:grid-cols-[3.5rem_minmax(0,1fr)_minmax(0,10rem)_4.5rem_7rem_7.5rem] sm:gap-x-4"
     >
       <div className="size-12 shrink-0 overflow-hidden bg-paper-muted sm:size-14">
         <ArtistThumb src={event.imageUrl} artist={event.artist} />
@@ -243,7 +243,9 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
   const [events, setEvents] = useState<NearbyEvent[]>([]);
   const [location, setLocation] = useState<NearbyResponse['location']>(null);
   const [edges, setEdges] = useState({ start: true, end: false });
-  const boardRef = useRef<HTMLUListElement | null>(null);
+  // The scrolling box is the wrapper around the sticky strip and the list, so
+  // the header shares the rows' width exactly.
+  const boardRef = useRef<HTMLDivElement | null>(null);
   const { ids: saved, failedEvent, toggle: toggleSaved } = useSavedEvents();
 
   useEffect(() => {
@@ -371,20 +373,45 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
         </div>
       </div>
 
-      {/* Column strip. A header over a fixed-height window is what makes the list
-          read as a board, so it uses the row's own grid template — a header whose
-          columns drift from the rows below it is worse than no header at all. */}
+      {/* The strip used to sit outside the scroller, which is why its columns
+          drifted: the last column was `auto`, so it measured 0 px here and the
+          117 px of buttons in a row, and the arithmetic pushed City and Distance
+          132 px to the right. It now lives inside the scrolling box with a fixed
+          template, so it shares the rows' exact width — and sticks while the
+          board scrolls, which a header over ten rows should. */}
       {status === 'ready' && (
         <div
-          aria-hidden="true"
-          className="mt-6 hidden gap-x-4 border-b border-ink pb-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-muted sm:grid sm:grid-cols-[3.5rem_minmax(0,1fr)_minmax(0,9rem)_4.5rem_7rem_auto]"
+          ref={boardRef}
+          onScroll={syncEdges}
+          className="mt-6 h-[39.6rem] overflow-y-auto overscroll-contain sm:h-[50.4rem]"
         >
-          <span />
-          <span className="min-w-0">Artist / venue</span>
-          <span className="min-w-0">City</span>
-          <span className="text-right">Distance</span>
-          <span className="text-right">Date</span>
-          <span />
+          <div
+            aria-hidden="true"
+            className="sticky top-0 z-10 hidden gap-x-4 bg-paper pt-1 pb-1.5 text-[9px] font-black uppercase tracking-[0.18em] text-muted sm:grid sm:grid-cols-[3.5rem_minmax(0,1fr)_minmax(0,10rem)_4.5rem_7rem_7.5rem]"
+          >
+            <span />
+            <span className="min-w-0">Artist / venue</span>
+            <span className="min-w-0">City</span>
+            <span className="text-right">Distance</span>
+            <span className="text-right">Date</span>
+            <span />
+          </div>
+
+          <ul
+            // Preflight removes list markers and Safari drops list semantics
+            // with them; the explicit role keeps the board announced as a list.
+            role="list"
+            className="border-t border-ink"
+          >
+            {events.map((event) => (
+              <NearbyRow
+                key={event.id}
+                event={event}
+                saved={saved.has(event.id)}
+                onToggle={() => toggleSaved({ id: event.id, label: event.artist })}
+              />
+            ))}
+          </ul>
         </div>
       )}
 
@@ -427,25 +454,6 @@ export default function NearbyEventsRail({ className = '' }: { className?: strin
         </div>
       )}
 
-      {status === 'ready' && (
-        <ul
-          // Preflight removes list markers and Safari drops list semantics with
-          // them; the explicit role keeps the board announced as a list.
-          role="list"
-          ref={boardRef}
-          onScroll={syncEdges}
-          className="mt-0 h-[39.6rem] overflow-y-auto overscroll-contain border-t border-line sm:h-[50.4rem]"
-        >
-          {events.map((event) => (
-            <NearbyRow
-              key={event.id}
-              event={event}
-              saved={saved.has(event.id)}
-              onToggle={() => toggleSaved({ id: event.id, label: event.artist })}
-            />
-          ))}
-        </ul>
-      )}
     </section>
   );
 }
