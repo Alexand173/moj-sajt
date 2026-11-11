@@ -1,5 +1,6 @@
 import { loadEnvConfig } from '@next/env';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { buildArtistNameIndex, loadKnownArtistNames, type ArtistNameIndex } from '../lib/news-artists';
 import { assessNewsRelevance, type RelevancePolicy } from '../lib/news-relevance';
 import { isMusicPublicationUrl } from '../lib/news-sources';
 
@@ -106,10 +107,14 @@ function policyFor(row: NewsRow): RelevancePolicy {
   return row.category === 'OFFICIAL' ? 'music-publication' : 'news-api';
 }
 
-function judge(row: NewsRow): JudgedRow {
+function judge(row: NewsRow, knownArtists: ArtistNameIndex): JudgedRow {
   const verdict = assessNewsRelevance(
     { title: row.title, excerpt: row.excerpt, content: row.content, url: row.url },
     policyFor(row),
+    // The same artist evidence ingest uses. Without it, "Lindsey Buckingham shares
+    // surprising update about relationship with Stevie Nicks" reads as no-music and
+    // a general newsroom's copy would be stamped.
+    { knownArtists },
   );
 
   /**
@@ -132,7 +137,6 @@ function judge(row: NewsRow): JudgedRow {
   const host = hostOf(row.url);
   const hasKnownPublisher = host !== '(no url)' && host !== '(bad url)';
   const noMusicEvidence = verdict.musicScore === 0;
-
   /**
    * Three shapes are unambiguous enough to stamp without a human:
    *
@@ -140,11 +144,14 @@ function judge(row: NewsRow): JudgedRow {
    * - no music evidence at all, plus off-topic evidence;
    * - no music evidence at all, from a publisher we can see is a general newsroom.
    *
-   * The third is new and it is what the backlog needed: 32 of 1,000 audited rows
-   * scored zero in both directions, and that bucket held both the cricket explainer
-   * and an artist-only album review. Vocabulary cannot separate them; the host can.
-   * Rows whose publisher is unknown or a music publication stay held, which is the
-   * honest residue.
+   * `headlineSaysNothingMusical` is deliberately NOT one of them, and it was
+   * measured rather than guessed: mirroring the ingest gate's headline rule over
+   * stored rows reclassified 1,763 published rows as clear, and 654 of those had
+   * substantial body evidence — "JAŸ-Z Adds London Stadium Show", "Ella Langley
+   * Blocks Herself From A New No. 1 Hit", "Sarah McLachlan and Allison Russell on
+   * Touring Together". An artist's name is not in any vocabulary list, so a
+   * headline can name one and still score zero. The rule needs artist recognition
+   * before it can be trusted; see the plan.
    */
   const confidence: Confidence = !looksLikeAudioGear(row.title)
     && (
@@ -216,7 +223,8 @@ async function main(): Promise<void> {
   const apply = process.argv.includes('--apply');
   const supabase = createClient(url, key, { auth: { persistSession: false } });
   const rows = await loadRows(supabase);
-  const judged = rows.map(judge);
+  const knownArtists = buildArtistNameIndex(await loadKnownArtistNames(supabase));
+  const judged = rows.map((row) => judge(row, knownArtists));
 
   /**
    * Undo half first. A row the rule keeps but that is already `skipped` was

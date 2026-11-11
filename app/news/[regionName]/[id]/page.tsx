@@ -193,6 +193,16 @@ export default async function SingleNewsPage({
    * stale slug 404s here too instead of redirecting to another 404.
    */
   if (!hasRecordedSource(article)) notFound();
+
+  /**
+   * A story the relevance cleanup judged not to be music is unpublished, and
+   * `skipped` is where that verdict lives. Serving it as a noindexed page left it
+   * reachable by anyone holding the URL — or by a search engine that indexed it
+   * before the verdict. 404 is the same treatment the source rule gets.
+   */
+  if (article.ai_status === 'skipped') notFound();
+
+  // Legacy `/news/<region>/<id>` links and stale titles land on the current
   // headline slug instead of rendering a second address for the same story.
   const canonicalSegment = getNewsArticleSegment(article.id, article.title);
   if (idSegment !== canonicalSegment) {

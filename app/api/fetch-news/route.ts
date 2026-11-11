@@ -8,6 +8,7 @@ import {
   remainingQuotaByRegion,
 } from '../../../lib/news-balance';
 import { NEWS_REGION_QUERIES, type NewsRegion } from '../../../lib/news-regions';
+import { buildArtistNameIndex, loadKnownArtistNames, type ArtistNameIndex } from '../../../lib/news-artists';
 import { upgradePublisherImageUrl } from '../../../lib/news-media';
 import { assessNewsRelevance } from '../../../lib/news-relevance';
 import { splitIngestableArticles } from '../../../lib/news-publication';
@@ -116,6 +117,7 @@ async function fetchNews(
   region: NewsRegion,
   apiKey: string,
   limit: number,
+  knownArtists: ArtistNameIndex,
 ): Promise<NewsFetchResult> {
   if (limit <= 0) {
     console.log(`⏭️ ${region} already received its daily LATEST allowance; skipping the request.`);
@@ -174,7 +176,7 @@ async function fetchNews(
           title: art.title,
           excerpt: art.description,
           content: art.content,
-        }, policy);
+        }, policy, { knownArtists });
 
         if (verdict.relevant) return true;
 
@@ -264,12 +266,15 @@ export async function GET() {
     // publisher's time, so the rolling count cannot see what this run already
     // inserted — without the split, four runs a day each spent the full allowance.
     const runShare = perRunAllowance(dailyTarget);
+    // Loaded once per run: an artist's name is music evidence no word list has.
+    const knownArtists = buildArtistNameIndex(await loadKnownArtistNames(supabase));
     const regionalResults = await Promise.all(
       NEWS_REGION_QUERIES.map(({ query, region }) => fetchNews(
         query,
         region,
         apiKey,
         Math.min(quotaRemaining[region] ?? dailyTarget, runShare),
+        knownArtists,
       )),
     );
     const failedRegions = regionalResults.filter((result) => result.failed).map((result) => result.region);

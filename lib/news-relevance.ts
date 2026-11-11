@@ -15,6 +15,8 @@
  * never win on points.
  */
 
+import { titleMentionsKnownArtist, type ArtistNameIndex } from './news-artists';
+
 export type RelevanceInput = {
   title?: string | null;
   excerpt?: string | null;
@@ -129,7 +131,7 @@ const HARD_BLOCKS: Array<{ pattern: RegExp; reason: string }> = [
     // exhibition of Black British music" — the excerpt mentions the Nintendo in
     // JME's early tunes, because the console is part of the exhibit. A brand is a
     // mention; "gameplay", "esports" and "game review" are the subject.
-    pattern: /\b(capcom|gameplay|esports|dlc|call of duty|game review|game thread|battle royale|patch notes)\b/i,
+    pattern: /\b(capcom|gameplay|esports|dlc|call of duty|game review|game thread|battle royale|patch notes|sandbox engine|multiplayer|early access)\b/i,
     reason: 'video-game',
   },
   {
@@ -178,6 +180,44 @@ const HARD_BLOCKS: Array<{ pattern: RegExp; reason: string }> = [
     // materials" — a property dispute, in the WORLD feed, under MusicTop's byline.
     pattern: /\b(real estate|property dispute|refund order|land dispute|contractor|tenants? (?:rights|dispute)|renovation contractor)\b/i,
     reason: 'legal-property',
+  },
+  {
+    /**
+     * Television listings. "IS SNL NEW TONIGHT? HOST, MUSICAL GUEST, EPISODE…"
+     * scored on "musical" and "guest" and was published as world news. A listing
+     * names a broadcast, not a music story, however many words about music it
+     * contains.
+     */
+    pattern: /\b(snl|saturday night live|late[- ]night show|talk show|episode guide|tv listing|what to watch tonight)\b/i,
+    reason: 'tv-listing',
+  },
+  {
+    /**
+     * Comedy and art-world events: "Inside 20 years of NYC's edgiest comedy
+     * festival" and "Art Week Tokyo's Most Dynamic Event Is Tucked into a Capsule
+     * Hotel". Deliberately not the bare word "exhibition": "Stormzy's stab-proof
+     * vest goes on display in landmark exhibition of Black British music" is a
+     * music story, and a hard block would kill it.
+     */
+    pattern: /\b(comedy festival|stand[- ]up special|art fair|art week|gallery opening)\b/i,
+    reason: 'comedy-arts',
+  },
+  {
+    /**
+     * Travel and food guides: "A country escape straight out of a fairytale, a
+     * spectacular bottomless brunch in Sydney" and "6 Red Flags You're About To
+     * Eat At A Tourist Trap Restaurant". Both were published under WORLD.
+     */
+    pattern: /\b(brunch|food guide|restaurant review|tourist trap|travel guide|capsule hotel|hotel review)\b/i,
+    reason: 'travel-food',
+  },
+  {
+    // A quotes column is not music news even when the person quoted is a musician:
+    // "Quote of the Day by Shakira: 'I just want to grow old with a man who… –
+    // Timeless life lessons'" is a self-help page that happens to name an artist,
+    // and artist recognition would otherwise rescue it.
+    pattern: /\b(quote of the day|life lessons|inspiring lessons)\b/i,
+    reason: 'quote-column',
   },
   {
     /**
@@ -232,9 +272,18 @@ function collectMatches(text: string, pattern: RegExp): string[] {
  * The headline carries the most weight in practice, because feeds truncate the
  * body, but all three fields are read so a bare headline can still be judged.
  */
+export interface RelevanceOptions {
+  /**
+   * Names the site already knows, from the charts and the tour data. Optional:
+   * without it the gate is simply stricter, never wrong.
+   */
+  knownArtists?: ArtistNameIndex | null;
+}
+
 export function assessNewsRelevance(
   input: RelevanceInput,
   policy: RelevancePolicy = 'news-api',
+  options: RelevanceOptions = {},
 ): RelevanceAssessment {
   const text = [input.title, input.excerpt, input.content].filter(Boolean).join(' \n ');
 
@@ -257,9 +306,22 @@ export function assessNewsRelevance(
   ];
   const matchedOffTopic = collectMatches(text, OFF_TOPIC_TERMS);
 
+  /**
+   * An artist's name is the one piece of music evidence no word list contains.
+   * "JAŸ-Z Adds London Stadium Show To 30-Year Celebration Run" and "Lindsey
+   * Buckingham shares surprising update about relationship with Stevie Nicks" are
+   * music stories that score zero on vocabulary alone. The charts and the tour
+   * data already know those names, so they are worth a strong term each.
+   */
+  const artistInTitle = titleMentionsKnownArtist(title, options.knownArtists);
+  const artistInText = artistInTitle || titleMentionsKnownArtist(text, options.knownArtists);
+  if (artistInText) matchedMusic.push('known-artist');
+
   const strongHits = collectMatches(text, STRONG_MUSIC_TERMS).length;
   const softHits = collectMatches(text, SOFT_MUSIC_TERMS).length;
-  const musicScore = strongHits * STRONG_MUSIC_WEIGHT + softHits * SOFT_MUSIC_WEIGHT;
+  const musicScore = strongHits * STRONG_MUSIC_WEIGHT
+    + softHits * SOFT_MUSIC_WEIGHT
+    + (artistInText ? STRONG_MUSIC_WEIGHT : 0);
   const offTopicScore = matchedOffTopic.length * OFF_TOPIC_WEIGHT;
 
   // Feeds truncate the body, so the headline is often all the evidence there is.
@@ -269,7 +331,8 @@ export function assessNewsRelevance(
   // scores against it.
   const titleStrongHits = collectMatches(title, STRONG_MUSIC_TERMS).length;
   const titleMusicScore = titleStrongHits * STRONG_MUSIC_WEIGHT
-    + collectMatches(title, SOFT_MUSIC_TERMS).length * SOFT_MUSIC_WEIGHT;
+    + collectMatches(title, SOFT_MUSIC_TERMS).length * SOFT_MUSIC_WEIGHT
+    + (artistInTitle ? STRONG_MUSIC_WEIGHT : 0);
 
   const hardBlock = HARD_BLOCKS.find((block) => block.pattern.test(text))?.reason
     // "qobuz-dl-ultra 2.4.3.1" reads as a changelog entry, not a headline: a

@@ -80,6 +80,16 @@ async function main(): Promise<void> {
     return `${category}: kept ${total - blocked}/${total}`;
   });
 
+  /**
+   * The number that should stay near zero.
+   *
+   * A refused row that is `generated` is published — the gate would not accept it
+   * today, so it is either an old row the cleanup has not reached or a regression
+   * in the gate. Reporting it on every audit turns drift into a figure instead of
+   * something noticed when someone looks at the feed.
+   */
+  const publishedButRefused = rejected.filter((entry) => entry.row.ai_status === 'generated');
+
   console.log(JSON.stringify({
     event: 'news_relevance_audit',
     windowDays: days,
@@ -87,8 +97,13 @@ async function main(): Promise<void> {
     byCategory,
     kept: rows.length - rejected.length,
     rejected: rejected.length,
+    publishedButRefused: publishedButRefused.length,
     reasons: Object.fromEntries(byReason),
   }, null, 2));
+
+  if (publishedButRefused.length > 0) {
+    console.log(`${publishedButRefused.length} refused row(s) are published — run news:purge-offtopic to drain them.`);
+  }
 
   for (const entry of rejected.slice(0, 25)) {
     console.log(

@@ -150,6 +150,46 @@ describe('the non-music stories that were published', () => {
     expect(assessNewsRelevance(earnings, 'music-publication').relevant).toBe(true);
   });
 
+  it('blocks the subjects that survived the first sweep', () => {
+    // Each was still live on the world feed after the 263-row purge.
+    expect(assessNewsRelevance({
+      title: 'IS SNL NEW TONIGHT? HOST, MUSICAL GUEST, EPISODE GUIDE',
+    }).hardBlock).toBe('tv-listing');
+    expect(assessNewsRelevance({
+      title: "Inside 20 years of NYC's edgiest comedy festival — and the quest to find the next Jerry Seinfeld",
+    }).hardBlock).toBe('comedy-arts');
+    expect(assessNewsRelevance({
+      title: 'A country escape straight out of a fairytale, a spectacular bottomless brunch in Sydney',
+    }).hardBlock).toBe('travel-food');
+    expect(assessNewsRelevance({
+      title: 'VOXELCRAFT - MULTIPLAYER SANDBOX ENGINE BY TOPSONGAMES',
+    }).hardBlock).toBe('video-game');
+    expect(assessNewsRelevance({
+      title: "Art Week Tokyo's Most Dynamic Event Is Tucked into a Capsule Hotel",
+    }).hardBlock).toBe('comedy-arts');
+
+    // A deal story with no music vocabulary: refused on score, not by subject.
+    const deal = assessNewsRelevance({
+      title: 'Afreximbank targets over $540m deals at Lagos CANEX',
+      excerpt: 'The African Export-Import Bank has set its sights on securing creative industry deals.',
+    });
+    expect(deal.relevant).toBe(false);
+    expect(deal.musicScore).toBeLessThan(2);
+  });
+
+  it('does not block an exhibition that is about music', () => {
+    // The reason "exhibition" is in no pattern: this is a music story, and a hard
+    // block on the venue word would refuse it outright — the console names were
+    // removed from the video-game list for the same reason.
+    const verdict = assessNewsRelevance({
+      title: "Stormzy's Glastonbury stab-proof shield goes on display in landmark exhibition of Black British music",
+      excerpt: "The exhibition traces Black British music through artefacts, from early grime recordings to the stage outfits of festival sets.",
+    });
+
+    expect(verdict.hardBlock).toBeNull();
+    expect(verdict.relevant).toBe(true);
+  });
+
   it('still keeps the obituary that only says "music legend" in the headline', () => {
     // The evidence rule must not undo the false-negative work: one soft headline
     // word is a subject, one strong body word is a mention.
