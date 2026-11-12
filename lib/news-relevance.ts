@@ -232,7 +232,7 @@ const SPORT_BLOCKS: Array<{ pattern: RegExp; reason: string }> = [
   {
     // Not bare "super bowl": the halftime headliner is a music story. The sport
     // is named by its champions and its game, never by the show.
-    pattern: /\b(?:basketball|wnba|nba(?!\s*young-?boy)|three-pointer|all-star 3-point|ice hockey|nhl|stanley cup|rugby|six nations|premier league|la liga|serie a|bundesliga|champions league|world cup|uefa|fifa|soccer|football (?:club|team|match|league)|quarterback|touchdown|super bowl (?:winner|champions|championship game)|playoff berth|transfer window|hat[- ]trick|medal table)\b/i,
+    pattern: /\b(?:basketball|wnba|nba(?!\s*young-?boy)|three-pointer|all-star 3-point|ice hockey|nhl|stanley cup|rugby|six nations|premier league|la liga|serie a|bundesliga|champions league|world cup|uefa|fifa|soccer|football (?:club|team|match|league)|play(?:s|ed|ing)? (?:football|basketball|baseball)|(?:football|basketball) (?:game|match|season)|quarterback|touchdown|super bowl (?:winner|champions|championship game)|playoff berth|transfer window|hat[- ]trick|medal table)\b/i,
     reason: 'sport-team',
   },
   {
@@ -365,7 +365,7 @@ const HARD_BLOCKS: Array<{ pattern: RegExp; reason: string }> = [
     // Perform 'Drop Dead' on SNL") is music news, and 73 such rows were queued for
     // removal. What is not music is the schedule — who is hosting, who is the
     // musical guest, which episode is new tonight.
-    pattern: /\b(?:is snl new tonight|snl new tonight|snl (?:host|musical guest)|saturday night live (?:host|musical guest)|late[- ]night show|talk show|episode guide|tv listing|what to watch (?:tonight|this week)|dwts|dancing with the stars)\b/i,
+    pattern: /\b(?:is snl new tonight|snl new tonight|snl (?:host|musical guest)|saturday night live (?:host|musical guest)|late[- ]night show|talk show|episode guide|tv listing|what to watch (?:tonight|this week)|dwts|dancing with the stars|rhoa|real housewives|housewives of)\b/i,
     reason: 'tv-listing',
   },
   {
@@ -447,7 +447,7 @@ const HARD_BLOCKS: Array<{ pattern: RegExp; reason: string }> = [
      * performance, "marriage" may be a song, and "husband" may be a collaborator's.
      * Only the constructions that exist to carry a relationship story are blocked.
      */
-    pattern: /\b(?:allegedly cheated|cheated on (?:her|him|them)|accused of cheating|denies cheating|breaks? (?:her|his|their|the|its)? ?silence|(?:have|having|had) a (?:husband|wife|boyfriend|girlfriend)|spark alive|dating bans?|dating rumours?|dating rumors?|dating history|dating life|baby plans?|marriage (?:plans?|pressures?|rumours?|rumors?)|officiating [\w’' -]{0,40}wedding|(?:her|his|their) (?:ex-)?(?:husband|wife|boyfriend|girlfriend|fianc\w{0,3}) (?:reveals?|says?|admits?|denies|blasts?|slams?|spill\w*)|late (?:husband|wife)|quizzed on)\b/i,
+    pattern: /\b(?:allegedly cheated|cheated on (?:her|him|them)|accused of cheating|denies cheating|breaks? (?:her|his|their|the|its)? ?silence|(?:have|having|had) a (?:husband|wife|boyfriend|girlfriend)|spark alive|dating bans?|dating rumours?|dating rumors?|dating history|dating life|baby plans?|marriage (?:plans?|pressures?|rumours?|rumors?)|officiating [\w’' -]{0,40}wedding|(?:her|his|their) (?:ex-)?(?:husband|wife|boyfriend|girlfriend|fianc\w{0,3}) (?:reveals?|says?|admits?|denies|blasts?|slams?|spill\w*)|(?:girlfriend|boyfriend|partner|wife|husband|fianc\w{0,3}) (?:arrested|charged|detained)|late (?:husband|wife)|quizzed on)\b/i,
     reason: 'relationship-gossip',
   },
   {

@@ -778,6 +778,11 @@ describe('relationship stories are not music stories', () => {
       'From dating bans to surgery, how drastic are NewJeans’ ‘unusually aggressive’ restrictions?',
       'Sharon Osbourne surprises pub-goers as she pours a pint in late husband Ozzy’s hometown',
       'Harry Jowsey gets quizzed on ‘DWTS,’ Travis Kelce’s ‘Let’s Marry Harry’ predecessor',
+      // Found in the production US feed after the restore: watching a partner play
+      // football, a partner arrested, and a reality-television tie-in.
+      "Taylor Swift and Karlie Kloss reunite! Former BFFs watch singer's husband Travis Kelce play football",
+      "Mötley Crüe singer Vince Neil's longtime girlfriend arrested on domestic assault charges",
+      '‘Booooooo’: K. Michelle Slams Shamea Morton Skipping Out On Her RHOA-Supported Album Release',
     ];
 
     for (const title of headlines) {
