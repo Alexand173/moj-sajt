@@ -527,6 +527,95 @@ describe('sport that reached the EUROPA feed', () => {
   });
 });
 
+/**
+ * The 2026-11-12 cleanup report, turned into cases. Every title here was in the
+ * table: the ones that must survive were being held as junk, and the ones that
+ * must go were being held only because a general newsroom's copy carried no music
+ * word at all.
+ */
+describe('the cleanup report fixtures', () => {
+  it('keeps the music the report found', () => {
+    // musicradar: the instrument was missing from the vocabulary, so a guitar
+    // feature scored nothing.
+    expect(isMusicNews({
+      title: 'Joe Bonamassa on how Albert Collins taught him to wield his guitar',
+    })).toBe(true);
+
+    // A festival's own name is evidence no word list contains.
+    expect(isMusicNews({
+      title: "Anyma's Coachella Set Canceled Due to 'Strong Wind Conditions'",
+    })).toBe(true);
+
+    // A trusted music outlet keeps a name-only headline.
+    expect(isPublishableMusicNews({
+      title: "Naïssam Jalal – 'Landscapes of Eternity'",
+      url: 'https://www.ukjazznews.com/reviews/naissam-jalal',
+    }, { publisherTrust: 'music' })).toBe(true);
+    expect(isPublishableMusicNews({
+      title: 'Luxembourg 2027: Pre-selection preparations underway',
+      url: 'https://eurovision.com/luxembourg-2027',
+    }, { publisherTrust: 'music' })).toBe(true);
+
+    // Music-business reporting survives on the publisher, not the vocabulary.
+    expect(isPublishableMusicNews({
+      title: 'Warner Music Group Buys Back Part of Distributor Zebralution',
+      url: 'https://www.billboard.com/pro/warner-music-group-zebralution',
+    }, { publisherTrust: 'music' })).toBe(true);
+  });
+
+  it('refuses the non-music the report found, general newsroom or not', () => {
+    const refused = [
+      "Ralph Fiennes Says the 'Ship Has Sailed' for Him to Reprise Voldemort Role",
+      'Yathindra leads voter roll revision drive in Mysuru',
+      'The 34th Annual Giant BBQ Battle Hits Washington D.C. This Weekend',
+      "China Box Office: 'It's OK' Claims Top Spot on Slow Weekend",
+      'Bad tigers, bad monsters: What is holding Korean CGI back?',
+      'Umbria tells its story through olive oil',
+    ];
+
+    for (const title of refused) {
+      expect(isPublishableMusicNews({ title }, { publisherTrust: 'general' }), title).toBe(false);
+    }
+  });
+
+  it('does not score the scraper stub as music', () => {
+    // The scraper writes `excerpt: "SOURCE: EFE.COM"` and
+    // `content: "Music update from efe.com"` into every OFFICIAL row, which handed
+    // every row one free point — the "1 vs 0" bucket in the report.
+    const stubbed = assessNewsRelevance({
+      title: 'Al menos 10 muertos en ataques de Israel en el sur del Líbano',
+      excerpt: 'SOURCE: EFE.COM',
+      content: 'Music update from efe.com',
+    }, 'news-api');
+
+    expect(stubbed.musicScore).toBe(0);
+    expect(stubbed.relevant).toBe(false);
+    expect(isPublishableMusicNews({
+      title: 'Al menos 10 muertos en ataques de Israel en el sur del Líbano',
+      excerpt: 'SOURCE: EFE.COM',
+      content: 'Music update from efe.com',
+    }, { publisherTrust: 'general' })).toBe(false);
+
+    // A real body is still read.
+    expect(assessNewsRelevance({
+      title: 'A new record arrives in March',
+      content: 'The album arrives in March.',
+    }).musicScore).toBeGreaterThan(0);
+  });
+
+  it('will not let festival, artist or stage carry a story alone', () => {
+    // One support word and nothing else: the score can reach the bar, but support
+    // cannot establish a subject.
+    const verdict = assessNewsRelevance({
+      title: 'A festival for the whole region',
+      excerpt: 'An event celebrating local produce, with artists and a stage.',
+    });
+
+    expect(verdict.relevant).toBe(false);
+    expect(verdict.hardBlock).toBeNull();
+  });
+});
+
 describe('the verdict used at publish and read time', () => {
   it('trusts a music publication with a headline no word list recognises', () => {
     expect(isPublishableMusicNews({

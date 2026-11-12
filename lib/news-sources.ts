@@ -233,6 +233,16 @@ const ADDITIONAL_MUSIC_PUBLICATION_HOSTS = [
   'slippedisc.com',
   'songlines.co.uk',
   'popmatters.com',
+  // Added from the 2026-11-12 cleanup report. All three publish music only, and
+  // all three had rows held as "no evidence" because their headlines name an
+  // artist or a competition and no English word list recognises either:
+  //   "Joe Bonamassa on how Albert Collins taught him to wield his guitar"
+  //   "Naïssam Jalal – 'Landscapes of Eternity'"
+  //   "Luxembourg 2027: Pre-selection preparations underway"
+  'musicradar.com',
+  'ukjazznews.com',
+  'eurovision.com',
+  'earmilk.com',
 ];
 
 /**
@@ -249,6 +259,7 @@ const ADDITIONAL_MUSIC_PUBLICATION_HOSTS = [
  */
 const GENERAL_NEWSROOM_HOSTS: string[] = [
   'theguardian.com',
+  'irishtimes.com',
   'standard.co.uk',
   'variety.com',
   // Lifestyle Asia is a lifestyle magazine with a music section; its food, travel
@@ -260,6 +271,20 @@ const GENERAL_NEWSROOM_HOSTS: string[] = [
   'efe.com',
   'list.co.uk',
   'theartsdesk.com',
+  // Added 2026-11-12 from the cleanup report: publishers whose feeds carry
+  // politics, film, comics or wire copy alongside the occasional music piece.
+  // Naming them `general` is what allows a zero-evidence row from them to be
+  // cleared, while leaving an unknown music blog (earmilk, largeheartedboy) held
+  // for a human instead of condemned by silence.
+  'dailymail.co.uk',
+  'dailymail.com',
+  'deadline.com',
+  'timesofindia.indiatimes.com',
+  'economictimes.indiatimes.com',
+  'prnewswire.com',
+  'bleedingcool.com',
+  'rte.ie',
+  'post.rlsbb.cc',
 ];
 
 function normalizeHost(hostname: string): string {

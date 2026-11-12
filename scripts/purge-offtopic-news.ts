@@ -101,6 +101,9 @@ interface JudgedRow {
   trustedPublisher: boolean;
   /** Would have been refused on vocabulary alone, and the publisher rescues it. */
   rescuedByPublisher: boolean;
+  /** What the gate actually saw, so a decision can be explained rather than asserted. */
+  matchedMusic: string[];
+  matchedOffTopic: string[];
 }
 
 function policyFor(row: NewsRow): RelevancePolicy {
@@ -134,8 +137,15 @@ function judge(row: NewsRow, knownArtists: ArtistNameIndex): JudgedRow {
    * publisher is a general newsroom, zero music evidence means the story is not
    * about music.
    */
-  const host = hostOf(row.url);
-  const hasKnownPublisher = host !== '(no url)' && host !== '(bad url)';
+  /**
+   * A publisher we can actually name as a general newsroom.
+   *
+   * This used to be "any host we can parse", which condemned every music blog the
+   * registry has never heard of — earmilk, largeheartedboy, dazeddigital — for the
+   * crime of writing a headline no word list recognises. Silence from an unknown
+   * publisher is not evidence; silence from Variety is.
+   */
+  const isGeneralNewsroom = getPublisherTrust(row.url) === 'general';
   const noMusicEvidence = verdict.musicScore === 0;
   /**
    * Three shapes are unambiguous enough to stamp without a human:
@@ -157,7 +167,7 @@ function judge(row: NewsRow, knownArtists: ArtistNameIndex): JudgedRow {
     && (
       Boolean(verdict.hardBlock)
       || (noMusicEvidence && verdict.offTopicScore >= 2)
-      || (noMusicEvidence && hasKnownPublisher && !trustedPublisher)
+      || (noMusicEvidence && isGeneralNewsroom)
     )
     ? 'clear'
     : 'needs-judgement';
@@ -184,6 +194,8 @@ function judge(row: NewsRow, knownArtists: ArtistNameIndex): JudgedRow {
     confidence,
     trustedPublisher,
     rescuedByPublisher: trustedPublisher && !verdict.relevant,
+    matchedMusic: verdict.matchedMusic,
+    matchedOffTopic: verdict.matchedOffTopic,
   };
 }
 
@@ -372,6 +384,56 @@ async function main(): Promise<void> {
     console.log(
       `- [${entry.row.category} ${entry.row.ai_status ?? 'null'}] ${String(entry.row.title || '').slice(0, 95)}  <${entry.reason}>`,
     );
+  }
+
+  /**
+   * What this run would stamp, grouped by who published it.
+   *
+   * A count is not enough to approve a deletion: 1,400 rows can be three
+   * publishers, and one of them may be real music. This puts the host next to
+   * two headlines so the decision is made per publisher, not per total.
+   */
+  const publisherCounts = new Map<string, { count: number; titles: string[] }>();
+  const refusedRows = judged.filter((entry) => entry.refused && entry.row.ai_status !== 'skipped');
+  for (const entry of refusedRows) {
+    const host = hostOf(entry.row.url);
+    const bucket = publisherCounts.get(host) || { count: 0, titles: [] };
+    bucket.count += 1;
+    if (bucket.titles.length < 2) bucket.titles.push(String(entry.row.title || '').slice(0, 80));
+    publisherCounts.set(host, bucket);
+  }
+  console.log(JSON.stringify({
+    event: 'news_refused_by_host',
+    wouldSkip: selected.length,
+    refused: refusedRows.length,
+    publishers: publisherCounts.size,
+    hosts: [...publisherCounts.entries()]
+      .sort((a, b) => b[1].count - a[1].count)
+      .slice(0, 25)
+      .map(([host, bucket]) => ({ host, count: bucket.count, titles: bucket.titles })),
+  }, null, 2));
+
+  const byTermArgument = process.argv.find((argument) => argument.startsWith('--by-term='));
+  if (byTermArgument) {
+    const term = byTermArgument.slice('--by-term='.length).trim().toLowerCase();
+    const matching = selected.filter((entry) => entry.matchedMusic.includes(term));
+    console.log(JSON.stringify({
+      event: 'news_by_term',
+      term,
+      selected: selected.length,
+      matching: matching.length,
+      titles: matching.slice(0, 10).map((entry) => String(entry.row.title || '').slice(0, 90)),
+    }, null, 2));
+  }
+
+  if (process.argv.includes('--explain')) {
+    for (const entry of selected.slice(0, 40)) {
+      console.log(
+        `- [${entry.row.category} ${entry.row.ai_status ?? 'null'}] ${String(entry.row.title || '').slice(0, 80)}`
+        + `\n    music: ${entry.matchedMusic.join(', ') || '-'}`
+        + `\n    off:   ${entry.matchedOffTopic.join(', ') || '-'}`,
+      );
+    }
   }
 
   /**

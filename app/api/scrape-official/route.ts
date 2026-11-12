@@ -9,7 +9,7 @@ import {
   takeWithinQuota,
 } from '../../../lib/news-balance';
 import { normalizeNewsRegion } from '../../../lib/news-regions';
-import { isMusicNews } from '../../../lib/news-relevance';
+import { isMusicStory } from '../../../lib/news-editorial';
 import { OFFICIAL_NEWS_SOURCES } from '../../../lib/news-sources';
 import { isUsableScrapedTitle } from '../../../lib/scrape-limits';
 
@@ -115,10 +115,21 @@ async function scrapeSource(source: NewsSource, scrapedData: ScrapedArticle[]): 
        * of measuring length, and lives in one place so the source probe agrees.
        */
       if (isUsableScrapedTitle(title) && link) {
-        // Even a music source carries the occasional off-topic piece. Rewriting
-        // one costs an AI call and publishes it under MusicTop's byline, so it is
-        // cheaper to drop it here than to fix it later.
-        if (!isMusicNews({ title }, 'music-publication')) {
+        /**
+         * Even a music source carries the occasional off-topic piece, and a
+         * general newsroom's music section carries a great deal more — the source
+         * list includes the Guardian, Variety, EFE and Télérama. Rewriting one
+         * costs an AI call and publishes it under MusicTop's byline, so it is
+         * cheaper to drop it here than to fix it later.
+         *
+         * The policy follows the publisher, not the category. A curated music
+         * outlet keeps the benefit of the doubt for a headline no English word
+         * list recognises ("Blackpink – Go"); a general newsroom has to name its
+         * subject. Passing a hard-coded `music-publication` here is what let 497
+         * EFE politics stories and 881 Variety film stories into the table with
+         * zero music evidence.
+         */
+        if (!isMusicStory({ title, url: source.url })) {
           skippedOffTopic += 1;
           return false;
         }

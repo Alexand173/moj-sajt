@@ -65,9 +65,18 @@ function buildTermPattern(alternatives: string[]): RegExp {
   );
 }
 
-/** Unambiguous music vocabulary: worth three points each. */
-const STRONG_MUSIC_TERMS = buildTermPattern([
-  'albums?', 'singles?', 'eps?', 'mixtapes?', 'tours?', 'concerts?', 'gigs?', 'festivals?',
+/**
+ * Anchors: vocabulary that is music and nothing else. Three points each, and the
+ * only tier that can establish a story's subject.
+ *
+ * This replaced a flat "strong" list that mixed real anchors with words a
+ * newsroom uses for anything. A score cannot tell those apart, which is why an
+ * olive-oil "festival" and a Beyoncé album both read as three points of music.
+ * The tiers below are the difference between *what the story is about* and *what
+ * word happens to be in it*.
+ */
+const ANCHOR_MUSIC_TERMS = buildTermPattern([
+  'albums?', 'singles?', 'eps?', 'mixtapes?', 'tours?', 'concerts?', 'gigs?',
   'discography', 'setlists?', 'tracklists?', 'remix(?:es)?', 'vinyl', 'songwriters?', 'rappers?',
   'vocalists?', 'drummers?', 'guitarists?', 'bassists?', 'bands?', 'orchestras?', 'symphon(?:y|ies)',
   'opera', 'jazz', 'hip[ -]hop', 'k[ -]pop', 'reggaeton', 'afrobeats?', 'grime', 'house music',
@@ -86,14 +95,64 @@ const STRONG_MUSIC_TERMS = buildTermPattern([
   'suno', 'udio', 'elevenlabs',
   // The contest is a music institution; its stories rarely say "music".
   'eurovision',
+  // Songs and releases, named plainly. "new song" was a soft term, which meant a
+  // release announcement could not establish its own subject.
+  'songs?', 'album review', 'new album', 'tour dates?',
+  // Instruments. "Joe Bonamassa on how Albert Collins taught him to wield his
+  // guitar" is a music feature that scored nothing, because only "guitarists"
+  // was in the list — the instrument a player holds was not music evidence.
+  'guitars?', 'bass guitars?', 'drum kits?', 'drums?', 'pianos?', 'synthesi[sz]ers?', 'synths?',
+  'microphones?', 'amps?', 'amplifiers?', 'effect pedals?',
+  // Owned names. A festival's name is music evidence no register contains, and it
+  // is what rescues "Anyma's Coachella Set Canceled Due to Strong Wind Conditions"
+  // — a music story with no music vocabulary at all.
+  'glastonbury', 'coachella', 'tomorrowland', 'lollapalooza', 'sziget', 'primavera sound',
+  'rock en seine', 'sxsw', 'sanremo', 'download festival', 'reading (?:and|&) leeds',
+  // Programme vocabulary no other kind of listing uses.
+  'line-?ups?', 'headliners?', 'headlining',
+  // Genres. Bare where the word is music in practice; compound where it is not,
+  // because "rock" is also a verb and "metal" is also a material. The French row
+  // "…un voyage rock et disco psychédélique" scored zero without these.
+  'punk', 'disco', 'techno', 'reggae', 'grunge', 'ska', 'funk', 'blues', 'r&b', 'rnb',
+  'amapiano', 'dembow', 'corridos?', 'sertanejo', 'bossa nova', 'fado',
+  'rock (?:band|music|album|star|song|tour|festival|opera)', 'heavy metal', 'death metal',
+  'hard rock', 'indie rock', 'alt-?rock', 'metal bands?',
+  // Festival journalism is music journalism even when it never says "music".
+  'music festivals?', 'festival season', 'festival line-?up',
+  'roskilde', 'werchter', 'hellfest', 'wacken', 'rock am ring', 'reading festival',
+  // Further instruments: "Istanbul cymbals: from war tool to pulse of global music"
+  // had the word music in it and no anchor.
+  'percussion', 'cymbals?', 'saxophones?', 'trumpets?', 'trombones?', 'flutes?', 'cellos?',
+  'violas?', 'harps?', 'banjos?', 'mandolins?', 'playlists?',
 ]);
 
-/** Supporting vocabulary: worth one point each, never enough on its own. */
-const SOFT_MUSIC_TERMS = buildTermPattern([
-  'music', 'musical', 'songs?', 'artists?', 'producers?', 'labels?', 'charts?', 'records?',
-  'recordings?', 'release[sd]?', 'perform(?:ance|s|ed)?', 'stage', 'studio', 'mix(?:es)?',
+/**
+ * Support: one point each. These appear in music stories constantly and in other
+ * stories occasionally, so they raise a score but can never establish a subject.
+ *
+ * `festival` sits here rather than in the anchors. "Umbria tells its story
+ * through olive oil … the festival celebrating the region's signature product"
+ * scored three points as an anchor and passed; as support it still boosts a real
+ * festival announcement, but cannot carry a food column on its own.
+ */
+const SUPPORT_MUSIC_TERMS = buildTermPattern([
+  'music', 'musical', 'artists?', 'producers?', 'labels?', 'charts?',
+  'recordings?', 'perform(?:ance|s|ed)?', 'stage', 'studio', 'mix(?:es)?',
   'beats?', 'lyrics', 'awards?', 'live', 'ensemble', 'quartet', 'trio',
-  'tribute', 'reissues?', 'playlists?', 'streaming', 'catalogues?', 'catalogs?', 'vocals?',
+  'tribute', 'reissues?', 'streaming', 'catalogues?', 'catalogs?', 'vocals?',
+  'festivals?',
+]);
+
+/**
+ * Ambiguous: half a point, and never able to outvote an off-topic hit.
+ *
+ * "record" is a chart position and also a record profit; "release" is a single
+ * and also a press release; "sets" is a DJ set and also "sets the agenda".
+ * Counting them at full weight is what let a business story win a tie it should
+ * have lost.
+ */
+const AMBIGUOUS_MUSIC_TERMS = buildTermPattern([
+  'records?', 'release[sd]?', 'act', 'material', 'score', 'sets?', 'number', 'entry', 'shows?',
 ]);
 
 /** Things that make a story not-a-music-story. Two points each against it. */
@@ -319,7 +378,9 @@ const HARD_BLOCKS: Array<{ pattern: RegExp; reason: string }> = [
      * spectacular bottomless brunch in Sydney" and "6 Red Flags You're About To
      * Eat At A Tourist Trap Restaurant". Both were published under WORLD.
      */
-    pattern: /\b(brunch|food guide|restaurant review|tourist trap|travel guide|capsule hotel|hotel review)\b/i,
+    // "guided tours" is the phrase that let "Umbria tells its story through olive
+    // oil" score: "tours" is an anchor, and a wine or olive-oil festival runs them.
+    pattern: /\b(brunch|food guide|restaurant review|tourist trap|travel guide|capsule hotel|hotel review|guided tours?|wine tasting|tasting menu|olive oil)\b/i,
     reason: 'travel-food',
   },
   {
@@ -367,11 +428,13 @@ const HARD_BLOCKS: Array<{ pattern: RegExp; reason: string }> = [
 const SOFTWARE_WORD = /\b(dl|tool|cli|apps?|software|plugin|library|script|bot|api|version)\b/i;
 const VERSION_NUMBER = /\bv?\d+\.\d+\.\d+\b/i;
 
-/** A strong music term outweighs a single off-topic mention of a film or a chart. */
-const STRONG_MUSIC_WEIGHT = 3;
-const SOFT_MUSIC_WEIGHT = 1;
+/** An anchor outweighs a single off-topic mention of a film or a chart. */
+const ANCHOR_WEIGHT = 3;
+const SUPPORT_WEIGHT = 1;
+/** Half a point: enough to tip a close call, never enough to make one. */
+const AMBIGUOUS_WEIGHT = 0.5;
 const OFF_TOPIC_WEIGHT = 2;
-/** Enough to be about music: one strong term, or a cluster of soft ones. */
+/** Enough to be about music: one anchor, plus whatever support it has. */
 const RELEVANT_MUSIC_SCORE = 2;
 /** On a trusted music outlet, this much off-topic weight with no music at all means another subject. */
 const TRUSTED_SOURCE_REJECT_SCORE = 2;
@@ -407,12 +470,42 @@ export interface RelevanceOptions {
 /** Who published the story, as far as the registry can tell. */
 export type PublisherTrust = 'music' | 'general' | 'unknown';
 
+/**
+ * The scraper writes its own metadata into the body of every OFFICIAL row:
+ *
+ *   excerpt  "SOURCE: EFE.COM"
+ *   content  "Music update from efe.com"
+ *
+ * These are not the story. Judged at face value they hand every scraped row one
+ * free point from the word "Music" — which is why 1,943 rows in the cleanup report
+ * scored exactly "1 vs 0": a Spanish election report and a cancelled Coachella set
+ * were indistinguishable, because neither headline was being read at all.
+ *
+ * A stub is replaced with nothing, so the headline is what gets judged.
+ */
+const SCRAPER_STUB_PATTERNS: RegExp[] = [
+  /^SOURCE:\s*[\w.-]+\s*$/i,
+  /^Music update from\s+[\w.\-]+\s*$/i,
+];
+
+function stripScraperStub(input: RelevanceInput): RelevanceInput {
+  const clean = (value: string | null | undefined): string | null => {
+    const trimmed = value?.trim();
+    if (!trimmed) return null;
+
+    return SCRAPER_STUB_PATTERNS.some((pattern) => pattern.test(trimmed)) ? null : value ?? null;
+  };
+
+  return { title: input.title, url: input.url, excerpt: clean(input.excerpt), content: clean(input.content) };
+}
+
 export function assessNewsRelevance(
   input: RelevanceInput,
   policy: RelevancePolicy = 'news-api',
   options: RelevanceOptions = {},
 ): RelevanceAssessment {
-  const text = [input.title, input.excerpt, input.content].filter(Boolean).join(' \n ');
+  const judged = stripScraperStub(input);
+  const text = [judged.title, judged.excerpt, judged.content].filter(Boolean).join(' \n ');
 
   if (!text.trim()) {
     return {
@@ -426,10 +519,11 @@ export function assessNewsRelevance(
     };
   }
 
-  const title = String(input.title || '');
+  const title = String(judged.title || '');
   const matchedMusic = [
-    ...collectMatches(text, STRONG_MUSIC_TERMS),
-    ...collectMatches(text, SOFT_MUSIC_TERMS),
+    ...collectMatches(text, ANCHOR_MUSIC_TERMS),
+    ...collectMatches(text, SUPPORT_MUSIC_TERMS),
+    ...collectMatches(text, AMBIGUOUS_MUSIC_TERMS),
   ];
   const matchedOffTopic = collectMatches(text, OFF_TOPIC_TERMS);
 
@@ -444,11 +538,13 @@ export function assessNewsRelevance(
   const artistInText = artistInTitle || titleMentionsKnownArtist(text, options.knownArtists);
   if (artistInText) matchedMusic.push('known-artist');
 
-  const strongHits = collectMatches(text, STRONG_MUSIC_TERMS).length;
-  const softHits = collectMatches(text, SOFT_MUSIC_TERMS).length;
-  const musicScore = strongHits * STRONG_MUSIC_WEIGHT
-    + softHits * SOFT_MUSIC_WEIGHT
-    + (artistInText ? STRONG_MUSIC_WEIGHT : 0);
+  const anchorHits = collectMatches(text, ANCHOR_MUSIC_TERMS).length;
+  const supportHits = collectMatches(text, SUPPORT_MUSIC_TERMS).length;
+  const ambiguousHits = collectMatches(text, AMBIGUOUS_MUSIC_TERMS).length;
+  const anchorScore = anchorHits * ANCHOR_WEIGHT + (artistInText ? ANCHOR_WEIGHT : 0);
+  const musicScore = anchorScore
+    + supportHits * SUPPORT_WEIGHT
+    + ambiguousHits * AMBIGUOUS_WEIGHT;
   const offTopicScore = matchedOffTopic.length * OFF_TOPIC_WEIGHT;
 
   // Feeds truncate the body, so the headline is often all the evidence there is.
@@ -456,10 +552,11 @@ export function assessNewsRelevance(
   // junk through originally — but an unmistakable term is: "Scratch DJ Kid Koala
   // ... Animated Feature Debut" is a music story even though "animated feature"
   // scores against it.
-  const titleStrongHits = collectMatches(title, STRONG_MUSIC_TERMS).length;
-  const titleMusicScore = titleStrongHits * STRONG_MUSIC_WEIGHT
-    + collectMatches(title, SOFT_MUSIC_TERMS).length * SOFT_MUSIC_WEIGHT
-    + (artistInTitle ? STRONG_MUSIC_WEIGHT : 0);
+  const titleAnchorHits = collectMatches(title, ANCHOR_MUSIC_TERMS).length;
+  const titleMusicScore = titleAnchorHits * ANCHOR_WEIGHT
+    + collectMatches(title, SUPPORT_MUSIC_TERMS).length * SUPPORT_WEIGHT
+    + collectMatches(title, AMBIGUOUS_MUSIC_TERMS).length * AMBIGUOUS_WEIGHT
+    + (artistInTitle ? ANCHOR_WEIGHT : 0);
 
   /**
    * Two weak sport words and no music subject in the headline is a match report
@@ -494,7 +591,18 @@ export function assessNewsRelevance(
    * Only the general firehose is held to this. A curated music outlet is trusted
    * by host, so it does not have to prove its subject in English.
    */
-  const hasSubjectEvidence = titleMusicScore >= SOFT_MUSIC_WEIGHT || strongHits >= 2;
+  /**
+   * An anchor has to be present somewhere — that is the whole point of the tier.
+   * Where it sits decides how much it proves: an anchor in the headline is the
+   * subject; a musical headline word plus one anchor in the body is an obituary
+   * ("…the music legend's death" / "the late singer"); two anchors in the body are
+   * a story that names its subject in the copy.
+   *
+   * Support and ambiguous words are not in this expression at all. They can raise
+   * a score, they cannot make one.
+   */
+  const hasSubjectEvidence = anchorScore > 0
+    && (titleAnchorHits > 0 || artistInTitle || titleMusicScore >= SUPPORT_WEIGHT || anchorHits >= 2);
 
   const relevant = hardBlock
     ? false
@@ -512,8 +620,11 @@ export function assessNewsRelevance(
       // feeds truncate the body and an obituary or a DJ profile rarely says
       // "music" twice.
       : hasSubjectEvidence
+        // The anchor must be a real one: "record" or "release" alone is half a
+        // point and cannot open the door.
+        && anchorScore > 0
         && ((musicScore >= RELEVANT_MUSIC_SCORE && musicScore >= offTopicScore)
-          || (titleStrongHits > 0 && musicScore > offTopicScore));
+          || (titleAnchorHits > 0 && musicScore > offTopicScore));
 
   return {
     relevant,
