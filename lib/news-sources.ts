@@ -17,6 +17,10 @@
  * `lib/news-regions.ts`: us, uk, latino, asia, europa, jazz, classical, world.
  */
 
+// Type-only: erased at runtime, so the gate never has to import this registry
+// and this registry never depends on the gate.
+import type { PublisherTrust } from './news-relevance';
+
 export interface OfficialNewsSource {
   url: string;
   region: string;
@@ -108,7 +112,6 @@ export const OFFICIAL_NEWS_SOURCES: OfficialNewsSource[] = [
   { url: 'https://www.nme.com/en_asia/news/music', region: 'asia' },
   { url: 'https://www.bandwagon.asia/news', region: 'asia' },
   { url: 'https://aramajapan.com/', region: 'asia' },
-
   { url: 'https://www.sbs.com.au/popasia/blog', region: 'asia' },
   { url: 'https://koreajoongangdaily.joins.com/section/entertainment', region: 'asia' },
   { url: 'https://www.hellokpop.com/category/news/', region: 'asia' },
@@ -313,6 +316,39 @@ export function isMusicPublicationUrl(url: string | null | undefined): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * How far a publisher's reputation may be trusted, as one word.
+ *
+ * This is the value the relevance gate takes as `publisherTrust`, and it is derived
+ * here because this module owns both lists — the music registry and the general
+ * newsrooms that appear inside it. Keeping the derivation in one function is what
+ * stops the ingest path, the AI worker, the feed and the sitemap from classifying
+ * the same publisher differently.
+ *
+ * `general` is the interesting case: a Guardian music-section story is scraped
+ * into OFFICIAL, and Variety's feed carries film-festival coverage. Those stories
+ * must name their subject in the headline, while a curated music outlet keeps the
+ * benefit of the doubt for a title no English word list recognises.
+ */
+export function getPublisherTrust(url: string | null | undefined): PublisherTrust {
+  if (!url?.trim()) return 'unknown';
+
+  let host: string;
+  try {
+    host = normalizeHost(new URL(url).hostname);
+  } catch {
+    return 'unknown';
+  }
+
+  if (isMusicPublicationHost(host)) return 'music';
+
+  for (const candidate of GENERAL_NEWSROOM_HOSTS) {
+    if (host === candidate || host.endsWith(`.${candidate}`)) return 'general';
+  }
+
+  return 'unknown';
 }
 
 /**

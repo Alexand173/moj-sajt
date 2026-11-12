@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { getPublicSupabaseClient } from '@/lib/supabase-public';
-import { isOffTopicJunk } from '@/lib/news-relevance';
+import { isMusicStory } from '@/lib/news-editorial';
 import ReviewCard, { type ReviewCardData } from '@/components/ReviewCard';
 
 const REVIEW_PAGE_SIZE = 40;
@@ -38,14 +38,14 @@ export default async function ReviewsPage() {
       if (error) console.warn('Could not load reviews:', error.message);
 
       // Two guards, both needed: `skipped` marks a row the cleanup judged not to
-      // be music, and the junk rule catches anything stored before that existed —
-      // including rows the cleanup has not reached yet. The rule is deliberately
-      // narrow, so a review of a dance piece or a songwriter profile stays.
+      // be music, and the shared verdict catches anything stored before a subject
+      // was named — including rows the cleanup has not reached yet.
       items = ((data || []) as ReviewCardData[])
         .filter((item) => item.ai_status !== 'skipped')
-        // Headline only: a film review's summary mentions the soundtrack, so
-        // reading the excerpt rescues the very items this page must not show.
-        .filter((item) => !isOffTopicJunk({ title: item.title }))
+        // Headline plus publisher, never the excerpt: a film review's summary
+        // mentions the soundtrack, so reading it rescues the very items this page
+        // must not show. The URL is what tells a music outlet from a general feed.
+        .filter((item) => isMusicStory({ title: item.title, url: item.url }))
         .slice(0, REVIEW_PAGE_SIZE);
     } catch (error) {
       console.warn('Could not load reviews:', error);

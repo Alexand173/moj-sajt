@@ -2,6 +2,7 @@ import { unstable_noStore as noStore } from 'next/cache';
 import type { Metadata } from 'next';
 import { getPublicSupabaseClient } from '@/lib/supabase-public';
 import { balanceFeedMix } from '@/lib/news-balance';
+import { isMusicStory } from '@/lib/news-editorial';
 import NewsEditorialView, { type NewsEditorialItem } from '@/components/NewsEditorialView';
 
 const MOST_READ_LIMIT = 5;
@@ -15,6 +16,24 @@ const STORIES_BY_MASS_FETCH_LIMIT = 50;
 
 function getNewsTitle(item: NewsEditorialItem) {
   return item.title?.trim() || item.text?.trim() || '';
+}
+
+/**
+ * The last word on what a reader may be shown.
+ *
+ * `ai_status = 'generated'` says the row has a brief; it says nothing about the
+ * subject, and it is written once. That is how nine LIV Golf stories sat in the
+ * `europa` feed: they were stored and rewritten before sport was a named subject,
+ * and nothing re-judged them afterwards. Filtering here means the rule applies to
+ * every row on every render, including ones a cleanup has not reached yet.
+ */
+function keepMusicStories(rows: NewsEditorialItem[]): NewsEditorialItem[] {
+  return rows.filter((item) => isMusicStory({
+    title: item.title,
+    excerpt: item.excerpt,
+    content: item.content,
+    url: item.url,
+  }));
 }
 
 function normalizeNewsTitle(value: string) {
@@ -170,10 +189,10 @@ export default async function BillboardNewsPage({
         `).eq('region', region).order('created_at', { ascending: false }).limit(4),
       ]);
 
-      officialNews = (officialRes.data || []) as NewsEditorialItem[];
-      latestNews = (latestRes.data || []) as NewsEditorialItem[];
-      additionalOfficialNews = (additionalOfficialRes.data || []) as NewsEditorialItem[];
-      additionalLatestNews = (additionalLatestRes.data || []) as NewsEditorialItem[];
+      officialNews = keepMusicStories((officialRes.data || []) as NewsEditorialItem[]);
+      latestNews = keepMusicStories((latestRes.data || []) as NewsEditorialItem[]);
+      additionalOfficialNews = keepMusicStories((additionalOfficialRes.data || []) as NewsEditorialItem[]);
+      additionalLatestNews = keepMusicStories((additionalLatestRes.data || []) as NewsEditorialItem[]);
       communityNews = (communityNewsRes.data || []) as NewsEditorialItem[];
       communityPosts = (blogRes.data || []) as NewsEditorialItem[];
       discussions = (discRes.data || []) as NewsEditorialItem[];

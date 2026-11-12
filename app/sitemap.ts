@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { EUROPA_SUBREGIONS } from '@/lib/region-navigation';
+import { isMusicStory } from '@/lib/news-editorial';
 import { isIndexedNewsArticle } from '@/lib/news-publication';
 import { buildNewsArticlePath } from '@/lib/news-slug';
 import { getPublicSupabaseClient } from '@/lib/supabase-public';
@@ -49,6 +50,8 @@ type NewsSitemapRow = {
   title: string | null;
   /** Publication requires a source; without one the article page returns 404. */
   url: string | null;
+  /** Read by the relevance rule alongside the headline. */
+  excerpt: string | null;
   ai_content: string | null;
   ai_generated: boolean | null;
   ai_status: string | null;
@@ -117,7 +120,7 @@ async function getTicketRoutes(): Promise<TicketRouteBundle> {
  * omitted column reads as "no source" for every row — which silently emptied the
  * article half of this file.
  */
-const NEWS_COLUMNS = 'id, region, created_at, title, url, ai_content, ai_generated, ai_status';
+const NEWS_COLUMNS = 'id, region, created_at, title, excerpt, url, ai_content, ai_generated, ai_status';
 /** PostgREST caps one response at 1000 rows by default, so a page is never larger. */
 const NEWS_PAGE_SIZE = 1000;
 /** Ceiling for the walk itself, in case the rewritten subset ever explodes. */
@@ -183,6 +186,9 @@ async function getNewsRoutes(): Promise<SitemapRoute[]> {
 
     for (const article of batch) {
       if (!article.region || !isIndexedNewsArticle(article)) continue;
+      // A story the feed refuses must not be advertised: its article page now
+      // 404s, and a submitted URL the page itself refuses is worse than none.
+      if (!isMusicStory({ title: article.title, excerpt: article.excerpt, url: article.url })) continue;
 
       const url = buildNewsArticlePath(article.region, article.id, article.title);
       if (routes.has(url)) continue;

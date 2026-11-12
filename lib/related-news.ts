@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { isMusicStory } from './news-editorial';
 
 export interface RelatedNewsItem {
   id: string | number;
@@ -7,7 +8,7 @@ export interface RelatedNewsItem {
   region: string | null;
 }
 
-const RELATED_NEWS_SELECT = 'id, title, image, region';
+const RELATED_NEWS_SELECT = 'id, title, image, region, excerpt, url';
 const RELATED_NEWS_LIMIT = 3;
 const TOPIC_TOKEN_LIMIT = 2;
 
@@ -75,6 +76,16 @@ function buildSearchPhrases(topic: string[]): string[] {
 
 function tidyRows(rows: Array<Record<string, unknown>> | null): RelatedNewsItem[] {
   return (rows || [])
+    /**
+     * A related link leads to a page, and a story that is not music now 404s
+     * there — so offering it is offering a dead end. It is also the same mistake
+     * in a quieter place: golf beside a music story.
+     */
+    .filter((row) => isMusicStory({
+      title: (row.title as string | null) ?? null,
+      excerpt: (row.excerpt as string | null) ?? null,
+      url: (row.url as string | null) ?? null,
+    }))
     .map((row) => ({
       id: row.id as string | number,
       title: (row.title as string | null) ?? null,

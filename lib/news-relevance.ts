@@ -119,6 +119,85 @@ const OFF_TOPIC_TERMS = buildTermPattern([
   'fiction', 'novels?', 'book reviews?',
 ]);
 
+/**
+ * Sport, named by family.
+ *
+ * The single sport entry this replaces listed six competitions, so golf — which
+ * filled the `europa` feed with nine LIV Golf and DP World Tour stories in one
+ * day — was not a subject at all. Worse, `tour` is a strong music term, so
+ * "Race to Dubai title up for grabs in European tour finale" scored 3 for music
+ * and 0 against, and cleared the subject test on the word "Tour" alone.
+ *
+ * Every family is blocked by name rather than scored, because a sports story can
+ * carry music vocabulary honestly — a walk-on song, a player's playlist — and the
+ * subject is what decides, not the vocabulary.
+ *
+ * Three exceptions are deliberate, and they are expressed in the wording so they
+ * never need a whitelist:
+ *
+ * - `olympic` alone is not blocked: the Olympic Stadium hosts concerts.
+ * - bare `super bowl` is not blocked: the halftime headliner is music news.
+ * - `boxing` is not blocked when the next word is `day`: December 26 is a date.
+ */
+const SPORT_BLOCKS: Array<{ pattern: RegExp; reason: string }> = [
+  {
+    // "Race to Dubai" is golf's season-long points race, and it was the one story
+    // in the batch that named no other golf word: "Race to Dubai title up for
+    // grabs in European tour finale" is a golf story whose only strong music term
+    // was "tour".
+    pattern: /\b(?:golf(?:er|ers|ing)?|liv golf|dp world tour|pga|lpga|ryder cup|solheim cup|race to dubai|world tour championship|abu dhabi championship|dubai desert classic|hole[- ]in[- ]one|birdie putt|bogeys?|fairway|tee shot|green jacket|augusta national|masters tournament)\b/i,
+    reason: 'sport-golf',
+  },
+  {
+    pattern: /\b(?:baseball|mlb|world series|pitchers?|home runs?|bullpen|innings?|batting average|strikeout)\b/i,
+    reason: 'sport-baseball',
+  },
+  {
+    pattern: /\b(?:nascar|formula (?:one|1)|f1|grand prix|motogp|indycar|pole position|pit stop|chequered flag|lap record)\b/i,
+    reason: 'sport-motorsport',
+  },
+  {
+    pattern: /\b(?:tennis|wimbledon|roland garros|atp tour|wta|grand slam title|match point)\b/i,
+    reason: 'sport-tennis',
+  },
+  {
+    pattern: /\b(?:boxing(?!\s+day)|heavyweight title|welterweight|knockout win|title bout|ufc|mma fight)\b/i,
+    reason: 'sport-combat',
+  },
+  {
+    // Not bare "super bowl": the halftime headliner is a music story. The sport
+    // is named by its champions and its game, never by the show.
+    pattern: /\b(?:basketball|nba(?!\s*young-?boy)|three-pointer|ice hockey|nhl|stanley cup|rugby|six nations|premier league|la liga|serie a|bundesliga|champions league|world cup|uefa|fifa|soccer|football (?:club|team|match|league)|quarterback|touchdown|super bowl (?:winner|champions|championship game)|playoff berth|transfer window|hat[- ]trick|medal table)\b/i,
+    reason: 'sport-team',
+  },
+  {
+    // The row that prompted the first version of this block: "What is the DLS
+    // method? Duckworth–Lewis rules explained for ODIs and T20Is".
+    pattern: /\b(?:cricket|wickets?|innings|test match|one[- ]day international|t20is?|odi|goalkeepers?)\b/i,
+    reason: 'sport-cricket',
+  },
+  {
+    // Not bare "olympic": the Olympic Stadium hosts concerts.
+    pattern: /\b(?:olympic games|winter olympics|paralympic|marathon record|triathlon|darts championship|snooker|tour de france|kentucky derby|grand national|horse racing)\b/i,
+    reason: 'sport-athletics',
+  },
+];
+
+/**
+ * The net for a sport nobody has named yet.
+ *
+ * These words are common in match reports and rare in music writing, but each is
+ * weak on its own — "championship" appears in a contest for unsigned bands — so
+ * two of them together are required, and only when the headline says nothing
+ * musical. A named sport above is refused on the first hit instead.
+ */
+const SPORT_CONTEXT_TERMS = buildTermPattern([
+  'championships?', 'tournament', 'leaderboard', 'final round', 'title race',
+  'standings', 'head coach', 'squad', 'season opener', 'transfer fee',
+  'second half', 'opening round', 'course record', 'tee time',
+]);
+const SPORT_CONTEXT_LIMIT = 2;
+
 /** Categories that are never music news, however many music words appear. */
 const HARD_BLOCKS: Array<{ pattern: RegExp; reason: string }> = [
   {
@@ -154,19 +233,9 @@ const HARD_BLOCKS: Array<{ pattern: RegExp; reason: string }> = [
     pattern: /\b(reviewed fiction|book reviews?|best books?)\b/i,
     reason: 'books',
   },
-  {
-    /**
-     * Sport is never music news, and a sports story can carry music vocabulary by
-     * accident: a fixture report mentioning a walk-on song, or an article about a
-     * player's pre-match playlist. Blocking the subject is what stops those.
-     *
-     * The row that prompted this: "What is the DLS method? Duckworth–Lewis rules
-     * explained for ODIs and T20Is" — published under WORLD with a full brief,
-     * scoring nothing in either direction, so scoring alone could not refuse it.
-     */
-    pattern: /\b(cricket|wickets?|innings|test match|one[- ]day international|t20is?|odi|goalkeepers?|premier league|la liga|serie a|bundesliga|nba|nfl|mlb|nhl|ufc|playoffs?|transfer window|wimbledon|hat[- ]trick|medal table)\b/i,
-    reason: 'sport',
-  },
+  // Every sport in `SPORT_BLOCKS`, spread so one list answers "is this a sport?"
+  // and the reason names the family that matched.
+  ...SPORT_BLOCKS,
   {
     // "Where Leaders Go Wrong with Emotional Intelligence" and "The Difference
     // Between Being Interested and Being Committed" were both published as music
@@ -183,12 +252,54 @@ const HARD_BLOCKS: Array<{ pattern: RegExp; reason: string }> = [
   },
   {
     /**
+     * Government, named by institution rather than by the single word
+     * "election", which is already scored against: a music-business story can
+     * legitimately mention an election's effect on touring.
+     *
+     * Deliberately not bare "parliament" — Parliament is a band — and not bare
+     * "congress" — the Congress Theater is a venue. Only phrases that can be
+     * nothing but government are blocked.
+     */
+    pattern: /\b(?:election results|ballot box|referendum|parliamentary (?:election|vote)|senate (?:vote|hearing|panel|confirm)|congressional (?:hearing|vote|panel)|white house|kremlin|coalition government|minister of (?:state|foreign|finance))\b/i,
+    reason: 'politics',
+  },
+  {
+    /**
+     * Fashion coverage: the Met Gala and the shows around it are style reporting
+     * with a red carpet, not music news, however many performers appear in them.
+     */
+    // "met gala" alone is not blocked: "Watch Sabrina Carpenter and Stevie Nicks
+    // Perform 'Landslide' at the Met Gala" is a performance. The looks, the photos
+    // and the carpet are the fashion story.
+    pattern: /\b(?:fashion week|runway show|haute couture|street style|met gala (?:looks?|outfits?|photos?|dress|gown|beauty|fashion)|fashion house)\b/i,
+    reason: 'fashion',
+  },
+  {
+    /**
+     * Screen-industry events. "Seville European Film Festival Honors Agnieszka
+     * Holland" reached `europa` from Variety's feed and was safe on score alone:
+     * "festival" is worth 3 for music and "film" only 2 against, so a film
+     * festival beat the tie by a single word.
+     *
+     * Not a bare "film" block: a music documentary, a biopic or a concert film is
+     * music news, and those headlines say "film" without being about the film
+     * industry.
+     */
+    pattern: /\b(?:film festival|film awards?|movie premiere|cinema awards?)\b/i,
+    reason: 'film-industry',
+  },
+  {
+    /**
      * Television listings. "IS SNL NEW TONIGHT? HOST, MUSICAL GUEST, EPISODE…"
      * scored on "musical" and "guest" and was published as world news. A listing
      * names a broadcast, not a music story, however many words about music it
      * contains.
      */
-    pattern: /\b(snl|saturday night live|late[- ]night show|talk show|episode guide|tv listing|what to watch tonight)\b/i,
+    // Narrowed from a bare `snl`: a performance clip ("Watch Olivia Rodrigo
+    // Perform 'Drop Dead' on SNL") is music news, and 73 such rows were queued for
+    // removal. What is not music is the schedule — who is hosting, who is the
+    // musical guest, which episode is new tonight.
+    pattern: /\b(?:is snl new tonight|snl new tonight|snl (?:host|musical guest)|saturday night live (?:host|musical guest)|late[- ]night show|talk show|episode guide|tv listing|what to watch (?:tonight|this week))\b/i,
     reason: 'tv-listing',
   },
   {
@@ -245,7 +356,10 @@ const HARD_BLOCKS: Array<{ pattern: RegExp; reason: string }> = [
     //
     // Deliberately not a bare /newsletter/ block: "Band's newsletter confirms
     // reunion tour" is a real music headline.
-    pattern: /(?:\.\s+and,\s)|\b(?:up first|morning brief(?:ing)?|evening brief(?:ing)?|daily brief(?:ing)?|top stories|news round-?up)\b/i,
+    // `related stories:` and `drudge` cover the aggregator wrapper: "Europe Hit By
+    // More Bomb Threats Targeting TV Studios, Flights... / Drudge Report Feed
+    // needs your support!" was published under `europa` as a single story.
+    pattern: /(?:\.\s+and,\s)|\b(?:up first|morning brief(?:ing)?|evening brief(?:ing)?|daily brief(?:ing)?|top stories|news round-?up|drudge|feed needs your support)\b|related stories:/i,
     reason: 'digest',
   },
 ];
@@ -274,11 +388,24 @@ function collectMatches(text: string, pattern: RegExp): string[] {
  */
 export interface RelevanceOptions {
   /**
-   * Names the site already knows, from the charts and the tour data. Optional:
+   * Names the site already knows, from the chart and tour data. Optional:
    * without it the gate is simply stricter, never wrong.
    */
   knownArtists?: ArtistNameIndex | null;
+  /**
+   * How far to trust the publisher, resolved by the caller (`lib/news-sources`
+   * owns the host lists). `general` means the story comes from a general newsroom
+   * whose music section still publishes the occasional non-music piece, so even
+   * under the publisher-trust policy it must name its subject in the headline.
+   *
+   * Passed in rather than imported so this module stays a pure scoring function
+   * with no dependency on a 140-entry source registry.
+   */
+  publisherTrust?: PublisherTrust;
 }
+
+/** Who published the story, as far as the registry can tell. */
+export type PublisherTrust = 'music' | 'general' | 'unknown';
 
 export function assessNewsRelevance(
   input: RelevanceInput,
@@ -334,10 +461,21 @@ export function assessNewsRelevance(
     + collectMatches(title, SOFT_MUSIC_TERMS).length * SOFT_MUSIC_WEIGHT
     + (artistInTitle ? STRONG_MUSIC_WEIGHT : 0);
 
+  /**
+   * Two weak sport words and no music subject in the headline is a match report
+   * for a sport not yet named. Requiring both halves is what keeps a music story
+   * that happens to say "tournament" or "squad" alive.
+   */
+  const sportContextBlocked = collectMatches(text, SPORT_CONTEXT_TERMS).length >= SPORT_CONTEXT_LIMIT
+    && titleMusicScore === 0;
+
+  // "qobuz-dl-ultra 2.4.3.1" reads as a changelog entry, not a headline: a
+  // version number only blocks when software vocabulary sits next to it.
+  const versionBlocked = VERSION_NUMBER.test(text) && SOFTWARE_WORD.test(text);
+
   const hardBlock = HARD_BLOCKS.find((block) => block.pattern.test(text))?.reason
-    // "qobuz-dl-ultra 2.4.3.1" reads as a changelog entry, not a headline: a
-    // version number only blocks when software vocabulary sits next to it.
-    ?? (VERSION_NUMBER.test(text) && SOFTWARE_WORD.test(text) ? 'software-release' : null);
+    ?? (sportContextBlocked ? 'sport' : null)
+    ?? (versionBlocked ? 'software-release' : null);
 
   /**
    * Is music the subject, or only a mention?
@@ -362,8 +500,12 @@ export function assessNewsRelevance(
     ? false
     : policy === 'music-publication'
       // A curated music outlet does not need to prove its subject in English. It
-      // is only overruled when it is plainly reporting something else.
+      // is only overruled when it is plainly reporting something else…
       ? !(musicScore === 0 && offTopicScore >= TRUSTED_SOURCE_REJECT_SCORE)
+        // …or when it is a general newsroom's music section, which still carries
+        // the occasional non-music piece: "Seville European Film Festival Honors
+        // Agnieszka Holland" came from Variety's feed with no music word in it.
+        && (options.publisherTrust !== 'general' || hasSubjectEvidence)
       // A tie is allowed: "album ... film" is a music story that mentions a film,
       // while "film ... music" is a film story that mentions music. An
       // unmistakable music term in the headline is enough on its own, because
@@ -412,3 +554,45 @@ export function isMusicNews(
 ): boolean {
   return assessNewsRelevance(input, policy).relevant;
 }
+
+export interface PublishabilityOptions {
+  knownArtists?: ArtistNameIndex | null;
+  /** From `getPublisherTrust(url)` in `lib/news-sources`. */
+  publisherTrust?: PublisherTrust;
+}
+
+/**
+ * The one verdict that decides whether a story may be *served*.
+ *
+ * Ingest alone was never enough: the rule only guarded new arrivals, so a row
+ * stored before a subject was named stayed published forever. Golf filled the
+ * `europa` feed for exactly that reason — every one of those rows was `generated`,
+ * and the region page filters on `ai_status` alone.
+ *
+ * So the same call is used at four points, and a story that fails any one of them
+ * is not music news anywhere:
+ *
+ * - ingest (`app/api/fetch-news`), before a row is stored
+ * - publish (`lib/news-ai-enrichment`), before an AI call is spent
+ * - read (region feed, article page, brief API, related stories, reviews)
+ * - discovery (`app/sitemap`), so a refused story is never advertised
+ *
+ * The policy follows the publisher, not the category: a curated music outlet is
+ * trusted with a headline no English word list will recognise ("Xiu Xiu – Xiu
+ * Mutha Fuckin' Xiu"), while a general newsroom has to name its subject. A hard
+ * block overrules both, because a named subject that is never music — golf, an
+ * election, a video game — is not rescued by a publisher's reputation.
+ */
+export function isPublishableMusicNews(
+  input: RelevanceInput,
+  options: PublishabilityOptions = {},
+): boolean {
+  const publisherTrust = options.publisherTrust ?? 'unknown';
+  const policy: RelevancePolicy = publisherTrust === 'music' ? 'music-publication' : 'news-api';
+
+  return assessNewsRelevance(input, policy, {
+    knownArtists: options.knownArtists ?? null,
+    publisherTrust,
+  }).relevant;
+}
+

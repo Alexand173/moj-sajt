@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createOfficialNewsBrief } from '@/lib/official-news-brief';
 import { hasRecordedSource } from '@/lib/news-publication';
+import { isMusicStory } from '@/lib/news-editorial';
 import { getPublicSupabaseClient } from '@/lib/supabase-public';
 
 export const runtime = 'nodejs';
@@ -41,6 +42,15 @@ export async function GET(request: Request) {
      * after their pages started returning 404.
      */
     if (!hasRecordedSource(data) || data.ai_status === 'skipped') {
+      return jsonError('Story not found.', 404);
+    }
+
+    /**
+     * The brief is the middle column: opening one replaces everything beside it.
+     * A story the feed refuses must not fill that space, so the same verdict is
+     * applied here — the reader calls this route, not the region page.
+     */
+    if (!isMusicStory({ title: data.title, excerpt: data.excerpt, url: data.url })) {
       return jsonError('Story not found.', 404);
     }
 

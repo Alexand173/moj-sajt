@@ -50,8 +50,8 @@ function createSupabaseMock(rowsFor: (mode: 'artist' | 'region') => Array<Record
 }
 
 const artistRows = [
-  { id: 'a1', title: 'Before the show: Sam Rivers on touring', image: '/one.jpg', category: 'LATEST', region: 'us', created_at: '2026-10-24T00:00:00.000Z' },
-  { id: 'a2', title: 'Sam Rivers adds a second night', image: null, category: 'OFFICIAL', region: 'uk', created_at: '2026-10-20T00:00:00.000Z' },
+  { id: 'a1', title: 'Before the show: Sam Rivers on the tour diary that became an album', image: '/one.jpg', category: 'LATEST', region: 'us', created_at: '2026-10-24T00:00:00.000Z' },
+  { id: 'a2', title: 'Sam Rivers adds a second night to the album residency', image: null, category: 'OFFICIAL', region: 'uk', created_at: '2026-10-20T00:00:00.000Z' },
 ];
 
 describe('related story topic extraction', () => {
@@ -97,6 +97,25 @@ describe('related news lookup', () => {
     expect(calls.publication).toContainEqual({ column: 'ai_status', value: 'generated' });
     expect(calls.publication).toContainEqual({ column: 'ai_generated', value: true });
     expect(calls.not).toContainEqual({ column: 'url', value: { operator: 'is', value: null } });
+  });
+
+  it('never offers a story the article page would refuse', async () => {
+    // Related links lead to pages, and the article page now 404s a story that is
+    // not music, so offering one is offering a dead end — and golf beside a music
+    // story is the same mistake in a quieter place.
+    const rows = [
+      { id: 'b1', title: 'Sam Rivers announces a new album', image: null, region: 'us' },
+      { id: 'b2', title: 'Rory McIlroy on the LIV Golf collapse', image: null, region: 'us' },
+    ];
+    const { supabase } = createSupabaseMock(() => rows);
+
+    const stories = await getRelatedNews(supabase, {
+      id: 'current',
+      title: 'Sam Rivers Postpones the Autumn Tour Dates',
+      region: 'us',
+    });
+
+    expect(stories.map((story) => story.id)).toEqual(['b1']);
   });
 
   it('retries with the shorter name and then falls back to the region feed', async () => {

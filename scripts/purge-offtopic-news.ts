@@ -1,8 +1,8 @@
 import { loadEnvConfig } from '@next/env';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { buildArtistNameIndex, loadKnownArtistNames, type ArtistNameIndex } from '../lib/news-artists';
-import { assessNewsRelevance, type RelevancePolicy } from '../lib/news-relevance';
-import { isMusicPublicationUrl } from '../lib/news-sources';
+import { assessNewsRelevance, isPublishableMusicNews, type RelevancePolicy } from '../lib/news-relevance';
+import { getPublisherTrust, isMusicPublicationUrl } from '../lib/news-sources';
 
 loadEnvConfig(process.cwd());
 
@@ -162,9 +162,23 @@ function judge(row: NewsRow, knownArtists: ArtistNameIndex): JudgedRow {
     ? 'clear'
     : 'needs-judgement';
 
+  /**
+   * The site's own verdict, not a second opinion.
+   *
+   * The category-policy guess above is what this script has always used, and it
+   * drifted from the reader: the purge judged OFFICIAL rows as a trusted publisher
+   * no matter which host they came from. Asking `isPublishableMusicNews` — the
+   * same call the feed, the article page and the worker make — means a row this
+   * script spares is a row a reader can actually open, and vice versa.
+   */
+  const publishable = isPublishableMusicNews(
+    { title: row.title, excerpt: row.excerpt, content: row.content, url: row.url },
+    { knownArtists, publisherTrust: getPublisherTrust(row.url) },
+  );
+
   return {
     row,
-    refused: !verdict.relevant && !trustedPublisher,
+    refused: !publishable,
     reason: verdict.hardBlock || `score ${verdict.musicScore} vs ${verdict.offTopicScore}`,
     hardBlock: verdict.hardBlock,
     confidence,

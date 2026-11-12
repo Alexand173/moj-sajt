@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { assessNewsRelevance, isMusicNews, isOffTopicJunk } from '@/lib/news-relevance';
+import {
+  assessNewsRelevance,
+  isMusicNews,
+  isOffTopicJunk,
+  isPublishableMusicNews,
+} from '@/lib/news-relevance';
 
 /**
  * These headlines are the ones that actually reached the feed and were published
@@ -108,7 +113,7 @@ describe('the non-music stories that were published', () => {
       excerpt: 'Wondering how rain-affected matches are decided in cricket? How the DLS method works in ODIs and T20s.',
     });
 
-    expect(verdict.hardBlock).toBe('sport');
+    expect(verdict.hardBlock).toBe('sport-cricket');
     expect(verdict.relevant).toBe(false);
   });
 
@@ -407,5 +412,142 @@ describe('trusted music publications', () => {
       { title: 'La Fiscalía de Paraguay allana un inmueble del expresidente Peña' },
       'music-publication',
     )).toBe(false);
+  });
+});
+
+/**
+ * Sport on the EUROPA feed, 2026-11-12.
+ *
+ * Every golf title below was published as music news. The mechanism was the same
+ * one: `tour` is a strong music term, so "European tour" scored 3 for music and 0
+ * against, and a golf headline satisfied the subject test on the word "Tour".
+ * Naming the sport is what stops it — not another scoring tweak.
+ */
+describe('sport that reached the EUROPA feed', () => {
+  const publishedGolfTitles = [
+    'Rory McIlroy takes a shot at Bryson DeChambeau after LIV Golf collapse',
+    "Luiten Backs McIlroy's Plan To Cut PGA Tour Cards",
+    'LIV Golf bankruptcy: Lawyers target January liquidation',
+    "McIlroy's Card Cut Plan Wins Over DP World Tour Veteran",
+    'McIlroy vs Chacarra vs Reed: Race to Dubai title up for grabs in European tour finale',
+    "Tour Confidential: Lingering LIV Golf questions, Jon Rahm's statement win",
+    'Jon Rahm beats Rory McIlroy to win Abu Dhabi Championship in first start since LIV Golf exit',
+    "Pelaez Trevino's Hole-In-One Secures China Championship Title",
+  ];
+
+  it('reads the body when the headline names no sport', () => {
+    // The one that survived the first sweep: it says "LIV absence", not "LIV
+    // Golf", and names the competition only in the copy.
+    const verdict = assessNewsRelevance({
+      title: 'Rahm returns from LIV absence to claim Abu Dhabi title',
+      excerpt: 'He held off Tyrrell Hatton by two strokes to win the Abu Dhabi Championship in Dubai.',
+    });
+
+    expect(verdict.hardBlock).toBe('sport-golf');
+    expect(verdict.relevant).toBe(false);
+  });
+
+  it('refuses every golf story that was published', () => {
+    for (const title of publishedGolfTitles) {
+      const verdict = assessNewsRelevance({ title });
+      expect(verdict.hardBlock, title).toBe('sport-golf');
+      expect(verdict.relevant, title).toBe(false);
+    }
+  });
+
+  it('refuses the other sports by name', () => {
+    const cases: Array<[string, string]> = [
+      ['World Series Game 7: the bullpen collapses again', 'sport-baseball'],
+      ['NASCAR playoff picture shifts after Martinsville chaos', 'sport-motorsport'],
+      ['Verstappen fastest in final practice ahead of the Singapore Grand Prix', 'sport-motorsport'],
+      ['Alcaraz survives five sets to reach the Wimbledon final', 'sport-tennis'],
+      ['Usyk retains the heavyweight title with a knockout win in Riyadh', 'sport-combat'],
+      ['NBA: Lakers edge the Celtics in overtime', 'sport-team'],
+      ['NHL: the Stanley Cup final goes to a seventh game', 'sport-team'],
+      ['Paris Olympic games: who to watch in the 100m final', 'sport-athletics'],
+      ['Paris fashion week: the five looks that mattered', 'fashion'],
+      ['Referendum result: parliament approves the new constitution', 'politics'],
+    ];
+
+    for (const [title, reason] of cases) {
+      const verdict = assessNewsRelevance({ title });
+      expect(verdict.hardBlock, title).toBe(reason);
+      expect(verdict.relevant, title).toBe(false);
+    }
+  });
+
+  it('keeps the stories where a sport is only the stage', () => {
+    const kept = [
+      // The halftime headliner is a music story, so bare "super bowl" is not blocked.
+      'Kendrick Lamar announced as the Super Bowl halftime show headliner',
+      // Venue names: "olympic" is blocked only as "olympic games".
+      'Coldplay add a second night at the Olympic Stadium',
+      // December 26 is a date, not a combat sport.
+      'Boxing Day concert at Alexandra Palace returns for 2026',
+      // A band's European tour is exactly what this feed is for.
+      'Mariah Carey announces 2027 European tour dates',
+      // "NBA" is also a rapper's stage name, and this is an album announcement.
+      'NBA YoungBoy announces a new album',
+      // A music festival named Slam Dunk, not the basketball move.
+      'Slam Dunk Festival director to step down',
+      // A concert postponed *by* a playoff run is still a music story.
+      "Bruce Springsteen's Philadelphia concert postponed by 76ers playoff victories",
+      // A head of government announcing a concert is a concert announcement.
+      'Albanian Prime Minister announces Kanye West concert in Tirana',
+    ];
+
+    for (const title of kept) {
+      expect(assessNewsRelevance({ title }).hardBlock, title).toBeNull();
+    }
+
+    expect(isMusicNews({ title: 'Mariah Carey announces 2027 European tour dates' })).toBe(true);
+  });
+
+  it('keeps a performance clip and a performance at a fashion event', () => {
+    // The schedule is not music ("IS SNL NEW TONIGHT? HOST, MUSICAL GUEST"), but
+    // the performance is — and so is a duet staged at the Met Gala.
+    const kept = [
+      "Watch Olivia Rodrigo perform 'Drop Dead' on SNL",
+      "Watch Sabrina Carpenter and Stevie Nicks Perform 'Landslide' at the Met Gala",
+    ];
+
+    for (const title of kept) {
+      expect(assessNewsRelevance({ title }).hardBlock, title).toBeNull();
+    }
+  });
+
+  it('catches an unnamed sport from two weak hints and a headline with no music', () => {
+    const verdict = assessNewsRelevance({
+      title: 'Standings tighten as the final round approaches',
+      excerpt: 'The head coach says the squad is ready for the season opener.',
+    });
+
+    expect(verdict.hardBlock).toBe('sport');
+    expect(verdict.relevant).toBe(false);
+  });
+});
+
+describe('the verdict used at publish and read time', () => {
+  it('trusts a music publication with a headline no word list recognises', () => {
+    expect(isPublishableMusicNews({
+      title: 'Xiu Xiu – Xiu Mutha Fuckin Xiu',
+      url: 'https://www.nme.com/reviews/xiu-xiu',
+    }, { publisherTrust: 'music' })).toBe(true);
+  });
+
+  it('holds a general newsroom to the subject test', () => {
+    // Variety's music feed carried this, and its headline says nothing musical.
+    expect(isPublishableMusicNews({
+      title: 'Seville European Film Festival Honors Agnieszka Holland, Thierry Frémaux and Cartoon Saloon',
+      url: 'https://variety.com/2026/film/festivals/seville-european-film-festival',
+    }, { publisherTrust: 'general' })).toBe(false);
+  });
+
+  it('refuses a named subject even when the publisher is a music outlet', () => {
+    // A publisher's reputation does not turn golf into music.
+    expect(isPublishableMusicNews({
+      title: 'LIV Golf is shutting down after two seasons',
+      url: 'https://www.billboard.com/music/liv-golf-shutting-down',
+    }, { publisherTrust: 'music' })).toBe(false);
   });
 });

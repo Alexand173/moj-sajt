@@ -11,6 +11,7 @@ import { getRelatedNews } from '@/lib/related-news';
 import { getMediaIdentity, getSafeMediaUrl, getStoredNewsMediaUrl, getYouTubeEmbedUrl, getYouTubeVideoId, isLikelyEditorialImageUrl } from '@/lib/news-media';
 import { countWords, hasValidatedAiContent } from '@/lib/news-indexability';
 import { hasRecordedSource } from '@/lib/news-publication';
+import { isMusicStory } from '@/lib/news-editorial';
 import { createBreadcrumbListSchema, createVideoObjectSchema } from '@/lib/seo-schema';
 import { getPublicSupabaseClient } from '@/lib/supabase-public';
 
@@ -201,6 +202,19 @@ export default async function SingleNewsPage({
    * before the verdict. 404 is the same treatment the source rule gets.
    */
   if (article.ai_status === 'skipped') notFound();
+
+  /**
+   * Same rule as the feed, computed rather than stored. A row can be `generated`
+   * and still not be music news — the verdict only becomes `skipped` when a
+   * cleanup run reaches it — so the page asks the question itself. Without this,
+   * a golf story stays a live, indexable page for as long as the backlog is.
+   */
+  if (!isMusicStory({
+    title: article.title,
+    excerpt: article.excerpt,
+    content: article.content,
+    url: article.url,
+  })) notFound();
 
   // Legacy `/news/<region>/<id>` links and stale titles land on the current
   // headline slug instead of rendering a second address for the same story.

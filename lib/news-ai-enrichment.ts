@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { generateAiNewsArticle, getNewsSourceName, type AiNewsArticle } from './ai-news';
+import { assessNewsRelevance } from './news-relevance';
 
 const DEFAULT_AI_NEWS_BATCH_SIZE = 20;
 /** Kept at 20 so a single round trip stays small; throughput comes from batching, not batch size. */
@@ -252,6 +253,40 @@ export async function enrichPendingNews(
 
   const rewriteArticle = async (article: PendingNewsArticle): Promise<void> => {
     try {
+      /**
+       * Do not spend a rewrite on a story that is not music, and do not publish
+       * one. A row stored before a subject was named — golf, an election, a video
+       * game — otherwise becomes a finished brief the moment the worker reaches it,
+       * which is how sport ended up on the EUROPA feed with an AI byline.
+       *
+       * Deliberately narrower than the read-time verdict: it refuses a *named*
+       * subject only. Without the artist roster a name-only headline ("JAŸ-Z Adds
+       * London Stadium Show") would fail the full subject test, and the worker must
+       * never unpublish what ingest accepted on the strength of an artist's name.
+       */
+      const { hardBlock } = assessNewsRelevance({
+        title: article.title,
+        excerpt: article.excerpt,
+        content: article.content,
+        url: article.url,
+      });
+
+      if (hardBlock) {
+        const { error: skipError } = await supabase
+          .from('news')
+          .update({ ai_status: 'skipped' })
+          .eq('id', article.id);
+
+        if (skipError) {
+          summary.failed += 1;
+          summary.failedIds.push(article.id);
+          console.warn(`Could not unpublish "${article.title}":`, skipError.message);
+        } else {
+          summary.skipped += 1;
+        }
+        return;
+      }
+
       const sourceName = getNewsSourceName(article.url);
       const aiResult = await generateAiNewsArticle({
         title: article.title,
