@@ -276,7 +276,46 @@ const NON_NEWS_HOSTS: string[] = [
  * keyword path still keeps their music coverage, because Guardian music stories
  * say what they are about.
  */
-const GENERAL_NEWSROOM_HOSTS: string[] = [
+/**
+ * The refuse list: publishers whose feed is not a music feed.
+ *
+ * Every entry here was measured, not assumed — each one was named in the
+ * 2026-11-12 cleanup report as a host whose held rows were mostly film, TV,
+ * politics, fashion, sport, release notes or wire copy, with the occasional real
+ * music story mixed in (Variety's Coachella cancellation, the Irish Times' Opeth
+ * review). That mixture is why this is a *strictness* list and not a ban: their
+ * rows still publish, but only when the story proves it is music — an anchor, a
+ * known artist, or the word "music" in the headline. What they lose is the
+ * benefit of the doubt.
+ *
+ * The effect of listing a host is therefore large and deliberate: `getPublisherTrust`
+ * answers `general`, which is what the ingest gate, the AI worker, the feed, the
+ * article page, the brief API, related stories, the reviews page and the sitemap
+ * all read. One entry here changes the verdict everywhere at once.
+ */
+export const REFUSED_PUBLISHER_FEEDS: Array<{ host: string; why: string }> = [
+  { host: 'variety.com', why: 'film and TV trade; its music desk stays' },
+  { host: 'deadline.com', why: 'film and TV trade' },
+  { host: 'hollywoodreporter.com', why: 'film and TV trade' },
+  { host: 'wwd.com', why: 'fashion trade' },
+  { host: 'dailymail.co.uk', why: 'celebrity and lifestyle' },
+  { host: 'dailymail.com', why: 'celebrity and lifestyle' },
+  { host: 'nypost.com', why: 'tabloid; sport and celebrity' },
+  { host: 'usatoday.com', why: 'general newspaper' },
+  { host: 'timeout.com', why: 'city listings, mostly restaurants and theatre' },
+  { host: 'timesofindia.indiatimes.com', why: 'general newspaper, never a music source' },
+  { host: 'economictimes.indiatimes.com', why: 'markets and business wire' },
+  { host: 'koreajoongangdaily.joins.com', why: 'K-culture, TV casting' },
+  { host: 'prnewswire.com', why: 'press releases: BBQ battles, award notices' },
+  { host: 'bleedingcool.com', why: 'comics' },
+  { host: 'post.rlsbb.cc', why: 'warez release lists' },
+  { host: 'sf.funcheap.com', why: 'event listings, no editorial' },
+];
+
+const GENERAL_NEWSROOM_HOSTS: string[] = Array.from(new Set([
+  // The refuse list leads, so a host measured as refused is strict by
+  // construction and cannot be dropped again by editing the entries below.
+  ...REFUSED_PUBLISHER_FEEDS.map((entry) => entry.host),
   'theguardian.com',
   'irishtimes.com',
   'standard.co.uk',
@@ -304,10 +343,37 @@ const GENERAL_NEWSROOM_HOSTS: string[] = [
   'bleedingcool.com',
   'rte.ie',
   'post.rlsbb.cc',
-];
+]));
 
 function normalizeHost(hostname: string): string {
   return hostname.trim().toLowerCase().replace(/^www\./, '').replace(/\.$/, '');
+}
+
+/**
+ * Is this publisher on the refuse list?
+ *
+ * Used by the ingest log to name *why* a story was dropped, and by anything that
+ * needs the list itself rather than the trust it implies. Host and subdomains,
+ * never a substring: `nme.com` covers `www.nme.com`, not `nmex.com`.
+ */
+export function isRefusedPublisherHost(hostname: string | null | undefined): boolean {
+  const host = normalizeHost(hostname || '');
+  if (!host) return false;
+
+  return REFUSED_PUBLISHER_FEEDS.some(
+    (entry) => host === entry.host || host.endsWith(`.${entry.host}`),
+  );
+}
+
+/** Convenience for callers holding a URL rather than a host. */
+export function isRefusedPublisherUrl(url: string | null | undefined): boolean {
+  if (!url?.trim()) return false;
+
+  try {
+    return isRefusedPublisherHost(new URL(url).hostname);
+  } catch {
+    return false;
+  }
 }
 
 /** Hosts derived once from the registry, so the two lists cannot drift apart. */

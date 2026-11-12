@@ -12,7 +12,7 @@ import { buildArtistNameIndex, loadKnownArtistNames, type ArtistNameIndex } from
 import { upgradePublisherImageUrl } from '../../../lib/news-media';
 import { assessNewsRelevance } from '../../../lib/news-relevance';
 import { splitIngestableArticles } from '../../../lib/news-publication';
-import { getPublisherRegion, isMusicPublicationUrl } from '../../../lib/news-sources';
+import { getPublisherRegion, isMusicPublicationUrl, isRefusedPublisherUrl } from '../../../lib/news-sources';
 
 /**
  * A direct `tsx` run needs the project's .env files loaded before the Supabase
@@ -180,8 +180,11 @@ async function fetchNews(
 
         if (verdict.relevant) return true;
 
+        // Named, because "music 3 / off-topic 0" from a refuse-list host and the
+        // same score from an unknown music blog are different problems: the first
+        // is expected behaviour, the second is a word the vocabulary is missing.
         const label = verdict.hardBlock
-          || `music ${verdict.musicScore} / off-topic ${verdict.offTopicScore}`;
+          || `${isRefusedPublisherUrl(art.url) ? 'refused publisher, ' : ''}music ${verdict.musicScore} / off-topic ${verdict.offTopicScore}`;
         rejected.push(`${art.title || 'untitled'} [${label}]`);
         return false;
       })

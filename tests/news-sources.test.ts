@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { OFFICIAL_NEWS_SOURCES, getPublisherRegion, isMusicPublicationHost, isMusicPublicationUrl } from '@/lib/news-sources';
+import {
+  OFFICIAL_NEWS_SOURCES,
+  getPublisherRegion,
+  getPublisherTrust,
+  isMusicPublicationHost,
+  isMusicPublicationUrl,
+  isRefusedPublisherUrl,
+} from '@/lib/news-sources';
 
 /**
  * The registry answers two questions that used to be answered in two places, and
@@ -94,5 +101,36 @@ describe('registry integrity', () => {
       expect(known.has(source.region), `${source.url} has region ${source.region}`).toBe(true);
       expect(() => new URL(source.url)).not.toThrow();
     }
+  });
+});
+
+/**
+ * The refuse list is a strictness decision, not a ban: a host on it keeps
+ * publishing, but its stories must prove they are music. What it must never do is
+ * demote a real music publication, so both halves are pinned.
+ */
+describe('refuse list', () => {
+  it('makes a refused publisher a general newsroom, whatever its music section', () => {
+    expect(getPublisherTrust('https://variety.com/2026/music/news/story')).toBe('general');
+    expect(getPublisherTrust('https://deadline.com/2026/11/story')).toBe('general');
+    expect(getPublisherTrust('https://www.hollywoodreporter.com/news/general-news/story')).toBe('general');
+    expect(getPublisherTrust('https://wwd.com/business-news/story')).toBe('general');
+    expect(getPublisherTrust('https://nypost.com/2026/11/12/story')).toBe('general');
+    expect(getPublisherTrust('https://www.usatoday.com/story/entertainment/music/x')).toBe('general');
+    expect(getPublisherTrust('https://www.timeout.com/london/music/x')).toBe('general');
+  });
+
+  it('leaves the actual music publications trusted', () => {
+    expect(getPublisherTrust('https://www.nme.com/news/music/story')).toBe('music');
+    expect(getPublisherTrust('https://pitchfork.com/news/x')).toBe('music');
+    expect(getPublisherTrust('https://www.clashmusic.com/news/x')).toBe('music');
+  });
+
+  it('matches host and subdomains, never a substring', () => {
+    expect(isRefusedPublisherUrl('https://edition.usatoday.com/story/x')).toBe(true);
+    expect(isRefusedPublisherUrl('https://varietyexample.com/x')).toBe(false);
+    expect(isRefusedPublisherUrl('https://blogs.usatodayexample.com/x')).toBe(false);
+    expect(isRefusedPublisherUrl(null)).toBe(false);
+    expect(isRefusedPublisherUrl('not a url')).toBe(false);
   });
 });
