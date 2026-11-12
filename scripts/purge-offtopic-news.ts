@@ -304,12 +304,21 @@ async function main(): Promise<void> {
   if (process.argv.includes('--by-host')) {
     const held = judged.filter((entry) => entry.refused && entry.confidence === 'needs-judgement');
     const byHost = new Map<string, { held: number; titles: string[] }>();
+    const termCounts = new Map<string, number>();
 
     for (const entry of held) {
       const host = hostOf(entry.row.url);
       const bucket = byHost.get(host) || { held: 0, titles: [] };
       bucket.held += 1;
-      if (bucket.titles.length < 2) bucket.titles.push(String(entry.row.title || '').slice(0, 70));
+      if (bucket.titles.length < 2) {
+        // The terms are part of the evidence: a held row held by "artist" is a
+        // vocabulary decision, one held by nothing at all is a publisher decision.
+        const terms = entry.matchedMusic.length ? ` [${entry.matchedMusic.join('|')}]` : ' [no terms]';
+        bucket.titles.push(String(entry.row.title || '').slice(0, 70) + terms);
+      }
+      for (const term of entry.matchedMusic) {
+        termCounts.set(term, (termCounts.get(term) || 0) + 1);
+      }
       byHost.set(host, bucket);
     }
 
@@ -322,6 +331,12 @@ async function main(): Promise<void> {
       heldTotal: held.length,
       distinctHosts: ranked.length,
       noUrl: held.filter((entry) => !hostOf(entry.row.url)).length,
+      // Which words are holding these rows. A term doing most of the holding may
+      // be a vocabulary decision rather than a genuine ambiguity.
+      topTerms: [...termCounts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 25)
+        .map(([term, count]) => ({ term, count })),
       hosts: ranked.slice(0, 40),
     }, null, 2));
     return;

@@ -79,7 +79,9 @@ const ANCHOR_MUSIC_TERMS = buildTermPattern([
   'albums?', 'singles?', 'eps?', 'mixtapes?', 'tours?', 'concerts?', 'gigs?',
   'discography', 'setlists?', 'tracklists?', 'remix(?:es)?', 'vinyl', 'songwriters?', 'rappers?',
   'vocalists?', 'drummers?', 'guitarists?', 'bassists?', 'bands?', 'orchestras?', 'symphon(?:y|ies)',
-  'opera', 'jazz', 'hip[ -]hop', 'k[ -]pop', 'reggaeton', 'afrobeats?', 'grime', 'house music',
+  // `k[ -]pop` missed the spelling newsrooms actually use: Forbes wrote "KPop"
+  // and "KPop Idol Departure" 14 times, and none of it matched a hyphen or a space.
+  'opera', 'jazz', 'hip[ -]?hop', 'k[- ]?pop', 'reggaeton', 'afrobeats?', 'grime', 'house music',
   'billboard', 'grammys?', 'mtv', 'vmas?', 'mercury prize', 'spotify', 'soundcloud',
   'ballet', 'violin(?:ist)?s?', 'cellists?', 'pianists?', 'conductors?', 'philharmonic',
   'música', 'álbum', 'gira', 'conciertos?', 'cantantes?', 'banda', 'canción(?:es)?',
@@ -117,6 +119,10 @@ const ANCHOR_MUSIC_TERMS = buildTermPattern([
   'amapiano', 'dembow', 'corridos?', 'sertanejo', 'bossa nova', 'fado',
   'rock (?:band|music|album|star|song|tour|festival|opera)', 'heavy metal', 'death metal',
   'hard rock', 'indie rock', 'alt-?rock', 'metal bands?',
+  // "Country" is a nation; the artist is the compound ("Country star Gabby
+  // Barrett says…"). "rock and roll" is the phrase NPR used for the Grateful Dead.
+  'country (?:music|star|stars|singer|singers|album|song|band)',
+  'rock and roll', 'listening bars?', 'bluegrass', 'americana', 'gospel music',
   // Festival journalism is music journalism even when it never says "music".
   'music festivals?', 'festival season', 'festival line-?up',
   'roskilde', 'werchter', 'hellfest', 'wacken', 'rock am ring', 'reading festival',
@@ -384,6 +390,24 @@ const HARD_BLOCKS: Array<{ pattern: RegExp; reason: string }> = [
     reason: 'travel-food',
   },
   {
+    /**
+     * Stage theatre. Promoting "music" in a headline made "Playwright of New
+     * Musical, 'In America,' Hal Harper Renounces Pen Name" publishable — the
+     * word "musical" is the show's genre, not its subject, and a Broadway
+     * opening is theatre coverage. Named by its own vocabulary so a concert at a
+     * theatre is unaffected.
+     */
+    pattern: /\b(?:playwright|broadway (?:production|show|musical)|west end (?:production|show)|theatre company|regional theatre)\b/i,
+    reason: 'theatre',
+  },
+  {
+    // "What kind of music do hedgehogs like?" — the word music names the animal's
+    // stimulus, not the story's subject. Promoting "music" in a headline is what
+    // makes this block necessary.
+    pattern: /\b(?:what|which) kind of music do\b|\bmusic (?:for|and) (?:animals|dogs|cats|plants|hedgehogs)\b/i,
+    reason: 'nature-curiosity',
+  },
+  {
     // A quotes column is not music news even when the person quoted is a musician:
     // "Quote of the Day by Shakira: 'I just want to grow old with a man who… –
     // Timeless life lessons'" is a self-help page that happens to name an artist,
@@ -427,6 +451,17 @@ const HARD_BLOCKS: Array<{ pattern: RegExp; reason: string }> = [
 
 const SOFTWARE_WORD = /\b(dl|tool|cli|apps?|software|plugin|library|script|bot|api|version)\b/i;
 const VERSION_NUMBER = /\bv?\d+\.\d+\.\d+\b/i;
+
+/**
+ * The word that names the subject, when it is in the headline.
+ *
+ * "music" is support in the body — "amid growing interest in music" is a mention.
+ * In a headline it is the subject itself: "British music festivals stage tentative
+ * revival" is a music-business story, and 513 held rows in the cleanup report were
+ * held by this word alone. It establishes a subject without being an anchor, and
+ * unlike `festival` it is not a word other kinds of story use.
+ */
+const HEADLINE_SUBJECT_TERMS = buildTermPattern(['music', 'musical']);
 
 /** An anchor outweighs a single off-topic mention of a film or a chart. */
 const ANCHOR_WEIGHT = 3;
@@ -601,8 +636,12 @@ export function assessNewsRelevance(
    * Support and ambiguous words are not in this expression at all. They can raise
    * a score, they cannot make one.
    */
-  const hasSubjectEvidence = anchorScore > 0
-    && (titleAnchorHits > 0 || artistInTitle || titleMusicScore >= SUPPORT_WEIGHT || anchorHits >= 2);
+  const titleNamesMusic = HEADLINE_SUBJECT_TERMS.test(title);
+
+  // A headline that says "music" has named its subject outright; everything else
+  // needs an anchor somewhere.
+  const hasSubjectEvidence = titleNamesMusic || (anchorScore > 0
+    && (titleAnchorHits > 0 || artistInTitle || titleMusicScore >= SUPPORT_WEIGHT || anchorHits >= 2));
 
   const relevant = hardBlock
     ? false
@@ -620,11 +659,12 @@ export function assessNewsRelevance(
       // feeds truncate the body and an obituary or a DJ profile rarely says
       // "music" twice.
       : hasSubjectEvidence
-        // The anchor must be a real one: "record" or "release" alone is half a
-        // point and cannot open the door.
-        && anchorScore > 0
+        // Either a real anchor, or the headline names music: "record" or
+        // "release" alone is half a point and cannot open the door.
+        && (anchorScore > 0 || titleNamesMusic)
         && ((musicScore >= RELEVANT_MUSIC_SCORE && musicScore >= offTopicScore)
-          || (titleAnchorHits > 0 && musicScore > offTopicScore));
+          || (titleAnchorHits > 0 && musicScore > offTopicScore)
+          || (titleNamesMusic && musicScore > offTopicScore));
 
   return {
     relevant,
@@ -662,8 +702,9 @@ export function isOffTopicJunk(input: RelevanceInput): boolean {
 export function isMusicNews(
   input: RelevanceInput,
   policy: RelevancePolicy = 'news-api',
+  options: RelevanceOptions = {},
 ): boolean {
-  return assessNewsRelevance(input, policy).relevant;
+  return assessNewsRelevance(input, policy, options).relevant;
 }
 
 export interface PublishabilityOptions {

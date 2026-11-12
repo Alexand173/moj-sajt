@@ -246,6 +246,25 @@ const ADDITIONAL_MUSIC_PUBLICATION_HOSTS = [
 ];
 
 /**
+ * Hosts that publish something, but not journalism and never music.
+ *
+ * They arrive through the general NewsAPI firehose, so they cannot be removed
+ * from a registry they were never in. Naming them as `general` trust is what lets
+ * a zero-evidence row from them be cleared instead of sitting in the review pile
+ * forever: "libmogra 0.4.2" is a package page, "8/8/26: Second Saturdays at Union
+ * Square" is a calendar entry, and "Top questions, transactions for all 32 NFL
+ * teams" is a sports wire.
+ */
+const NON_NEWS_HOSTS: string[] = [
+  'pypi.org',
+  'post.rlsbb.cc',
+  'sf.funcheap.com',
+  'sports.yahoo.com',
+  'swishappeal.com',
+  'lifesciencesworld.com',
+];
+
+/**
  * Outlets the registry lists because of a music *section*, not because they are
  * music publications.
  *
@@ -368,6 +387,14 @@ export function getPublisherTrust(url: string | null | undefined): PublisherTrus
   }
 
   if (isMusicPublicationHost(host)) return 'music';
+
+  // Not music, and not a newsroom either. Classified `general` so a zero-evidence
+  // row from them can be cleared instead of waiting in the review pile forever:
+  // "libmogra 0.4.2" from pypi.org is a package page, and "8/8/26: Second
+  // Saturdays at Union Square" from a listings site is a calendar entry.
+  for (const candidate of NON_NEWS_HOSTS) {
+    if (host === candidate || host.endsWith(`.${candidate}`)) return 'general';
+  }
 
   for (const candidate of GENERAL_NEWSROOM_HOSTS) {
     if (host === candidate || host.endsWith(`.${candidate}`)) return 'general';

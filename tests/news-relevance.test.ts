@@ -5,6 +5,8 @@ import {
   isOffTopicJunk,
   isPublishableMusicNews,
 } from '@/lib/news-relevance';
+import { buildArtistNameIndex } from '@/lib/news-artists';
+import { LEGACY_ARTIST_NAMES } from '@/lib/news-artist-legacy';
 
 /**
  * These headlines are the ones that actually reached the feed and were published
@@ -601,6 +603,41 @@ describe('the cleanup report fixtures', () => {
       title: 'A new record arrives in March',
       content: 'The album arrives in March.',
     }).musicScore).toBeGreaterThan(0);
+  });
+
+  it('lets the headline word "music" name the subject', () => {
+    // 513 held rows were held by this word alone. A headline that says music has
+    // named its subject; "festival" and "artist" have not.
+    expect(isMusicNews({
+      title: 'British music festivals stage tentative revival with perks and payment plans',
+    })).toBe(true);
+    expect(isMusicNews({
+      title: 'Menopause and music: pioneer women’s health doctor dies at 94',
+    })).toBe(true);
+  });
+
+  it('does not let a stage musical or a hedgehog through on the same word', () => {
+    expect(isMusicNews({
+      title: 'Playwright of New Musical, "In America," Hal Harper Renounces Pen Name',
+    })).toBe(false);
+    expect(isMusicNews({
+      title: 'What kind of music do hedgehogs like?',
+    })).toBe(false);
+  });
+
+  it('recognises a legacy artist the chart will never hold', () => {
+    // The roster is built from songs and concerts, so an archive piece is not
+    // music to it. The curated legacy seeds are what fix that.
+    const knownArtists = buildArtistNameIndex(LEGACY_ARTIST_NAMES);
+
+    expect(isMusicNews({
+      title: 'Louis Armstrong’s Personal Archive Contains 5,000 Photos—Here Are the Best',
+    }, 'news-api', { knownArtists })).toBe(true);
+
+    // And this one no longer needs a name at all: "rock and roll" is an anchor.
+    expect(isMusicNews({
+      title: 'How Deadheads became rock and roll’s greatest renewable resource',
+    })).toBe(true);
   });
 
   it('will not let festival, artist or stage carry a story alone', () => {
