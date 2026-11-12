@@ -677,3 +677,87 @@ describe('the verdict used at publish and read time', () => {
     }, { publisherTrust: 'music' })).toBe(false);
   });
 });
+
+const legacyIndex = buildArtistNameIndex(LEGACY_ARTIST_NAMES);
+
+/**
+ * The held sample of 12 Nov 2026 was 165 rows the gate would restore, and roughly
+ * half of them were not music. Every wrong one was admitted by `known-artist`, in
+ * one of three ways: a roster entry that was never a name, a one-word name opening
+ * somebody else's, or a real name that the story only mentions.
+ */
+describe('a mention is not a subject', () => {
+  it('refuses an obituary that only mentions a legacy artist', () => {
+    const verdict = assessNewsRelevance(
+      { title: 'Tom Dreesen, Stand-Up Comedian Who Opened for Frank Sinatra, Dies at 86' },
+      'news-api',
+      { knownArtists: legacyIndex },
+    );
+
+    expect(verdict.relevant).toBe(false);
+  });
+
+  it('keeps the story that is about the artist', () => {
+    const verdict = assessNewsRelevance(
+      { title: 'Frank Sinatra concert announced for Radio City' },
+      'news-api',
+      { knownArtists: legacyIndex },
+    );
+
+    expect(verdict.relevant).toBe(true);
+    expect(verdict.matchedMusic).toContain('known-artist');
+  });
+});
+
+describe('sport outranks an artist name', () => {
+  it('blocks a team sport even when an athlete collides with a mononym', () => {
+    const verdict = assessNewsRelevance(
+      { title: 'Azzi Fudd wins WNBA All-Star 3-point contest; Shakira Austin takes Shooting Stars Challenge' },
+      'news-api',
+      { knownArtists: legacyIndex },
+    );
+
+    expect(verdict.hardBlock).toBe('sport-team');
+    expect(verdict.relevant).toBe(false);
+  });
+
+  it('refuses a match report whose only music was the collision', () => {
+    const verdict = assessNewsRelevance(
+      { title: "Mystics' Shakira Austin is healthy at last and powering Washington's playoff push" },
+      'news-api',
+      { knownArtists: legacyIndex },
+    );
+
+    expect(verdict.relevant).toBe(false);
+  });
+});
+
+describe('a franchise is not a genre', () => {
+  it('blocks a merchandise story that a genre word would carry', () => {
+    const verdict = assessNewsRelevance({
+      title: 'SDCC: SDCC Reveal — Rumi Premium Electronic Sword and Collector Figures',
+      content: 'The KPop Demon Hunters range lands this week.',
+    });
+
+    expect(verdict.hardBlock).toBe('screen-merchandise');
+    expect(verdict.relevant).toBe(false);
+  });
+
+  it('leaves the soundtrack alone', () => {
+    const verdict = assessNewsRelevance({
+      title: "KPop Demon Hunters soundtrack returns to No. 1 on the album chart",
+    });
+
+    expect(verdict.hardBlock).toBeNull();
+    expect(verdict.relevant).toBe(true);
+  });
+
+  it('blocks a story about the film rather than its music', () => {
+    const verdict = assessNewsRelevance({
+      title: "1 Year Later, Rumi's Best Line Is Still KPop Demon Hunters' Greatest Quote",
+    });
+
+    expect(verdict.hardBlock).toBe('screen-merchandise');
+    expect(verdict.relevant).toBe(false);
+  });
+});

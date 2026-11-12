@@ -2,7 +2,7 @@ import { loadEnvConfig } from '@next/env';
 import { createClient } from '@supabase/supabase-js';
 import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { normalizeArtistText } from '../lib/news-artists';
+import { isIndexableArtistName, normalizeArtistText } from '../lib/news-artists';
 import { assessNewsRelevance } from '../lib/news-relevance';
 import { isMusicPublicationUrl } from '../lib/news-sources';
 import { findCityByName } from '../lib/visitor-cities';
@@ -227,10 +227,27 @@ async function main(): Promise<void> {
     harvested.set(key, key);
   }
 
+  /**
+   * The last gate before the file is written, and the same one the runtime index
+   * applies. It is not redundant: it makes the committed artefact a list of names
+   * rather than a list of strings, so a reviewer reading the diff sees only entries
+   * the gate can actually use.
+   *
+   * `koncerti.artist_name` is the source that needs it most — some rows hold the
+   * whole event title ("2026 8TURN 2nd World Tour in Mexico", "Eagles - Suite
+   * Reservation"), which is a listing, not an act.
+   */
   const names = new Set<string>();
+  const unusable: string[] = [];
+
   for (const name of [...chart, ...tour, ...harvested.keys()]) {
     const trimmed = name.trim();
-    if (trimmed) names.add(trimmed);
+    if (!trimmed) continue;
+    if (!isIndexableArtistName(trimmed)) {
+      unusable.push(trimmed);
+      continue;
+    }
+    names.add(trimmed);
   }
 
   const sorted = Array.from(names).sort((a, b) => a.localeCompare(b));
@@ -238,7 +255,13 @@ async function main(): Promise<void> {
   const payload = {
     source: 'MusicTop chart + tour feed, plus names repeated across accepted headlines',
     generatedAt: new Date().toISOString().slice(0, 10),
-    counts: { chart: chart.size, tour: tour.size, headlines: harvested.size, total: sorted.length },
+    counts: {
+      chart: chart.size,
+      tour: tour.size,
+      headlines: harvested.size,
+      dropped: unusable.length,
+      total: sorted.length,
+    },
     names: sorted,
   };
 
@@ -252,6 +275,8 @@ async function main(): Promise<void> {
     chart: chart.size,
     tour: tour.size,
     headlineNames: harvested.size,
+    droppedUnusable: unusable.length,
+    droppedSample: unusable.slice(0, 20),
     previousTotal: Array.isArray(existing.names) ? existing.names.length : 0,
     total: sorted.length,
     headlineSample: samples,

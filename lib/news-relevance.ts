@@ -15,7 +15,7 @@
  * never win on points.
  */
 
-import { titleMentionsKnownArtist, type ArtistNameIndex } from './news-artists';
+import { findArtistMentions, type ArtistNameIndex } from './news-artists';
 
 export type RelevanceInput = {
   title?: string | null;
@@ -232,7 +232,7 @@ const SPORT_BLOCKS: Array<{ pattern: RegExp; reason: string }> = [
   {
     // Not bare "super bowl": the halftime headliner is a music story. The sport
     // is named by its champions and its game, never by the show.
-    pattern: /\b(?:basketball|nba(?!\s*young-?boy)|three-pointer|ice hockey|nhl|stanley cup|rugby|six nations|premier league|la liga|serie a|bundesliga|champions league|world cup|uefa|fifa|soccer|football (?:club|team|match|league)|quarterback|touchdown|super bowl (?:winner|champions|championship game)|playoff berth|transfer window|hat[- ]trick|medal table)\b/i,
+    pattern: /\b(?:basketball|wnba|nba(?!\s*young-?boy)|three-pointer|all-star 3-point|ice hockey|nhl|stanley cup|rugby|six nations|premier league|la liga|serie a|bundesliga|champions league|world cup|uefa|fifa|soccer|football (?:club|team|match|league)|quarterback|touchdown|super bowl (?:winner|champions|championship game)|playoff berth|transfer window|hat[- ]trick|medal table)\b/i,
     reason: 'sport-team',
   },
   {
@@ -259,7 +259,8 @@ const SPORT_BLOCKS: Array<{ pattern: RegExp; reason: string }> = [
 const SPORT_CONTEXT_TERMS = buildTermPattern([
   'championships?', 'tournament', 'leaderboard', 'final round', 'title race',
   'standings', 'head coach', 'squad', 'season opener', 'transfer fee',
-  'second half', 'opening round', 'course record', 'tee time',
+  'second half', 'opening round', 'course record', 'tee time', 'playoff push',
+  'playoff run', 'power rankings',
 ]);
 const SPORT_CONTEXT_LIMIT = 2;
 
@@ -447,6 +448,25 @@ const HARD_BLOCKS: Array<{ pattern: RegExp; reason: string }> = [
     pattern: /(?:\.\s+and,\s)|\b(?:up first|morning brief(?:ing)?|evening brief(?:ing)?|daily brief(?:ing)?|top stories|news round-?up|drudge|feed needs your support)\b|related stories:/i,
     reason: 'digest',
   },
+  {
+    /**
+     * A film franchise is not a genre.
+     *
+     * "SDCC: Hasbro Unveils 'KPop Demon Hunters' Rumi Premium Electronic Sword",
+     * "Mattel's 'KPop Demon Hunters' SDCC Exclusive Figures Go On Sale This Week"
+     * and "KPop Demon Hunters Rumi & Jinu in The Daily LITG" all scored 9 for one
+     * reason: `kpop` is an anchor and toy vocabulary scores nothing against it.
+     *
+     * Blocked by context, never by name. The film's soundtrack and its singles are
+     * music news, so the phrase on its own is not the subject — the merchandise is.
+     */
+    // Two lookaheads from the start of the text, so the order does not matter: the
+    // sword can be named before the film and the film before the figures. The
+    // context list covers merchandise *and* screen coverage — a toy, a quote, a
+    // cast interview — because both are the film rather than its music.
+    pattern: /(?=[\s\S]*\bk-?pop demon hunters?\b)(?=[\s\S]*\b(?:figures?|toys?|dolls?|swords?|comics?|merch(?:andise)?|box office|sequels?|trailers?|plush|funko|lego|quotes?|greatest line|best line|characters?|cast|movie|netflix|episodes?|series)\b)/i,
+    reason: 'screen-merchandise',
+  },
 ];
 
 const SOFTWARE_WORD = /\b(dl|tool|cli|apps?|software|plugin|library|script|bot|api|version)\b/i;
@@ -462,6 +482,17 @@ const VERSION_NUMBER = /\bv?\d+\.\d+\.\d+\b/i;
  * unlike `festival` it is not a word other kinds of story use.
  */
 const HEADLINE_SUBJECT_TERMS = buildTermPattern(['music', 'musical']);
+
+/**
+ * Words a headline puts before a name it is only mentioning.
+ *
+ * "Tom Dreesen, Stand-Up Comedian Who Opened for Frank Sinatra, Dies at 86" is a
+ * comedian's obituary. The artist is real and correctly recognised; the `for` is
+ * what says he is not the subject, without having to know who Tom Dreesen was.
+ */
+const MENTION_PREPOSITIONS: Set<string> = new Set([
+  'for', 'with', 'featuring', 'feat', 'alongside', 'like', 'about', 'by', 'to', 'of',
+]);
 
 /** An anchor outweighs a single off-topic mention of a film or a chart. */
 const ANCHOR_WEIGHT = 3;
@@ -569,14 +600,34 @@ export function assessNewsRelevance(
    * music stories that score zero on vocabulary alone. The charts and the tour
    * data already know those names, so they are worth a strong term each.
    */
-  const artistInTitle = titleMentionsKnownArtist(title, options.knownArtists);
-  const artistInText = artistInTitle || titleMentionsKnownArtist(text, options.knownArtists);
-  if (artistInText) matchedMusic.push('known-artist');
+  const titleMentions = findArtistMentions(title, options.knownArtists);
+  /**
+   * Named in the headline *as the subject*, not merely named.
+   *
+   * "Tom Dreesen, Stand-Up Comedian Who Opened for Frank Sinatra, Dies at 86" names
+   * a legacy artist correctly and is a comedian's obituary. A name behind "for",
+   * "with", "featuring" or "to" is a mention: it stays evidence that the copy is
+   * music-adjacent, but it cannot make the story a music story on its own.
+   */
+  const artistAsSubject = titleMentions.some(
+    (mention) => !MENTION_PREPOSITIONS.has(mention.previousWord ?? ''),
+  );
+  const bodyMentions = titleMentions.length > 0
+    ? titleMentions
+    : findArtistMentions(text, options.knownArtists);
+  const artistInText = titleMentions.length > 0 || bodyMentions.length > 0;
+
+  if (artistInText) {
+    matchedMusic.push('known-artist');
+    // Named, so the next report says which entry admitted the row.
+    const named = bodyMentions[0]?.name;
+    if (named) matchedMusic.push(`artist:${named}`);
+  }
 
   const anchorHits = collectMatches(text, ANCHOR_MUSIC_TERMS).length;
   const supportHits = collectMatches(text, SUPPORT_MUSIC_TERMS).length;
   const ambiguousHits = collectMatches(text, AMBIGUOUS_MUSIC_TERMS).length;
-  const anchorScore = anchorHits * ANCHOR_WEIGHT + (artistInText ? ANCHOR_WEIGHT : 0);
+  const anchorScore = anchorHits * ANCHOR_WEIGHT + (artistAsSubject ? ANCHOR_WEIGHT : 0);
   const musicScore = anchorScore
     + supportHits * SUPPORT_WEIGHT
     + ambiguousHits * AMBIGUOUS_WEIGHT;
@@ -591,15 +642,24 @@ export function assessNewsRelevance(
   const titleMusicScore = titleAnchorHits * ANCHOR_WEIGHT
     + collectMatches(title, SUPPORT_MUSIC_TERMS).length * SUPPORT_WEIGHT
     + collectMatches(title, AMBIGUOUS_MUSIC_TERMS).length * AMBIGUOUS_WEIGHT
-    + (artistInTitle ? ANCHOR_WEIGHT : 0);
+    + (artistAsSubject ? ANCHOR_WEIGHT : 0);
 
   /**
    * Two weak sport words and no music subject in the headline is a match report
    * for a sport not yet named. Requiring both halves is what keeps a music story
    * that happens to say "tournament" or "squad" alive.
+   *
+   * "No music subject" is judged on the *vocabulary* only. This used to be
+   * `titleMusicScore === 0`, which an artist name always defeated: "Mystics'
+   * Shakira Austin is healthy at last and powering Washington's playoff push" was
+   * never examined as sport, because a mononym collision had already supplied three
+   * points of headline evidence.
    */
+  const titleNamesMusic = HEADLINE_SUBJECT_TERMS.test(title);
+
   const sportContextBlocked = collectMatches(text, SPORT_CONTEXT_TERMS).length >= SPORT_CONTEXT_LIMIT
-    && titleMusicScore === 0;
+    && titleAnchorHits === 0
+    && !titleNamesMusic;
 
   // "qobuz-dl-ultra 2.4.3.1" reads as a changelog entry, not a headline: a
   // version number only blocks when software vocabulary sits next to it.
@@ -636,12 +696,11 @@ export function assessNewsRelevance(
    * Support and ambiguous words are not in this expression at all. They can raise
    * a score, they cannot make one.
    */
-  const titleNamesMusic = HEADLINE_SUBJECT_TERMS.test(title);
-
   // A headline that says "music" has named its subject outright; everything else
-  // needs an anchor somewhere.
+  // needs an anchor somewhere. An artist counts only as the *subject*: a name this
+  // story merely mentions ("…Opened for Frank Sinatra, Dies at 86") is not one.
   const hasSubjectEvidence = titleNamesMusic || (anchorScore > 0
-    && (titleAnchorHits > 0 || artistInTitle || titleMusicScore >= SUPPORT_WEIGHT || anchorHits >= 2));
+    && (titleAnchorHits > 0 || artistAsSubject || titleMusicScore >= SUPPORT_WEIGHT || anchorHits >= 2));
 
   const relevant = hardBlock
     ? false
