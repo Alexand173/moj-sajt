@@ -365,7 +365,7 @@ const HARD_BLOCKS: Array<{ pattern: RegExp; reason: string }> = [
     // Perform 'Drop Dead' on SNL") is music news, and 73 such rows were queued for
     // removal. What is not music is the schedule — who is hosting, who is the
     // musical guest, which episode is new tonight.
-    pattern: /\b(?:is snl new tonight|snl new tonight|snl (?:host|musical guest)|saturday night live (?:host|musical guest)|late[- ]night show|talk show|episode guide|tv listing|what to watch (?:tonight|this week))\b/i,
+    pattern: /\b(?:is snl new tonight|snl new tonight|snl (?:host|musical guest)|saturday night live (?:host|musical guest)|late[- ]night show|talk show|episode guide|tv listing|what to watch (?:tonight|this week)|dwts|dancing with the stars)\b/i,
     reason: 'tv-listing',
   },
   {
@@ -427,6 +427,28 @@ const HARD_BLOCKS: Array<{ pattern: RegExp; reason: string }> = [
      */
     pattern: /\b(physique|shirtless|bikini|baby bump|doppelganger|divorce filing|red carpet outfit)\b/i,
     reason: 'celebrity-gossip',
+  },
+  {
+    /**
+     * Relationship gossip about a performer.
+     *
+     * The three identification rules settled the rows where a name was matched
+     * wrongly — an athlete, an obituary subject, a film title. What survives them is
+     * the opposite case: the artist really is the subject, and the story is about a
+     * partner rather than music. The restore sample said so plainly:
+     *
+     *   "…Shakira on how she survived… after Gerard Piqué allegedly cheated on her"
+     *   "Jana Kramer defends Adam Sandler officiating Taylor Swift and Travis Kelce's wedding"
+     *   "Penny Lancaster reveals how she and husband Rod Stewart keep their spark alive"
+     *   "From dating bans to surgery, how drastic are NewJeans' restrictions?"
+     *   "Sharon Osbourne pours a pint… in late husband Ozzy's hometown"
+     *
+     * Phrase-level throughout, never the bare words: "wedding" on its own is a
+     * performance, "marriage" may be a song, and "husband" may be a collaborator's.
+     * Only the constructions that exist to carry a relationship story are blocked.
+     */
+    pattern: /\b(?:allegedly cheated|cheated on (?:her|him|them)|accused of cheating|denies cheating|breaks? (?:her|his|their|the|its)? ?silence|(?:have|having|had) a (?:husband|wife|boyfriend|girlfriend)|spark alive|dating bans?|dating rumours?|dating rumors?|dating history|dating life|baby plans?|marriage (?:plans?|pressures?|rumours?|rumors?)|officiating [\w’' -]{0,40}wedding|(?:her|his|their) (?:ex-)?(?:husband|wife|boyfriend|girlfriend|fianc\w{0,3}) (?:reveals?|says?|admits?|denies|blasts?|slams?|spill\w*)|late (?:husband|wife)|quizzed on)\b/i,
+    reason: 'relationship-gossip',
   },
   {
     // A digest is several unrelated stories under one headline, so it is not one

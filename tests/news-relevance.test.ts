@@ -761,3 +761,42 @@ describe('a franchise is not a genre', () => {
     expect(verdict.relevant).toBe(false);
   });
 });
+
+/**
+ * The identification rules settled the rows where a name was matched wrongly. What
+ * survived them in the restore sample was the opposite case: the artist really is
+ * the subject, and the story is about a partner, a wedding or a pregnancy.
+ */
+describe('relationship stories are not music stories', () => {
+  it('refuses relationship gossip about a real artist', () => {
+    const headlines = [
+      '"My life crumbled in front of me": Shakira on how she survived the darkest chapter after Gerard Piqué allegedly cheated on her for years',
+      '"There were sacrifices for love": Shakira breaks silence on how she let go of opportunities to be with Gerard Piqué',
+      'Shakira in 2024: "It’s Kind Of Good Not To Have A Husband Because I Don’t Know Why It Was Dragging Me Down"',
+      'Jana Kramer defends Adam Sandler officiating Taylor Swift and Travis Kelce’s MSG wedding',
+      'Penny Lancaster, 55, reveals how she and husband Rod Stewart, 81, keep their spark alive',
+      'From dating bans to surgery, how drastic are NewJeans’ ‘unusually aggressive’ restrictions?',
+      'Sharon Osbourne surprises pub-goers as she pours a pint in late husband Ozzy’s hometown',
+      'Harry Jowsey gets quizzed on ‘DWTS,’ Travis Kelce’s ‘Let’s Marry Harry’ predecessor',
+    ];
+
+    for (const title of headlines) {
+      const verdict = assessNewsRelevance({ title }, 'news-api', { knownArtists: legacyIndex });
+      expect(verdict.relevant, title).toBe(false);
+      expect(verdict.hardBlock, title).not.toBeNull();
+    }
+  });
+
+  it('leaves a music story that mentions a partner alone', () => {
+    // "husband" is not gossip by itself: only the constructions that exist to carry
+    // a relationship story are blocked.
+    const verdict = assessNewsRelevance(
+      { title: 'Rod Stewart announces new album and a tour with his band' },
+      'news-api',
+      { knownArtists: legacyIndex },
+    );
+
+    expect(verdict.hardBlock).toBeNull();
+    expect(verdict.relevant).toBe(true);
+  });
+});
