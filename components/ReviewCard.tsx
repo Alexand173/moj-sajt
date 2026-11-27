@@ -1,5 +1,28 @@
+'use client';
+
+import type { SyntheticEvent } from 'react';
 import { ArrowUpRight, Star } from 'lucide-react';
 import { cleanNewsExcerpt } from '@/lib/news-excerpt';
+
+/**
+ * Every card shows a picture, so a publisher that blocks hotlinking must not leave
+ * a black rectangle behind.
+ *
+ * Four cards on the first render did exactly that, all from `static.punknews.org`:
+ * the row holds a valid URL, and the host answers 403 to a request that is not
+ * theirs. The page cannot know that when it selects rows, so the image itself is
+ * the only place the failure is visible.
+ */
+const FALLBACK_REVIEW_IMAGE =
+  'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1200&q=70';
+
+function handleImageError(event: SyntheticEvent<HTMLImageElement>) {
+  const image = event.currentTarget;
+  if (image.dataset.fallbackApplied === 'true') return;
+
+  image.dataset.fallbackApplied = 'true';
+  image.src = FALLBACK_REVIEW_IMAGE;
+}
 
 export interface ReviewCardData {
   id: string | number;
@@ -34,7 +57,7 @@ function CardContent({ review, featured }: ReviewCardProps) {
     <>
       {review.image && (
         <div className={`relative overflow-hidden bg-ink ${featured ? 'h-72 sm:h-96' : 'h-52'}`}>
-          <img src={review.image} alt={review.title} loading={featured ? 'eager' : 'lazy'} fetchPriority={featured ? 'high' : 'auto'} decoding="async" className="h-full w-full object-cover transition-all duration-700 group-hover:scale-105" />
+          <img src={review.image} alt={review.title} loading={featured ? 'eager' : 'lazy'} fetchPriority={featured ? 'high' : 'auto'} decoding="async" onError={handleImageError} className="h-full w-full object-cover transition-all duration-700 group-hover:scale-105" />
           <div className="mt-image-overlay absolute inset-0" />
           <div className="absolute left-4 top-4 flex items-center gap-2"><span className="bg-white px-2.5 py-1 text-[9px] font-black tracking-[0.2em] text-ink uppercase">{review.category || 'Official'}</span><span className="inline-flex items-center gap-1 bg-ink/80 px-2.5 py-1 text-[9px] font-black tracking-widest text-white"><Star aria-hidden="true" className="size-2.5 fill-accent-red text-accent-red" />{featured ? '4.5' : 'Latest'}</span></div>
         </div>
