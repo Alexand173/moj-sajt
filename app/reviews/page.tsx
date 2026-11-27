@@ -8,8 +8,33 @@ const REVIEW_PAGE_SIZE = 40;
  * Over-fetch, because the relevance filter below drops rows. The page selects by
  * title — any story with "review" or "interview" in it — so without the filter a
  * game review or a fixture thread is published here as music criticism.
+ *
+ * Raised from 80 when the two display rules below were added: of 537 review-titled
+ * rows, 183 are classical and 308 have no picture, so a small window would come
+ * back nearly empty after filtering.
  */
-const REVIEW_FETCH_LIMIT = 80;
+const REVIEW_FETCH_LIMIT = 300;
+
+/**
+ * Genres this desk does not cover.
+ *
+ * The page is for the popular repertoire — rock, pop, metal, hip-hop, jazz — and a
+ * ballet double bill or a La Scala opera review is a different publication's beat.
+ * The `classical` channel is excluded wholesale, and the wording catches the rows
+ * filed elsewhere whose subject is still the concert hall.
+ */
+const CLASSICAL_SUBJECT = /\b(ballet|ballet'?s|opera|operatic|opera house|orchestras?|orchestral|symphon(?:y|ies|ic)|philharmonic|recital|concerto|chamber music|string quartet|requiem|lieder|bel canto|classical)\b/i;
+
+/** Nothing on this page is published without a picture. */
+function hasPicture(item: ReviewCardData): boolean {
+  return Boolean(item.image?.trim());
+}
+
+function isPopularGenre(item: ReviewCardData): boolean {
+  if (item.region === 'classical') return false;
+
+  return !CLASSICAL_SUBJECT.test(item.title || '');
+}
 
 export const revalidate = 3600;
 
@@ -46,6 +71,9 @@ export default async function ReviewsPage() {
         // mentions the soundtrack, so reading it rescues the very items this page
         // must not show. The URL is what tells a music outlet from a general feed.
         .filter((item) => isMusicStory({ title: item.title, url: item.url }))
+        // Only the popular repertoire, and only where there is a picture to show:
+        // a card with no image left a third of the grid as blank paper.
+        .filter((item) => isPopularGenre(item) && hasPicture(item))
         .slice(0, REVIEW_PAGE_SIZE);
     } catch (error) {
       console.warn('Could not load reviews:', error);
@@ -62,7 +90,7 @@ export default async function ReviewsPage() {
             <span className="mt-meta text-muted">{items.length} verdicts this week</span>
           </div>
           <div className="mt-10 flex flex-wrap gap-2 border-t border-line pt-5" aria-label="Review categories">
-            {['All', 'Albums', 'Live', 'Interviews', 'Classical', 'UK', 'US', 'World'].map((filter, index) => <span key={filter} className={`rounded-full border px-3.5 py-1.5 text-[9px] font-black tracking-[0.16em] uppercase ${index === 0 ? 'border-ink bg-ink text-white' : 'border-line text-muted'}`}>{filter}</span>)}
+            {['All', 'Albums', 'Live', 'Interviews', 'Metal', 'Jazz', 'UK', 'US', 'World'].map((filter, index) => <span key={filter} className={`rounded-full border px-3.5 py-1.5 text-[9px] font-black tracking-[0.16em] uppercase ${index === 0 ? 'border-ink bg-ink text-white' : 'border-line text-muted'}`}>{filter}</span>)}
           </div>
         </div>
       </section>

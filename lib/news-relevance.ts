@@ -16,6 +16,7 @@
  */
 
 import { findArtistMentions, type ArtistNameIndex } from './news-artists';
+import { isScraperStub } from './news-excerpt';
 
 export type RelevanceInput = {
   title?: string | null;
@@ -569,19 +570,15 @@ export type PublisherTrust = 'music' | 'general' | 'unknown';
  * scored exactly "1 vs 0": a Spanish election report and a cancelled Coachella set
  * were indistinguishable, because neither headline was being read at all.
  *
- * A stub is replaced with nothing, so the headline is what gets judged.
+ * A stub is replaced with nothing, so the headline is what gets judged. The
+ * pattern lives in `lib/news-excerpt` because the same stub must never reach a card
+ * either — the gate and the components ask one module, not two copies of a regex.
  */
-const SCRAPER_STUB_PATTERNS: RegExp[] = [
-  /^SOURCE:\s*[\w.-]+\s*$/i,
-  /^Music update from\s+[\w.\-]+\s*$/i,
-];
-
 function stripScraperStub(input: RelevanceInput): RelevanceInput {
   const clean = (value: string | null | undefined): string | null => {
-    const trimmed = value?.trim();
-    if (!trimmed) return null;
+    if (!value?.trim()) return null;
 
-    return SCRAPER_STUB_PATTERNS.some((pattern) => pattern.test(trimmed)) ? null : value ?? null;
+    return isScraperStub(value) ? null : value;
   };
 
   return { title: input.title, url: input.url, excerpt: clean(input.excerpt), content: clean(input.content) };

@@ -246,7 +246,7 @@ export default function OfficialNewsReader({
               MusicTop brief
             </p>
             <h3 id={headingId} className="sr-only">{title}</h3>
-            <p className="mt-1.5 text-[10px] font-bold tracking-[0.14em] text-muted uppercase sm:text-[9px]">{sourceName} · {publishedLabel}</p>
+            <p className="mt-1.5 text-[10px] font-bold tracking-[0.14em] text-muted uppercase sm:text-[9px]">{publishedLabel}</p>
           </div>
           <button
             type="button"
@@ -285,9 +285,13 @@ export default function OfficialNewsReader({
       >
         {title}
       </h3>
+      {/*
+       * The source is not repeated here. It already appears once, at the foot of the
+       * brief, as "Original report: <host>" — the link a reader actually needs — and
+       * naming it under the headline put a publisher line between the title and the
+       * story on every card in the feed.
+       */}
       <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-bold tracking-[0.16em] text-muted uppercase sm:text-[9px]">
-        <span className="text-accent-blue">Official source · {sourceName}</span>
-        <span aria-hidden="true" className="text-line-strong">/</span>
         <span>{publishedLabel}</span>
       </p>
 

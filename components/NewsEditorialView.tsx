@@ -9,6 +9,7 @@ import AddCommentTrigger from '@/components/AddCommentTrigger';
 import AddPostTrigger from '@/components/AddPostTrigger';
 import AlbumGallery from '@/components/AlbumGallery';
 import OfficialNewsReader, { useOfficialBrief } from '@/components/OfficialNewsReader';
+import { cleanNewsExcerpt } from '@/lib/news-excerpt';
 import { getFeedCardLayout } from '@/lib/news-feed-layout';
 import { buildNewsArticlePath } from '@/lib/news-slug';
 import { upgradePublisherImageUrl } from '@/lib/news-media';
@@ -102,6 +103,8 @@ function EditorialHero({ region, article }: { region: string; article?: NewsEdit
   // stretched across ~1500px. Ask the publisher's CDN for the large version of the
   // same photo first; the stored URL is a resize instruction, not a limit.
   const heroImage = upgradePublisherImageUrl(article.image) || article.image;
+  // The scraper's `SOURCE: host` line is metadata, not a standfirst.
+  const heroExcerpt = cleanNewsExcerpt(article.excerpt);
 
   return (
     <section className="relative min-h-[36rem] overflow-hidden border-b-4 border-accent-red bg-ink sm:min-h-[42rem] lg:min-h-[calc(78vh-8rem)]">
@@ -116,7 +119,7 @@ function EditorialHero({ region, article }: { region: string; article?: NewsEdit
             <span className="mt-meta text-white/55">Long read · {formatDate(article.created_at)}</span>
           </div>
           <h1 className="mt-5 max-w-5xl text-balance text-[clamp(2rem,4.2vw,4rem)] font-black leading-[0.96] tracking-[-0.02em] text-white uppercase">{article.title}</h1>
-          {article.excerpt && <p className="mt-5 max-w-2xl text-[0.9625rem] leading-relaxed text-white/70 sm:text-base">{article.excerpt}</p>}
+          {heroExcerpt && <p className="mt-5 max-w-2xl text-[0.9625rem] leading-relaxed text-white/70 sm:text-base">{heroExcerpt}</p>}
           <div className="mt-7 flex flex-wrap items-center gap-4">
             <Link href={buildNewsArticlePath(region, article.id, article.title)} className="group inline-flex items-center gap-2 bg-white px-5 py-3 text-[11px] font-black tracking-[0.2em] text-ink uppercase transition-colors hover:bg-accent-red hover:text-white sm:text-[10px]">
               Read the story
@@ -285,6 +288,7 @@ function CommunityNewsEditorialCard({ region, item }: { region: string; item: Ne
 function LatestNewsFeatureCard({ region, item }: { region: string; item: NewsEditorialItem }) {
   const title = item.title || item.text || 'Untitled music story';
   const image = item.image;
+  const excerpt = cleanNewsExcerpt(item.excerpt);
 
   return (
     <Link
@@ -308,7 +312,7 @@ function LatestNewsFeatureCard({ region, item }: { region: string; item: NewsEdi
 
       <div className="p-5 sm:p-6">
         <h3 className="text-2xl font-black leading-[1.04] tracking-[-0.04em] text-ink transition-colors group-hover:text-accent-blue sm:text-3xl">{title}</h3>
-        {item.excerpt && <p className="mt-3 line-clamp-2 text-[0.9625rem] leading-relaxed text-muted sm:text-sm">{item.excerpt}</p>}
+        {excerpt && <p className="mt-3 line-clamp-2 text-[0.9625rem] leading-relaxed text-muted sm:text-sm">{excerpt}</p>}
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
           <span className="text-[10px] font-bold tracking-[0.14em] text-muted uppercase sm:text-[9px]">MusicTop editorial · {formatDate(item.created_at)}</span>
           <span className="inline-flex items-center gap-1 text-[10px] font-black tracking-[0.16em] text-ink uppercase transition-colors group-hover:text-accent-blue sm:text-[9px]">
@@ -328,6 +332,7 @@ function LatestNewsCard({ region, item, source = 'editorial' }: { region: string
 
   const title = item.title || item.text || 'Untitled music story';
   const image = item.image;
+  const excerpt = cleanNewsExcerpt(item.excerpt);
   const articleHref = buildNewsArticlePath(region, item.id, item.title);
 
   return (
@@ -354,7 +359,7 @@ function LatestNewsCard({ region, item, source = 'editorial' }: { region: string
           <span className="text-[10px] font-bold tracking-[0.12em] text-muted uppercase sm:text-[9px]">{formatDate(item.created_at)}</span>
         </div>
         <h3 className="line-clamp-3 text-base font-black leading-tight tracking-[-0.025em] text-ink transition-colors group-hover:text-accent-blue sm:text-lg">{title}</h3>
-        {item.excerpt && <p className="mt-2 line-clamp-2 text-[0.825rem] leading-relaxed text-muted sm:text-sm">{item.excerpt}</p>}
+        {excerpt && <p className="mt-2 line-clamp-2 text-[0.825rem] leading-relaxed text-muted sm:text-sm">{excerpt}</p>}
         <span className="mt-3 inline-flex items-center gap-1 text-[10px] font-black tracking-[0.16em] text-ink uppercase transition-colors group-hover:text-accent-blue sm:text-[9px]">Read full news <ArrowUpRight aria-hidden="true" className="size-3.5" /></span>
       </div>
     </Link>
