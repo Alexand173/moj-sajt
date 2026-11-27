@@ -104,14 +104,27 @@ const PLACEHOLDERS: Record<ReviewGenre, Placeholder> = {
   },
 };
 
+/**
+ * The genre, read in order of how much the text says.
+ *
+ * The headline comes first, then the standfirst, and only then the channel. The
+ * excerpt is not a nicety: the four cards that actually fell back were all podcast
+ * interviews whose headlines name a person — "INTERVIEWS: TALKING 'ALWAYS WATCHING'
+ * WITH SHIV SCOTT" — while their standfirst says "Toronto-based punk rockers". Read
+ * from the headline alone, all four got the same generic photograph, which is the
+ * problem a genre-specific stand-in exists to solve.
+ */
 export function detectReviewGenre(input: {
   title?: string | null;
+  excerpt?: string | null;
   region?: string | null;
 }): ReviewGenre {
-  const title = input.title || '';
+  for (const text of [input.title || '', input.excerpt || '']) {
+    if (!text) continue;
 
-  for (const rule of GENRE_RULES) {
-    if (rule.pattern.test(title)) return rule.genre;
+    for (const rule of GENRE_RULES) {
+      if (rule.pattern.test(text)) return rule.genre;
+    }
   }
 
   const region = (input.region || '').trim().toLowerCase();

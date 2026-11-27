@@ -21,6 +21,15 @@ describe('review genre detection', () => {
     expect(detectReviewGenre({ title: 'Rapper takes the chart by surprise in a ballad' })).toBe('hiphop');
   });
 
+  it('reads the standfirst when the headline only names a person', () => {
+    // The four cards that actually fell back on the live page had headlines like
+    // this one, and all four were given the same generic photograph.
+    expect(detectReviewGenre({
+      title: "INTERVIEWS: TALKING 'ALWAYS WATCHING' WITH SHIV SCOTT OF SHIV AND THE CARVERS",
+      excerpt: 'Toronto-based punk rockers Shiv and the Carvers are getting ready to release their debut.',
+    })).toBe('rock');
+  });
+
   it('falls back to the channel when the headline says nothing', () => {
     expect(detectReviewGenre({ title: 'A night at the Bimhuis', region: 'jazz' })).toBe('jazz');
     expect(detectReviewGenre({ title: 'Una noche en Bogotá', region: 'latino' })).toBe('latin');

@@ -53,7 +53,11 @@ function CardContent({ review, featured }: ReviewCardProps) {
   // The scraper stores `SOURCE: GRAMILANO.COM` as the excerpt, and the card rendered
   // it verbatim inside quotes — a metadata line where the standfirst belongs.
   const excerpt = cleanNewsExcerpt(review.excerpt);
-  const placeholder = reviewPlaceholder(detectReviewGenre(review));
+  const placeholder = reviewPlaceholder(detectReviewGenre({
+    title: review.title,
+    excerpt: review.excerpt,
+    region: review.region,
+  }));
 
   return (
     <>
