@@ -3,26 +3,7 @@
 import type { SyntheticEvent } from 'react';
 import { ArrowUpRight, Star } from 'lucide-react';
 import { cleanNewsExcerpt } from '@/lib/news-excerpt';
-
-/**
- * Every card shows a picture, so a publisher that blocks hotlinking must not leave
- * a black rectangle behind.
- *
- * Four cards on the first render did exactly that, all from `static.punknews.org`:
- * the row holds a valid URL, and the host answers 403 to a request that is not
- * theirs. The page cannot know that when it selects rows, so the image itself is
- * the only place the failure is visible.
- */
-const FALLBACK_REVIEW_IMAGE =
-  'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=1200&q=70';
-
-function handleImageError(event: SyntheticEvent<HTMLImageElement>) {
-  const image = event.currentTarget;
-  if (image.dataset.fallbackApplied === 'true') return;
-
-  image.dataset.fallbackApplied = 'true';
-  image.src = FALLBACK_REVIEW_IMAGE;
-}
+import { detectReviewGenre, reviewPlaceholder } from '@/lib/review-genre';
 
 export interface ReviewCardData {
   id: string | number;
@@ -48,24 +29,61 @@ function formatDate(value: string) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).toUpperCase();
 }
 
+/**
+ * The page publishes only rows that carry an image, but a stored URL is not a
+ * promise: `static.punknews.org` answers 403 to a hotlink, so four of forty cards
+ * rendered as black rectangles. The replacement is chosen by genre, because a metal
+ * record and a jazz club night should not look the same when both fall back.
+ */
+function handleImageError(
+  event: SyntheticEvent<HTMLImageElement>,
+  fallback: { url: string; alt: string },
+) {
+  const image = event.currentTarget;
+  if (image.dataset.fallbackApplied === 'true') return;
+
+  image.dataset.fallbackApplied = 'true';
+  image.src = fallback.url;
+  // The card's own alt names the review; once the picture is a stand-in, the alt
+  // describes the stand-in and carries the photographer's credit.
+  image.alt = fallback.alt;
+}
+
 function CardContent({ review, featured }: ReviewCardProps) {
   // The scraper stores `SOURCE: GRAMILANO.COM` as the excerpt, and the card rendered
   // it verbatim inside quotes — a metadata line where the standfirst belongs.
   const excerpt = cleanNewsExcerpt(review.excerpt);
+  const placeholder = reviewPlaceholder(detectReviewGenre(review));
 
   return (
     <>
       {review.image && (
-        <div className={`relative overflow-hidden bg-ink ${featured ? 'h-72 sm:h-96' : 'h-52'}`}>
-          <img src={review.image} alt={review.title} loading={featured ? 'eager' : 'lazy'} fetchPriority={featured ? 'high' : 'auto'} decoding="async" onError={handleImageError} className="h-full w-full object-cover transition-all duration-700 group-hover:scale-105" />
+        /**
+         * The picture takes the slack. A featured card spans two grid rows, and a
+         * fixed-height image left the leftover height as air between the standfirst
+         * and the footer; growing the image instead puts it where a reader expects
+         * it and keeps the text block tight.
+         */
+        <div className={`relative flex-1 overflow-hidden bg-ink ${featured ? 'min-h-72 sm:min-h-96' : 'min-h-52'}`}>
+          <img
+            src={review.image}
+            alt={review.title}
+            width={1200}
+            height={675}
+            loading={featured ? 'eager' : 'lazy'}
+            fetchPriority={featured ? 'high' : 'auto'}
+            decoding="async"
+            onError={(event) => handleImageError(event, placeholder)}
+            className="h-full w-full object-cover transition-all duration-700 group-hover:scale-105"
+          />
           <div className="mt-image-overlay absolute inset-0" />
           <div className="absolute left-4 top-4 flex items-center gap-2"><span className="bg-white px-2.5 py-1 text-[9px] font-black tracking-[0.2em] text-ink uppercase">{review.category || 'Official'}</span><span className="inline-flex items-center gap-1 bg-ink/80 px-2.5 py-1 text-[9px] font-black tracking-widest text-white"><Star aria-hidden="true" className="size-2.5 fill-accent-red text-accent-red" />{featured ? '4.5' : 'Latest'}</span></div>
         </div>
       )}
-      <div className={`flex flex-1 flex-col bg-white p-5 ${featured ? 'sm:p-7' : ''}`}>
+      <div className={`flex flex-col bg-white p-5 ${featured ? 'sm:p-7' : ''}`}>
         <div className="mb-4 flex items-center justify-between gap-3"><span className="mt-meta text-muted">{formatDate(review.created_at)}</span>{!review.image && <span className="border border-ink px-2 py-1 text-[9px] font-black tracking-[0.2em] text-ink uppercase">{review.category || 'Feature'}</span>}</div>
         <h2 className={`font-black leading-[0.96] tracking-[-0.045em] text-ink uppercase ${featured ? 'text-2xl sm:text-4xl' : 'text-lg sm:text-xl'}`}>{review.title}</h2>
-        {excerpt && <p className="mt-3 line-clamp-3 text-sm font-serif italic leading-relaxed text-muted">&quot;{excerpt}&quot;</p>}
+        {excerpt && <p className={`mt-3 font-serif italic leading-relaxed text-muted ${featured ? 'line-clamp-5 text-base' : 'line-clamp-3 text-sm'}`}>&quot;{excerpt}&quot;</p>}
         <div className="mt-auto flex items-center justify-between gap-3 border-t border-line pt-5"><span className="inline-flex items-center gap-1.5 text-[10px] font-black tracking-[0.18em] text-ink uppercase transition-colors group-hover:text-accent-blue">Read more <ArrowUpRight aria-hidden="true" className="size-3.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" /></span><span className="bg-paper-muted px-2.5 py-1 text-[9px] font-black tracking-[0.18em] text-ink uppercase">{review.region || 'Global'}</span></div>
       </div>
     </>
